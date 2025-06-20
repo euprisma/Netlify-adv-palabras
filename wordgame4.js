@@ -1122,6 +1122,11 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             }));
 
             if (result.tries[player] == null || result.tries[player] === 0) {
+                // Add delay for AI in mode 3 before clearing and showing message
+                if (mode === '3' && player === 'IA') {
+                    console.log('game_loop: Adding delay for AI out of tries');
+                    await delay(1000); // 1-second delay before clearing and showing "IA sin intentos"
+              }
                 output.innerHTML = ''; // Clear before final message
                 display_feedback(`¡<strong>${player}</strong> sin intentos!`, 'red', player, false);
                 await delay(500);
