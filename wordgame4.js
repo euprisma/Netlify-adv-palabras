@@ -100,7 +100,7 @@ async function translateToSpanish(englishWords) {
         }
         console.log('Translating words:', englishWords);
 
-        const response = await fetch('https://translation-proxy-pearl.vercel.app/api/translate', {
+        const response = await fetch('https://translation02service.netlify.app/.netlify/functions/translate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
