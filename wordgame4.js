@@ -305,17 +305,11 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     const permitir_palabra = guessed_letters.size >= min_guesses_for_word || Array.from(guessed_letters).some(l => secret_word.split('').filter(x => x === l).length > 1);
     prompt.innerText = permitir_palabra ? `Adivina una letra o la palabra completa:` : `Adivina una letra:`;
 
-    // Ensure input and button are attached
-    if (!input.parentNode) {
-        console.warn('get_guess: Input not attached, reattaching');
-        prompt.parentNode.appendChild(input);
+    // Hide the Enviar button for guessing
+    if (button && button.parentNode) {
+        button.style.display = 'none'; // Hide button during guessing
+        console.log('get_guess: Enviar button hidden for guessing');
     }
-    if (button && !button.parentNode) {
-        console.warn('get_guess: Button not attached, reattaching');
-        prompt.parentNode.appendChild(button);
-    }
-
-    let lastInputValue = ''; // Store latest input value
 
     try {
         input.value = ''; // Clear input initially
@@ -323,36 +317,16 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             input.focus();
             console.log('get_guess: Input focused', { inputValue: input.value, inputId: input.id });
         }
-        if (button) {
-            button.disabled = true; // Disable button initially
-            const enableButton = () => {
-                lastInputValue = input.value; // Update stored value
-                const hasValue = !!input.value.trim();
-                button.disabled = !hasValue;
-                console.log('get_guess: Button state updated', { inputValue: input.value, trimmed: input.value.trim(), lastInputValue, buttonDisabled: button.disabled, inputId: input.id });
-            };
-            // Debug blur events
-            const blurHandler = () => {
-                console.log('get_guess: Input blurred', { inputValue: input.value, lastInputValue, inputId: input.id });
-            };
-            // Remove existing listeners
-            input.removeEventListener('input', input._enableButtonHandler);
-            input.removeEventListener('blur', input._blurHandler);
-            input._enableButtonHandler = enableButton;
-            input._blurHandler = blurHandler;
-            input.addEventListener('input', enableButton);
-            input.addEventListener('blur', blurHandler);
-        }
     } catch (err) {
         console.error('get_guess: Error setting input focus', err);
         throw new Error('Invalid input element');
     }
 
     return new Promise((resolve, reject) => {
-        let enterHandler, buttonHandler;
+        let enterHandler;
 
         const handleGuess = (source, guessValue) => {
-            console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, lastInputValue, inputId: input.id });
+            console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
             const rawGuess = guessValue || '';
             const trimmedGuess = rawGuess.trim();
             const normalizedGuess = normalizar(trimmedGuess);
@@ -396,7 +370,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         enterHandler = (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                console.log('get_guess: Enter pressed', { inputValue: input.value, lastInputValue, inputId: input.id });
+                console.log('get_guess: Enter pressed', { inputValue: input.value, inputId: input.id });
                 const result = handleGuess('enter', input.value);
                 if (result.valid) {
                     cleanup();
@@ -405,36 +379,9 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             }
         };
 
-        if (button) {
-            button.removeEventListener('click', button._buttonHandler);
-            buttonHandler = (e) => {
-                e.preventDefault(); // Prevent form submission or browser defaults
-                console.log('get_guess: Button clicked', { inputValue: input.value, lastInputValue, buttonDisabled: button.disabled, inputId: input.id });
-                if (button.disabled) {
-                    console.warn('get_guess: Button clicked while disabled, ignoring');
-                    return;
-                }
-                // Use lastInputValue as fallback if input.value is empty
-                const guessValue = input.value || lastInputValue;
-                const result = handleGuess('button', guessValue);
-                if (result.valid) {
-                    cleanup();
-                    resolve(result.guess);
-                }
-            };
-            button._buttonHandler = buttonHandler;
-            button.addEventListener('click', buttonHandler);
-        }
-
         const cleanup = () => {
             try {
                 input.removeEventListener('keypress', enterHandler);
-                input.removeEventListener('input', input._enableButtonHandler);
-                input.removeEventListener('blur', input._blurHandler);
-                if (button && button._buttonHandler) {
-                    button.removeEventListener('click', button._buttonHandler);
-                    button.disabled = true;
-                }
                 console.log('get_guess: Event listeners cleaned up', { inputId: input.id });
             } catch (e) {
                 console.error('get_guess: Error cleaning up listeners', e);
@@ -497,6 +444,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     button.style.fontSize = '16px';
     button.style.cursor = 'pointer';
     button.style.margin = '5px';
+    button.style.display = 'inline-block'; // Ensure button is visible for setup
     const output = document.createElement('span');
     output.style.color = 'black';
     output.style.marginTop = '20px';
@@ -513,6 +461,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     if (mode && player1 && (mode !== '3' || difficulty)) {
         console.log('create_game_ui: Using provided parameters', { mode, player1, player2, difficulty });
         prompt.innerText = 'Ingresa una letra o la palabra completa:';
+        button.style.display = 'none'; // Hide button for guessing phase
         if (input.parentNode) input.focus();
         return { mode, player1, player2, prompt, input, button, output, container, difficulty };
     }
@@ -584,6 +533,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         // Reattach input and button
                         if (!input.parentNode) container.appendChild(input);
                         if (!button.parentNode) container.appendChild(button);
+                        button.style.display = 'none'; // Hide button for guessing phase
                         prompt.innerText = 'Ingresa una letra o la palabra completa:';
                         if (input.parentNode) input.focus();
                         resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty });
@@ -593,6 +543,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 container.appendChild(buttonContainer);
             } else {
                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
+                button.style.display = 'none'; // Hide button for guessing phase
                 if (input.parentNode) input.focus();
                 resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty });
             }
@@ -605,6 +556,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             if (input.parentNode) input.focus();
             input.removeEventListener('keypress', currentHandler);
             prompt.innerText = 'Ingresa una letra o la palabra completa:';
+            button.style.display = 'none'; // Hide button for guessing phase
             if (input.parentNode) input.focus();
             resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty });
         }
@@ -625,8 +577,8 @@ async function start_game(mode, players, output, container, prompt, input, butto
         console.error('start_game: Invalid players');
         return;
     }
-    if (!container || !prompt || !output || !input || !button) {
-        console.error('start_game: Missing required DOM elements', { container, prompt, output, input, button });
+    if (!container || !prompt || !output || !input) {
+        console.error('start_game: Missing required DOM elements', { container, prompt, output, input });
         output.innerText = 'Error: Elementos de interfaz no definidos.';
         return;
     }
@@ -637,7 +589,6 @@ async function start_game(mode, players, output, container, prompt, input, butto
     }
 
     const games_to_play = mode === '1' ? 1 : 3;
-    // Initialize total_scores and wins only if not provided (e.g., first game or Repeat)
     const accumulated_scores = total_scores || Object.fromEntries(players.map(p => [p, 0]));
     const accumulated_wins = wins || Object.fromEntries(players.map(p => [p, 0]));
 
@@ -667,6 +618,8 @@ async function start_game(mode, players, output, container, prompt, input, butto
         // Reattach prompt and output
         container.appendChild(prompt);
         container.appendChild(output);
+        // Do not reattach button here
+        button.style.display = 'none'; // Ensure button is hidden
         prompt.innerText = '';
         output.innerText = '';
         // Show loading message
@@ -675,7 +628,7 @@ async function start_game(mode, players, output, container, prompt, input, butto
         loadingMessage.style.fontSize = '16px';
         loadingMessage.style.color = 'blue';
         container.appendChild(loadingMessage);
-        console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode, buttonAttached: !!button.parentNode });
+        console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode });
 
         // Start the game
         const secret_word = await get_secret_word();
@@ -706,6 +659,7 @@ async function start_game(mode, players, output, container, prompt, input, butto
         }
     }
 }
+
 async function process_guess(player, guessed_letters, secret_word, tries, scores, lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels, max_score, difficulty, mode, prompt, input, output, button, delay, display_feedback) {
     console.log('process_guess: Starting for', player, { 
         max_score, 
@@ -1052,13 +1006,14 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         if (!output.parentNode) container.appendChild(output);
         // Clear other elements except prompt and output
         Array.from(container.children).forEach(el => {
-            if (el !== prompt && el !== output && el !== input && el !== button) {
+            if (el !== prompt && el !== output && el !== input) {
                 container.removeChild(el);
             }
         });
         container.appendChild(prompt);
         container.appendChild(input);
-        container.appendChild(button);
+        // Do not append button for guessing phase
+        button.style.display = 'none'; // Ensure button is hidden
         container.appendChild(output);
         prompt.innerText = 'Ingresa una letra o la palabra completa:';
         input.value = ''; // Clear input at initialization
