@@ -314,7 +314,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     prompt.innerText = permitir_palabra ? `Ingresa una letra o la palabra completa:` : `Ingresa una letra:`;
 
     // Log prompt after setting it
-    console.log('get_guess: Starting, Loaded version 2025-06-21-v9.20', {
+    console.log('get_guess: Starting, Loaded version 2025-06-21-v9.21', {
         prompt: prompt.innerText,
         inputExists: !!input?.parentNode,
         buttonExists: !!button?.parentNode,
@@ -446,12 +446,14 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         }
 
         // Monitor for input removal
-        const observer = new MutationObserver(() => {
-            if (!input.parentNode) {
-                console.log('get_guess: Input removed from DOM, cleaning up', { inputId: input.id });
-                cleanup();
-                reject(new Error('Input element removed from DOM'));
-            }
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                if (!input.parentNode) {
+                    console.log('get_guess: Input removed from DOM, cleaning up', { inputId: input.id, mutation });
+                    cleanup();
+                    reject(new Error('Input element removed from DOM'));
+                }
+            });
         });
         observer.observe(document.body, { childList: true, subtree: true });
     });
@@ -479,11 +481,11 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-21-v9.20', { mode, player1, player2, difficulty, gameType, sessionId });
+    console.log('create_game_ui: Starting, Loaded version 2025-06-21-v9.21', { mode, player1, player2, difficulty, gameType, sessionId });
 
     // Prevent reinitialization
     if (document.querySelector('.game-container')) {
-        console.warn('create_game_ui: UI already initialized, skipping reset');
+        console.warn('create_game_ui: UI already initialized, skipping reset', new Error().stack);
         return null;
     }
 
@@ -829,7 +831,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
 }
 
 async function start_game(mode, players, output, container, prompt, input, button, difficulty = null, games_played = 0, total_scores = null, wins = null, gameType = null, sessionId = null) {
-    console.log('start_game: Loaded version 2025-06-21-v9.20', { mode, players, difficulty, games_played, gameType, sessionId });
+    console.log('start_game: Loaded version 2025-06-21-v9.21', { mode, players, difficulty, games_played, gameType, sessionId });
     if (!players || players.some(p => !p)) {
         output.innerHTML = '<span style="color: red">Error: Jugadores no definidos.</span>';
         console.error('start_game: Invalid players');
@@ -1290,6 +1292,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             container.removeChild(loadingMessage);
             console.log('play_game: Removed loading message');
         }
+        // Remove only button-group elements
         const existing_button_groups = container.querySelectorAll('.button-group');
         existing_button_groups.forEach(group => {
             if (group.parentNode) {
@@ -1298,15 +1301,28 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             }
         });
         // Ensure core elements are present
-        if (!prompt.parentNode) container.appendChild(prompt);
-        if (!output.parentNode) container.appendChild(output);
-        if (!input.parentNode) container.appendChild(input);
-        if (!button.parentNode) container.appendChild(button);
+        if (!prompt.parentNode) {
+            container.appendChild(prompt);
+            console.log('play_game: Reattached prompt');
+        }
+        if (!output.parentNode) {
+            container.appendChild(output);
+            console.log('play_game: Reattached output');
+        }
+        if (!input.parentNode) {
+            container.appendChild(input);
+            console.log('play_game: Reattached input');
+        }
+        if (!button.parentNode) {
+            container.appendChild(button);
+            console.log('play_game: Reattached button');
+        }
         button.style.display = 'none';
         output.innerHTML = ''; // Clear feedback
         prompt.innerText = 'Ingresa una letra o la palabra completa:';
         input.value = '';
         if (input.parentNode) input.focus();
+        // Initialize UI elements only if missing
         if (!container.querySelector('.game-info')) {
             game_info = document.createElement('p');
             game_info.className = 'game-info';
