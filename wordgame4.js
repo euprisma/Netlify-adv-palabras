@@ -792,22 +792,20 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
 }
 
 async function start_game(mode, players, output, container, prompt, input, button, difficulty = null, games_played = 0, total_scores = null, wins = null, gameType = null, sessionId = null) {
-    console.log('start_game: Loaded version 2025-06-21-v9.21', { mode, players, difficulty, games_played, gameType, sessionId });
-    
-    // Validate inputs
+    console.log('start_game: Loaded version 2025-06-17-v9.11', { mode, players, difficulty, games_played, gameType, sessionId });
     if (!players || players.some(p => !p)) {
-        output.innerHTML = '<span style="color: red">Error: Jugadores no definidos.</span>';
+        output.innerText = 'Error: Jugadores no definidos.';
         console.error('start_game: Invalid players');
         return;
     }
     if (!container || !prompt || !output || !input) {
         console.error('start_game: Missing required DOM elements', { container, prompt, output, input });
-        output.innerHTML = '<span style="color: red">Error: Elementos de interfaz no definidos.</span>';
+        output.innerText = 'Error: Elementos de interfaz no definidos.';
         return;
     }
     if (mode === '3' && !['facil', 'normal', 'dificil', null].includes(difficulty)) {
         console.error('start_game: Invalid difficulty', difficulty);
-        output.innerHTML = '<span style="color: red">Error: Dificultad inválida.</span>';
+        output.innerText = 'Error: Dificultad inválida.';
         return;
     }
 
@@ -815,65 +813,49 @@ async function start_game(mode, players, output, container, prompt, input, butto
     const accumulated_scores = total_scores || Object.fromEntries(players.map(p => [p, 0]));
     const accumulated_wins = wins || Object.fromEntries(players.map(p => [p, 0]));
 
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    function display_feedback(message, color, player, append = false) {
+        const formatted_feedback = player ? message.replace(player, `<strong>${player}</strong>`) : message;
+        if (append) {
+            output.innerHTML += `<br><span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
+        } else {
+            output.innerHTML = `<span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
+        }
+        console.log(`display_feedback: ${append ? 'Appended' : 'Displayed'}:`, formatted_feedback);
+        try {
+            output.scrollIntoView({ behavior: 'smooth' });
+        } catch (err) {
+            console.error('display_feedback: Error scrolling output', err);
+        }
+    }
+
     let loadingMessage;
     try {
-        // Reuse UI if container already initialized
-        if (document.querySelector('.game-container')) {
-            console.log('start_game: Reusing existing UI');
-            output.innerHTML = ''; // Clear feedback
-            prompt.innerText = 'Generando palabra secreta';
-            if (input.parentNode) {
-                input.value = '';
-                input.focus();
-            }
-            if (button.parentNode) button.style.display = 'none';
-            // Show loading message
-            loadingMessage = document.createElement('p');
-            loadingMessage.innerText = 'Generando palabra secreta';
-            loadingMessage.style.fontSize = '16px';
-            loadingMessage.style.color = 'blue';
-            container.appendChild(loadingMessage);
-        } else {
-            console.log('start_game: Initializing new UI');
-            // Clear container for first game
-            Array.from(container.children).forEach(el => {
-                if (el.parentNode) container.removeChild(el);
-            });
-            // Reattach core elements
-            container.appendChild(prompt);
-            container.appendChild(output);
-            container.appendChild(input);
-            container.appendChild(button);
-            button.style.display = 'none';
-            prompt.innerText = '';
-            output.innerHTML = '';
-            // Show loading message
-            loadingMessage = document.createElement('p');
-            loadingMessage.innerText = 'Generando palabra secreta';
-            loadingMessage.style.fontSize = '16px';
-            loadingMessage.style.color = 'blue';
-            container.appendChild(loadingMessage);
-            console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode });
-        }
-
-        // Fetch secret word
-        const secret_word = await get_secret_word();
-        if (!secret_word) {
-            console.error('start_game: Failed to fetch secret word');
-            output.innerHTML = '<span style="color: red">Error: No se pudo obtener una palabra secreta.</span>';
-            if (loadingMessage && loadingMessage.parentNode) {
-                container.removeChild(loadingMessage);
-            }
-            return;
-        }
-
-        // Remove loading message
-        if (loadingMessage && loadingMessage.parentNode) {
-            container.removeChild(loadingMessage);
-        }
+        // Clear all elements except container
+        Array.from(container.children).forEach(el => {
+            container.removeChild(el);
+        });
+        // Reattach prompt and output
+        container.appendChild(prompt);
+        container.appendChild(output);
+        // Do not reattach button here
+        button.style.display = 'none'; // Ensure button is hidden
+        prompt.innerText = '';
+        output.innerText = '';
+        // Show loading message
+        loadingMessage = document.createElement('p');
+        loadingMessage.innerText = 'Generando palabra secreta';
+        loadingMessage.style.fontSize = '16px';
+        loadingMessage.style.color = 'blue';
+        container.appendChild(loadingMessage);
+        console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode });
 
         // Start the game
+        const secret_word = await get_secret_word();
         await play_game(
+            loadingMessage,
+            secret_word,
             mode,
             players,
             output,
@@ -883,16 +865,18 @@ async function start_game(mode, players, output, container, prompt, input, butto
             button,
             difficulty,
             games_played,
+            games_to_play,
             accumulated_scores,
             accumulated_wins,
+            delay,
+            display_feedback,
             gameType,
-            sessionId,
-            secret_word
+            sessionId
         );
         console.log('start_game: Game completed', { games_played, games_to_play, total_scores: accumulated_scores, wins: accumulated_wins });
     } catch (err) {
         console.error('start_game: Error during game setup', err);
-        output.innerHTML = '<span style="color: red">Error al iniciar el juego.</span>';
+        output.innerText = 'Error al iniciar el juego.';
         if (loadingMessage && loadingMessage.parentNode) {
             container.removeChild(loadingMessage);
         }
