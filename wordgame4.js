@@ -513,7 +513,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-22-v9.28', {
+    console.log('create_game_ui: Starting, Loaded version 2025-06-22-v9.29', {
         mode,
         player1,
         player2,
@@ -522,6 +522,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         sessionId,
         isGameActive,
         isCreatingUI,
+        documentReadyState: document.readyState,
         stack: new Error().stack
     });
 
@@ -533,7 +534,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     isCreatingUI = true;
 
     try {
-        // Check for existing game container to avoid duplicates
+        // Check for existing game container
         let container = document.querySelector('.game-container');
         if (container) {
             console.log('create_game_ui: Existing game container found, clearing');
@@ -1597,8 +1598,9 @@ if (window.wordgame4Loaded) {
     window.wordgame4Loaded = true;
     console.log('wordgame4.js: Script loaded, initializing');
 
-    async function main() {
-        console.log('main: Starting, Loaded version 2025-06-22-v9.28', { isGameActive, isCreatingUI, stack: new Error().stack });
+    // Explicitly attach main to window to ensure global access
+    window.main = async function main() {
+        console.log('main: Starting, Loaded version 2025-06-22-v9.29', { isGameActive, isCreatingUI, stack: new Error().stack });
         if (isGameActive) {
             console.warn('main: Game already active, preventing reinitialization');
             return;
@@ -1626,20 +1628,21 @@ if (window.wordgame4Loaded) {
             isGameActive = false;
             console.log('main: Game ended, isGameActive reset to false');
         }
-    }
+    };
 
     // Prevent multiple main calls
     if (!window.hasRunMain) {
         window.hasRunMain = true;
         console.log('main: Lock acquired, proceeding with execution');
+        console.log('main: Document state:', document.readyState);
         if (document.readyState !== 'loading') {
             console.log('main: Document already loaded, calling main');
-            main();
+            window.main();
         } else {
             console.log('main: Awaiting DOMContentLoaded');
             document.addEventListener('DOMContentLoaded', () => {
                 console.log('main: DOMContentLoaded, calling main');
-                main();
+                window.main();
             }, { once: true });
         }
     } else {
