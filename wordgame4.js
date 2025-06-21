@@ -466,7 +466,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         return { mode, player1, player2, prompt, input, button, output, container, difficulty };
     }
 
-    prompt.innerText = 'Ingresa 1 para <strong>un jugador</strong>, 2 para <strong>dos jugadores</strong>, o 3 para <strong>jugador contra IA</strong>:';
+    prompt.innerText = 'Ingresa 1 para **un jugador**, 2 para **dos jugadores**, o 3 para **jugador contra IA**:';
     if (input.parentNode) input.focus();
 
     return new Promise(resolve => {
