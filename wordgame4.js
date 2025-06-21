@@ -877,9 +877,6 @@ async function start_game(mode, players, output, container, prompt, input, butto
     const accumulated_scores = total_scores || Object.fromEntries(players.map(p => [p, 0]));
     const accumulated_wins = wins || Object.fromEntries(players.map(p => [p, 0]));
 
-    // Define delay function
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
     let loadingMessage;
     try {
         // Reuse UI if container already initialized
@@ -1330,6 +1327,9 @@ async function play_game(
         sessionId
     }));
 
+    // Define delay function
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
     const display_feedback = (message, color = 'black', player = null, append = false) => {
         console.log('display_feedback:', { message, color, player, append });
         if (!append) {
@@ -1406,7 +1406,7 @@ async function play_game(
                 input,
                 output,
                 button,
-                delay, // Use delay from outer scope (defined in start_game)
+                delay, // Pass the locally defined delay function
                 display_feedback
             );
 
