@@ -1636,10 +1636,8 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     console.log('play_game: Game ended, isGameActive reset to false');
 }
 
-let isGameActive = false;
-
 async function main() {
-    console.log('main: Starting, Loaded version 2025-06-21-v9.24', { isGameActive, stack: new Error().stack });
+    console.log('main: Starting, Loaded version 2025-06-21-v9.25', { isGameActive, stack: new Error().stack });
     if (isGameActive) {
         console.warn('main: Game already active, preventing reinitialization');
         return;
@@ -1674,7 +1672,7 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOMContentLoaded: Calling main');
         main();
-    });
+    }, { once: true });
 } else {
     console.log('Document already loaded: Calling main');
     main();
