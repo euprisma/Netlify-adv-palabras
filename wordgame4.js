@@ -1249,40 +1249,58 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             container.removeChild(loadingMessage);
             console.log('play_game: Removed loading message');
         }
-        const existing_button_groups = container.querySelectorAll('div');
+        // Remove only non-essential elements (e.g., button groups)
+        const existing_button_groups = container.querySelectorAll('.button-group');
         existing_button_groups.forEach(group => {
-            if (group.style.display === 'inline-block' || group.style.margin === '10px') {
+            if (group.parentNode) {
                 container.removeChild(group);
                 console.log('play_game: Removed existing button group');
             }
         });
-        if (!prompt.parentNode) container.appendChild(prompt);
-        if (!output.parentNode) container.appendChild(output);
-        Array.from(container.children).forEach(el => {
-            if (el !== prompt && el !== output && el !== input) {
-                container.removeChild(el);
-            }
-        });
-        container.appendChild(prompt);
-        container.appendChild(input);
-        button.style.display = 'none';
-        container.appendChild(output);
-        prompt.innerText = 'Ingresa una letra o la palabra completa:';
-        input.value = '';
-        if (input.parentNode) input.focus();
-        game_info = document.createElement('p');
-        game_info.className = 'game-info';
+        // Ensure prompt, input, and output are in the DOM, but don't remove/re-add unnecessarily
+        if (!prompt.parentNode) {
+            container.appendChild(prompt);
+            console.log('play_game: Appended prompt');
+        }
+        if (!input.parentNode) {
+            container.appendChild(input);
+            console.log('play_game: Appended input');
+        }
+        if (!output.parentNode) {
+            container.appendChild(output);
+            console.log('play_game: Appended output');
+        }
+        // Initialize game info and progress elements if not present
+        game_info = container.querySelector('.game-info') || document.createElement('p');
+        if (!game_info.className) {
+            game_info.className = 'game-info';
+            container.insertBefore(game_info, prompt);
+            console.log('play_game: Created and appended game_info');
+        }
+        player_info = container.querySelector('#player_info') || document.createElement('p');
+        if (!player_info.id) {
+            player_info.id = 'player_info';
+            player_info.className = 'player-info';
+            container.insertBefore(player_info, prompt);
+            console.log('play_game: Created and appended player_info');
+        }
+        progress = container.querySelector('.game-progress') || document.createElement('p');
+        if (!progress.className) {
+            progress.className = 'game-progress';
+            container.insertBefore(progress, prompt);
+            console.log('play_game: Created and appended progress');
+        }
+        // Update UI content
         game_info.innerHTML = `--- Juego ${games_played + 1} de ${games_to_play} ---<br>Palabra secreta: ${provided_secret_word.length} letras.<br>Intentos: ${total_tries}. Puntaje máximo: ${max_score}.` +
             (mode === '3' ? `<br>Dificultad: ${difficulty || 'N/A'}` : '') +
             (mode === '2' && gameType === 'remoto' ? `<br>ID de sesión: ${sessionId}` : '');
-        player_info = document.createElement('p');
-        player_info.id = 'player_info';
-        player_info.className = 'player-info';
-        progress = document.createElement('p');
-        progress.className = 'game-progress';
-        container.insertBefore(game_info, prompt);
-        container.insertBefore(player_info, prompt);
-        container.insertBefore(progress, prompt);
+        prompt.innerText = 'Ingresa una letra o la palabra completa:';
+        input.value = '';
+        input.disabled = false;
+        if (input.parentNode) {
+            input.focus();
+            console.log('play_game: Input focused', { inputId: input.id });
+        }
         output.innerHTML = '';
         console.log('play_game: UI initialized');
         update_ui();
@@ -1304,11 +1322,20 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             }
             progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
             prompt.innerText = mode === '2' && gameType === 'remoto' && player !== players[current_player_idx] ? 'Esperando el turno del otro jugador...' : 'Ingresa una letra o la palabra completa:';
-            if (input.parentNode && (mode !== '2' || gameType !== 'remoto' || player === players[current_player_idx])) {
+            if (input.parentNode) {
+                if (mode !== '2' || gameType !== 'remoto' || player === players[current_player_idx]) {
+                    input.disabled = false;
+                    input.focus();
+                    console.log('update_ui: Input enabled and focused', { inputId: input.id });
+                } else {
+                    input.disabled = true;
+                    console.log('update_ui: Input disabled for remote player', { inputId: input.id });
+                }
+            } else {
+                console.warn('update_ui: Input not in DOM, re-adding');
+                container.appendChild(input);
                 input.disabled = false;
                 input.focus();
-            } else if (input.parentNode) {
-                input.disabled = true;
             }
             console.log('update_ui: UI updated', JSON.stringify({ player, score: scores[player], player_info: player_info.innerHTML }));
         } catch (err) {
@@ -1358,6 +1385,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 input.value = '';
                 if (mode !== '2' || gameType !== 'remoto' || player === players[current_player_idx]) {
                     input.focus();
+                    console.log('game_loop: Input focused for player', { player, inputId: input.id });
                 }
             }
 
