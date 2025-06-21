@@ -52,7 +52,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+const database = window.database;
 
 async function fetchSingleWord() {
     try {
