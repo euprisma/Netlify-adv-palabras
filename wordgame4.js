@@ -512,7 +512,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-21-v9.23', { mode, player1, player2, difficulty, gameType, sessionId });
+    console.log('create_game_ui: Starting, Loaded version 2025-06-21-v9.24', { mode, player1, player2, difficulty, gameType, sessionId, stack: new Error().stack });
     if (isGameActive) {
         console.warn('create_game_ui: Game already active, skipping UI reset');
         return null;
@@ -1636,8 +1636,10 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     console.log('play_game: Game ended, isGameActive reset to false');
 }
 
+let isGameActive = false;
+
 async function main() {
-    console.log('main: Starting, Loaded version 2025-06-21-v9.23');
+    console.log('main: Starting, Loaded version 2025-06-21-v9.24', { isGameActive, stack: new Error().stack });
     if (isGameActive) {
         console.warn('main: Game already active, preventing reinitialization');
         return;
@@ -1647,8 +1649,7 @@ async function main() {
         const ui = await create_game_ui();
         if (!ui) {
             console.error('main: UI creation failed, aborting');
-            isGameActive = false;
-            return;
+            throw new Error('UI creation failed');
         }
         const { mode, prompt, input, button, output, container, player1, player2, difficulty, gameType, sessionId } = ui;
         console.log('main: UI created', { mode, player1, player2, difficulty, gameType, sessionId });
@@ -1666,6 +1667,17 @@ async function main() {
         isGameActive = false;
         console.log('main: Game ended, isGameActive reset to false');
     }
+}
+
+// Ensure main is only called once on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOMContentLoaded: Calling main');
+        main();
+    });
+} else {
+    console.log('Document already loaded: Calling main');
+    main();
 }
 
 // Start the game
