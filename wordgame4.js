@@ -855,6 +855,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
 
 async function start_game(mode, players, output, container, prompt, input, button, difficulty = null, games_played = 0, total_scores = null, wins = null, gameType = null, sessionId = null) {
     console.log('start_game: Loaded version 2025-06-21-v9.21', { mode, players, difficulty, games_played, gameType, sessionId });
+    
+    // Validate inputs
     if (!players || players.some(p => !p)) {
         output.innerHTML = '<span style="color: red">Error: Jugadores no definidos.</span>';
         console.error('start_game: Invalid players');
@@ -874,23 +876,6 @@ async function start_game(mode, players, output, container, prompt, input, butto
     const games_to_play = mode === '1' ? 1 : 3;
     const accumulated_scores = total_scores || Object.fromEntries(players.map(p => [p, 0]));
     const accumulated_wins = wins || Object.fromEntries(players.map(p => [p, 0]));
-
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-    function display_feedback(message, color, player, append = false) {
-        const formatted_feedback = player ? message.replace(player, `<strong>${player}</strong>`) : message;
-        if (append) {
-            output.innerHTML += `<br><span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
-        } else {
-            output.innerHTML = `<span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
-        }
-        console.log(`display_feedback: ${append ? 'Appended' : 'Displayed'}:`, formatted_feedback);
-        try {
-            output.scrollIntoView({ behavior: 'smooth' });
-        } catch (err) {
-            console.error('display_feedback: Error scrolling output', err);
-        }
-    }
 
     let loadingMessage;
     try {
@@ -933,11 +918,24 @@ async function start_game(mode, players, output, container, prompt, input, butto
             console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode });
         }
 
-        // Start the game
+        // Fetch secret word
         const secret_word = await get_secret_word();
+        if (!secret_word) {
+            console.error('start_game: Failed to fetch secret word');
+            output.innerHTML = '<span style="color: red">Error: No se pudo obtener una palabra secreta.</span>';
+            if (loadingMessage && loadingMessage.parentNode) {
+                container.removeChild(loadingMessage);
+            }
+            return;
+        }
+
+        // Remove loading message
+        if (loadingMessage && loadingMessage.parentNode) {
+            container.removeChild(loadingMessage);
+        }
+
+        // Start the game
         await play_game(
-            loadingMessage,
-            secret_word,
             mode,
             players,
             output,
@@ -947,13 +945,11 @@ async function start_game(mode, players, output, container, prompt, input, butto
             button,
             difficulty,
             games_played,
-            games_to_play,
             accumulated_scores,
             accumulated_wins,
-            delay,
-            display_feedback,
             gameType,
-            sessionId
+            sessionId,
+            secret_word
         );
         console.log('start_game: Game completed', { games_played, games_to_play, total_scores: accumulated_scores, wins: accumulated_wins });
     } catch (err) {
@@ -1330,8 +1326,8 @@ async function play_game(
         gameType,
         sessionId
     }));
-    output.innerHTML = 'Cargando...';
-    console.log('play_game: Loading message displayed');
+
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     const display_feedback = (message, color = 'black', player = null, append = false) => {
         console.log('display_feedback:', { message, color, player, append });
@@ -1349,7 +1345,6 @@ async function play_game(
             console.error('display_feedback: Scroll error', err);
         }
     };
-
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     let secret_word = provided_secret_word || await get_secret_word(difficulty);
