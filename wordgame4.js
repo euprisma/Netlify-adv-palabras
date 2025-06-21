@@ -51,7 +51,6 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
 const database = window.database;
 
 async function fetchSingleWord() {
