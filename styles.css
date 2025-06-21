@@ -52,6 +52,11 @@ body {
   border-color: #0056b3;
   box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
 }
+.game-input:disabled {
+  background: #f0f0f0;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 
 /* Buttons */
 .game-button {
@@ -71,6 +76,9 @@ body {
 }
 .game-button:active {
   transform: translateY(0);
+}
+.game-type-button {
+  min-width: 120px; /* Ensure buttons are wide enough */
 }
 
 /* Specific button styles */
