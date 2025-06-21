@@ -1581,9 +1581,6 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     console.log('play_game: Game ended, isGameActive reset to false');
 }
 
-// Ensure isGameActive is declared globally exactly once
-let isGameActive = false;
-
 async function main() {
     console.log('main: Starting, Loaded version 2025-06-21-v9.27', { isGameActive, stack: new Error().stack });
     if (isGameActive) {
