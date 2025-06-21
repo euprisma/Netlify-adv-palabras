@@ -1,0 +1,204 @@
+/* General page styling */
+body {
+  background: linear-gradient(135deg, #e0f7fa, #80deea); /* Subtle cyan gradient */
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif; /* Modern Google Font */
+}
+
+/* Game container */
+.game-container {
+  background: #ffffff;
+  border-radius: 15px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+  animation: fadeIn 0.5s ease-in; /* Fade-in animation */
+}
+
+/* Title */
+.game-title {
+  font-size: 2.5rem;
+  color: #007bff;
+  margin-bottom: 20px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Prompt */
+.game-prompt {
+  font-size: 1.2rem;
+  color: #333;
+  margin: 10px 0;
+  font-weight: 500;
+}
+
+/* Input field */
+.game-input {
+  width: 200px;
+  padding: 12px;
+  font-size: 1rem;
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+.game-input:focus {
+  border-color: #0056b3;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+/* Buttons */
+.game-button {
+  background: linear-gradient(45deg, #007bff, #00d4ff);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  margin: 5px;
+  transition: transform 0.2s, background 0.3s;
+}
+.game-button:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(45deg, #0056b3, #00b0ff);
+}
+.game-button:active {
+  transform: translateY(0);
+}
+
+/* Specific button styles */
+.repeat-button, .restart-button, .next-button, .difficulty-button {
+  min-width: 120px;
+}
+
+/* Output messages */
+.game-output {
+  font-size: 1.1rem;
+  margin-top: 20px;
+  line-height: 1.5;
+  display: block;
+}
+.game-output span[style*="color: green"] {
+  background: #e6ffed;
+  padding: 5px 10px;
+  border-radius: 5px;
+  display: inline-block;
+}
+.game-output span[style*="color: red"] {
+  background: #ffe6e6;
+  padding: 5px 10px;
+  border-radius: 5px;
+  display: inline-block;
+}
+.game-output span[style*="color: orange"] {
+  background: #fff3e0;
+  padding: 5px 10px;
+  border-radius: 5px;
+  display: inline-block;
+}
+.game-output span[style*="color: blue"] {
+  background: #e6f3ff;
+  padding: 5px 10px;
+  border-radius: 5px;
+  display: inline-block;
+}
+
+/* Game info */
+.game-info {
+  font-size: 1.1rem;
+  color: #444;
+  margin: 10px 0;
+  font-weight: 500;
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* Player info */
+.player-info {
+  font-size: 1.1rem;
+  color: #333;
+  margin: 10px 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+/* Progress display */
+.game-progress {
+  font-family: 'Courier New', monospace; /* Monospaced for word progress */
+  font-size: 1.3rem;
+  color: #007bff;
+  margin: 10px 0;
+  letter-spacing: 5px;
+  font-weight: bold;
+}
+
+/* Button group */
+.button-group {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Loading message */
+.game-container p[style*="color: blue"] {
+  font-size: 1.1rem;
+  position: relative;
+  display: inline-block;
+}
+.game-container p[style*="color: blue"]::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #007bff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .game-container {
+    padding: 20px;
+  }
+  .game-title {
+    font-size: 2rem;
+  }
+  .game-input {
+    width: 100%;
+    max-width: 250px;
+  }
+  .game-button {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+  .button-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
