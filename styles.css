@@ -1,3 +1,6 @@
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
+
 /* General page styling */
 body {
   background: linear-gradient(135deg, #e0f7fa, #80deea); /* Subtle cyan gradient */
@@ -10,9 +13,6 @@ body {
   font-family: 'Poppins', sans-serif; /* Modern Google Font */
 }
 
-
-/* Import Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
 
 /* Game container */
 .game-container {
