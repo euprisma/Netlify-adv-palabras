@@ -313,7 +313,6 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     const permitir_palabra = guessed_letters.size >= min_guesses_for_word || Array.from(guessed_letters).some(l => secret_word.split('').filter(x => x === l).length > 1);
     prompt.innerText = permitir_palabra ? `Ingresa una letra o la palabra completa:` : `Ingresa una letra:`;
 
-    // Log prompt after setting it
     console.log('get_guess: Starting, Loaded version 2025-06-21-v9.22', {
         prompt: prompt.innerText,
         inputExists: !!input?.parentNode,
@@ -332,8 +331,21 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         input.value = ''; // Clear input initially
         output.innerHTML = ''; // Clear previous feedback
         if (input.parentNode) {
+            input.disabled = false;
             input.focus();
             console.log('get_guess: Input focused', { inputValue: input.value, inputId: input.id });
+        } else {
+            console.warn('get_guess: Input not in DOM, appending to container');
+            const container = document.querySelector('.game-container');
+            if (container) {
+                container.appendChild(input);
+                input.disabled = false;
+                input.focus();
+                console.log('get_guess: Input re-appended to container', { inputId: input.id });
+            } else {
+                console.error('get_guess: Game container not found');
+                throw new Error('Game container not found');
+            }
         }
     } catch (err) {
         console.error('get_guess: Error setting input focus', err);
@@ -343,7 +355,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     return new Promise((resolve, reject) => {
         let emptyRetries = 0;
         const maxEmptyRetries = 3;
-        let enterHandler;
+        let enterHandler, inputHandler;
 
         const handleGuess = (source, guessValue) => {
             console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id, eventTime: Date.now() });
@@ -376,6 +388,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                 input.value = '';
                 if (input.parentNode) {
                     try {
+                        input.disabled = false;
                         input.focus();
                         console.log('get_guess: Input refocused after empty input', { inputId: input.id });
                     } catch (err) {
@@ -407,6 +420,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                 input.value = '';
                 if (input.parentNode) {
                     try {
+                        input.disabled = false;
                         input.focus();
                         console.log('get_guess: Input refocused after invalid input', { inputId: input.id });
                     } catch (err) {
@@ -425,6 +439,10 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             }
         };
 
+        inputHandler = (e) => {
+            console.log('get_guess: Input changed', { inputValue: e.target.value, inputId: input.id, eventTime: Date.now() });
+        };
+
         const cleanup = () => {
             try {
                 if (input && enterHandler) {
@@ -435,10 +453,6 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             } catch (e) {
                 console.error('get_guess: Error cleaning up listeners', e);
             }
-        };
-
-        const inputHandler = (e) => {
-            console.log('get_guess: Input changed', { inputValue: e.target.value, inputId: input.id, eventTime: Date.now() });
         };
 
         try {
@@ -455,9 +469,20 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         const observer = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
                 if (!input.parentNode) {
-                    console.log('get_guess: Input removed from DOM, cleaning up', { inputId: input.id, mutation });
+                    console.warn('get_guess: Input removed from DOM, attempting to recover', { inputId: input.id, mutation });
                     cleanup();
-                    reject(new Error('Input element removed from DOM'));
+                    const container = document.querySelector('.game-container');
+                    if (container) {
+                        container.appendChild(input);
+                        input.disabled = false;
+                        input.focus();
+                        input.addEventListener('keypress', enterHandler);
+                        input.addEventListener('input', inputHandler);
+                        console.log('get_guess: Input re-appended and listeners re-attached', { inputId: input.id });
+                    } else {
+                        console.error('get_guess: Game container not found for recovery');
+                        reject(new Error('Input element removed from DOM and recovery failed'));
+                    }
                 }
             });
         });
@@ -487,9 +512,9 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-16-v9.8', { mode, player1, player2, difficulty, gameType, sessionId });
-    if (document.body.innerHTML.includes('Juego de Adivinar Palabras') && !mode) {
-        console.warn('create_game_ui: UI already initialized, skipping reset');
+    console.log('create_game_ui: Starting, Loaded version 2025-06-21-v9.23', { mode, player1, player2, difficulty, gameType, sessionId });
+    if (isGameActive) {
+        console.warn('create_game_ui: Game already active, skipping UI reset');
         return null;
     }
     document.body.innerHTML = '';
@@ -1263,8 +1288,9 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             console.log('play_game: Appended prompt');
         }
         if (!input.parentNode) {
+            input.id = input.id || `guess-input-${Date.now()}`; // Set consistent ID
             container.appendChild(input);
-            console.log('play_game: Appended input');
+            console.log('play_game: Appended input', { inputId: input.id });
         }
         if (!output.parentNode) {
             container.appendChild(output);
@@ -1299,14 +1325,15 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         input.disabled = false;
         if (input.parentNode) {
             input.focus();
-            console.log('play_game: Input focused', { inputId: input.id });
+            console.log('play_game: Input focused', { inputId: input.id, inputValue: input.value });
         }
         output.innerHTML = '';
-        console.log('play_game: UI initialized');
+        console.log('play_game: UI initialized', { inputId: input.id, isGameActive: isGameActive });
         update_ui();
     } catch (err) {
         console.error('play_game: Error setting up UI', err);
         output.innerText = 'Error al configurar la interfaz.';
+        isGameActive = false;
         return;
     }
 
@@ -1326,18 +1353,20 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 if (mode !== '2' || gameType !== 'remoto' || player === players[current_player_idx]) {
                     input.disabled = false;
                     input.focus();
-                    console.log('update_ui: Input enabled and focused', { inputId: input.id });
+                    console.log('update_ui: Input enabled and focused', { inputId: input.id, inputValue: input.value });
                 } else {
                     input.disabled = true;
                     console.log('update_ui: Input disabled for remote player', { inputId: input.id });
                 }
             } else {
                 console.warn('update_ui: Input not in DOM, re-adding');
+                input.id = input.id || `guess-input-${Date.now()}`; // Ensure ID
                 container.appendChild(input);
                 input.disabled = false;
                 input.focus();
+                console.log('update_ui: Input re-appended', { inputId: input.id });
             }
-            console.log('update_ui: UI updated', JSON.stringify({ player, score: scores[player], player_info: player_info.innerHTML }));
+            console.log('update_ui: UI updated', JSON.stringify({ player, score: scores[player], player_info: player_info.innerHTML, inputId: input.id }));
         } catch (err) {
             console.error('update_ui: Error updating UI', err);
         }
@@ -1382,10 +1411,11 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             }
 
             if (player !== 'IA' && input.parentNode) {
-                input.value = '';
+                console.log('game_loop: Preparing for player input', { player, inputId: input.id, inputValue: input.value });
                 if (mode !== '2' || gameType !== 'remoto' || player === players[current_player_idx]) {
+                    input.disabled = false;
                     input.focus();
-                    console.log('game_loop: Input focused for player', { player, inputId: input.id });
+                    console.log('game_loop: Input focused for player', { player, inputId: input.id, inputValue: input.value });
                 }
             }
 
@@ -1602,14 +1632,22 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
     container.appendChild(button_group);
     console.log('play_game: Buttons rendered', JSON.stringify({ repeat: !!repeat_button, restart: !!restart_button, next: mode !== '1' && games_played < games_to_play - 1 }));
+    isGameActive = false;
+    console.log('play_game: Game ended, isGameActive reset to false');
 }
 
 async function main() {
-    console.log('main: Starting, Loaded version 2025-06-16-v9.8');
+    console.log('main: Starting, Loaded version 2025-06-21-v9.23');
+    if (isGameActive) {
+        console.warn('main: Game already active, preventing reinitialization');
+        return;
+    }
+    isGameActive = true;
     try {
         const ui = await create_game_ui();
         if (!ui) {
             console.error('main: UI creation failed, aborting');
+            isGameActive = false;
             return;
         }
         const { mode, prompt, input, button, output, container, player1, player2, difficulty, gameType, sessionId } = ui;
@@ -1624,6 +1662,9 @@ async function main() {
     } catch (err) {
         console.error('main: Error in game setup', err);
         document.body.innerHTML = '<p style="color: red; text-align: center;">Error al iniciar el juego. Por favor, recarga la página.</p>';
+    } finally {
+        isGameActive = false;
+        console.log('main: Game ended, isGameActive reset to false');
     }
 }
 
