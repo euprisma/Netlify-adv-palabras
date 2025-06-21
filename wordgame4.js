@@ -513,13 +513,15 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-21-v9.27', {
+    console.log('create_game_ui: Starting, Loaded version 2025-06-22-v9.28', {
         mode,
         player1,
         player2,
         difficulty,
         gameType,
         sessionId,
+        isGameActive,
+        isCreatingUI,
         stack: new Error().stack
     });
 
@@ -531,18 +533,22 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     isCreatingUI = true;
 
     try {
-        // Clear existing UI to prevent duplicates
-        document.body.innerHTML = '';
-        console.log('create_game_ui: Cleared document body');
+        // Check for existing game container to avoid duplicates
+        let container = document.querySelector('.game-container');
+        if (container) {
+            console.log('create_game_ui: Existing game container found, clearing');
+            container.innerHTML = '';
+        } else {
+            console.log('create_game_ui: Cleared document body');
+            document.body.innerHTML = '';
+            container = document.createElement('div');
+            container.className = 'game-container';
+            container.style.textAlign = 'center';
+            document.body.appendChild(container);
+            console.log('create_game_ui: Created and appended game container');
+        }
 
-        // Create game container
-        const container = document.createElement('div');
-        container.className = 'game-container';
-        container.style.textAlign = 'center';
-        document.body.appendChild(container);
-        console.log('create_game_ui: Created and appended game container');
-
-        // Create output element for game messages
+        // Create output element
         const output = document.createElement('div');
         output.className = 'game-output';
         output.style.marginBottom = '20px';
@@ -753,7 +759,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         };
     } catch (err) {
         console.error('create_game_ui: Error setting up UI', err);
-        output.innerText = 'Error al configurar la interfaz. Por favor, recarga la página.';
+        const existingOutput = document.querySelector('.game-output');
+        if (existingOutput) {
+            existingOutput.innerText = 'Error al configurar la interfaz. Por favor, recarga la página.';
+        }
         return null;
     } finally {
         isCreatingUI = false;
@@ -1581,52 +1590,61 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     console.log('play_game: Game ended, isGameActive reset to false');
 }
 
-async function main() {
-    console.log('main: Starting, Loaded version 2025-06-21-v9.27', { isGameActive, stack: new Error().stack });
-    if (isGameActive) {
-        console.warn('main: Game already active, preventing reinitialization');
-        return;
-    }
-    try {
-        const ui = await create_game_ui();
-        if (!ui) {
-            console.error('main: UI creation failed, aborting');
-            throw new Error('UI creation failed');
-        }
-        isGameActive = true; // Set after create_game_ui succeeds
-        const { mode, prompt, input, button, output, container, player1, player2, difficulty, gameType, sessionId } = ui;
-        console.log('main: UI created', { mode, player1, player2, difficulty, gameType, sessionId });
-        const players = [player1];
-        if (mode === '2' || mode === '3') players.push(player2);
-        console.log('main: Players:', players);
-        const total_scores = Object.fromEntries(players.map(p => [p, 0]));
-        const wins = Object.fromEntries(players.map(p => [p, 0]));
-        await start_game(mode, players, output, container, prompt, input, button, difficulty, 0, total_scores, wins, gameType, sessionId);
-        console.log('main: Game started');
-    } catch (err) {
-        console.error('main: Error in game setup', err);
-        document.body.innerHTML = '<p style="color: red; text-align: center;">Error al iniciar el juego. Por favor, recarga la página.</p>';
-    } finally {
-        isGameActive = false;
-        console.log('main: Game ended, isGameActive reset to false');
-    }
-}
-
-// Prevent multiple main calls with a robust lock
-if (!window.hasRunMain) {
-    window.hasRunMain = true;
-    console.log('Main lock acquired, proceeding with execution');
-    if (document.readyState !== 'loading') {
-        console.log('Document already loaded: Calling main');
-        main();
-    } else {
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOMContentLoaded: Calling main');
-            main();
-        }, { once: true });
-    }
+// Guard against multiple script executions
+if (window.wordgame4Loaded) {
+    console.warn('wordgame4.js: Script already loaded, skipping execution', { stack: new Error().stack });
 } else {
-    console.warn('Main already executed, skipping additional call', { stack: new Error().stack });
+    window.wordgame4Loaded = true;
+    console.log('wordgame4.js: Script loaded, initializing');
+
+    async function main() {
+        console.log('main: Starting, Loaded version 2025-06-22-v9.28', { isGameActive, isCreatingUI, stack: new Error().stack });
+        if (isGameActive) {
+            console.warn('main: Game already active, preventing reinitialization');
+            return;
+        }
+        try {
+            const ui = await create_game_ui();
+            if (!ui) {
+                console.error('main: UI creation failed, aborting');
+                throw new Error('UI creation failed');
+            }
+            isGameActive = true; // Set after create_game_ui succeeds
+            const { mode, prompt, input, button, output, container, player1, player2, difficulty, gameType, sessionId } = ui;
+            console.log('main: UI created', { mode, player1, player2, difficulty, gameType, sessionId });
+            const players = [player1];
+            if (mode === '2' || mode === '3') players.push(player2);
+            console.log('main: Players:', players);
+            const total_scores = Object.fromEntries(players.map(p => [p, 0]));
+            const wins = Object.fromEntries(players.map(p => [p, 0]));
+            await start_game(mode, players, output, container, prompt, input, button, difficulty, 0, total_scores, wins, gameType, sessionId);
+            console.log('main: Game started');
+        } catch (err) {
+            console.error('main: Error in game setup', err);
+            document.body.innerHTML = '<p style="color: red; text-align: center;">Error al iniciar el juego. Por favor, recarga la página.</p>';
+        } finally {
+            isGameActive = false;
+            console.log('main: Game ended, isGameActive reset to false');
+        }
+    }
+
+    // Prevent multiple main calls
+    if (!window.hasRunMain) {
+        window.hasRunMain = true;
+        console.log('main: Lock acquired, proceeding with execution');
+        if (document.readyState !== 'loading') {
+            console.log('main: Document already loaded, calling main');
+            main();
+        } else {
+            console.log('main: Awaiting DOMContentLoaded');
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('main: DOMContentLoaded, calling main');
+                main();
+            }, { once: true });
+        }
+    } else {
+        console.warn('main: Already executed, skipping additional call', { stack: new Error().stack });
+    }
 }
 
 // Start the game
