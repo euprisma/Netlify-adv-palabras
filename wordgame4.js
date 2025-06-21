@@ -877,6 +877,9 @@ async function start_game(mode, players, output, container, prompt, input, butto
     const accumulated_scores = total_scores || Object.fromEntries(players.map(p => [p, 0]));
     const accumulated_wins = wins || Object.fromEntries(players.map(p => [p, 0]));
 
+    // Define delay function
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
     let loadingMessage;
     try {
         // Reuse UI if container already initialized
@@ -1327,8 +1330,6 @@ async function play_game(
         sessionId
     }));
 
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
     const display_feedback = (message, color = 'black', player = null, append = false) => {
         console.log('display_feedback:', { message, color, player, append });
         if (!append) {
@@ -1345,7 +1346,9 @@ async function play_game(
             console.error('display_feedback: Scroll error', err);
         }
     };
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    output.innerHTML = 'Cargando...';
+    console.log('play_game: Loading message displayed');
 
     let secret_word = provided_secret_word || await get_secret_word(difficulty);
     if (!secret_word) {
@@ -1403,7 +1406,7 @@ async function play_game(
                 input,
                 output,
                 button,
-                delay,
+                delay, // Use delay from outer scope (defined in start_game)
                 display_feedback
             );
 
