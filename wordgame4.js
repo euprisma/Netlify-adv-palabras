@@ -1601,8 +1601,8 @@ if (window.wordgame4Loaded) {
     // Explicitly attach main to window to ensure global access
     window.main = async function main() {
         console.log('main: Starting, Loaded version 2025-06-22-v9.29', { isGameActive, isCreatingUI, stack: new Error().stack });
-        if (isGameActive) {
-            console.warn('main: Game already active, preventing reinitialization');
+        if (isGameActive || isCreatingUI) {
+            console.warn('main: Game already active or UI creation in progress, preventing reinitialization');
             return;
         }
         try {
@@ -1635,20 +1635,19 @@ if (window.wordgame4Loaded) {
         window.hasRunMain = true;
         console.log('main: Lock acquired, proceeding with execution');
         console.log('main: Document state:', document.readyState);
-        if (document.readyState !== 'loading') {
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
             console.log('main: Document already loaded, calling main');
             window.main();
         } else {
             console.log('main: Awaiting DOMContentLoaded');
-            document.addEventListener('DOMContentLoaded', () => {
+            const handler = () => {
                 console.log('main: DOMContentLoaded, calling main');
                 window.main();
-            }, { once: true });
+                document.removeEventListener('DOMContentLoaded', handler);
+            };
+            document.addEventListener('DOMContentLoaded', handler);
         }
     } else {
         console.warn('main: Already executed, skipping additional call', { stack: new Error().stack });
     }
 }
-
-// Start the game
-main();
