@@ -443,33 +443,35 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     let selected_gameType = gameType;
     let selected_sessionId = sessionId;
 
+    // UI setup: unchanged to preserve original game appearance
     const container = document.createElement('div');
-    container.style.textAlign = 'center';
-    container.style.marginTop = '20px';
+    container.style.textAlign = 'center'; // Original alignment
+    container.style.marginTop = '20px'; // Original spacing
 
     const prompt = document.createElement('p');
-    prompt.style.fontSize = '18px';
-    prompt.style.marginBottom = '10px';
+    prompt.style.fontSize = '18px'; // Original font size
+    prompt.style.marginBottom = '10px'; // Original margin
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.id = 'game-input';
-    input.style.padding = '8px';
-    input.style.fontSize = '16px';
-    input.style.marginRight = '10px';
-    input.style.width = '200px';
+    input.id = 'game-input'; // Consistent ID for focusInput
+    input.style.padding = '8px'; // Original padding
+    input.style.fontSize = '16px'; // Original font size
+    input.style.marginRight = '10px'; // Original margin
+    input.style.width = '200px'; // Original width
 
     const button = document.createElement('button');
     button.innerText = 'Enviar';
-    button.style.padding = '8px 16px';
-    button.style.fontSize = '16px';
-    button.style.cursor = 'pointer';
+    button.style.padding = '8px 16px'; // Original padding
+    button.style.fontSize = '16px'; // Original font size
+    button.style.cursor = 'pointer'; // Original cursor style
 
     const output = document.createElement('p');
-    output.style.fontSize = '16px';
-    output.style.marginTop = '10px';
-    output.style.color = 'black';
+    output.style.fontSize = '16px'; // Original font size
+    output.style.marginTop = '10px'; // Original margin
+    output.style.color = 'black'; // Original color
 
+    // Append elements in original order
     container.appendChild(prompt);
     container.appendChild(input);
     container.appendChild(button);
@@ -478,6 +480,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
 
     let currentHandler;
 
+    // Focus function: unchanged for consistent input behavior
     function focusInput(element) {
         try {
             element.focus();
@@ -488,6 +491,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     }
 
     return new Promise((resolve) => {
+        // Initial prompt: unchanged text and behavior
         prompt.innerText = 'Selecciona el modo de juego (1: Un jugador, 2: Dos jugadores, 3: IA):';
         input.value = selected_mode || '';
         focusInput(input);
@@ -594,6 +598,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         scores: {},
                         currentPlayer: null
                     });
+                    // Debug: verify initial state
+                    const snapshot = await get(ref(database, `games/${selected_sessionId}`));
+                    console.log('handleRemoteRoleInput: Initial game state', snapshot.val());
                     prompt.innerText = 'Nombre Jugador 1:';
                     input.value = selected_player1 || '';
                     focusInput(input);
@@ -689,10 +696,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     prompt.innerText = 'Esperando a que otro jugador se una...';
                     output.innerText = `ID de sesión: ${selected_sessionId}`;
                     output.style.color = 'black';
-                    input.style.display = 'none';
-                    button.style.display = 'none';
+                    input.style.display = 'none'; // Hide input during wait
+                    button.style.display = 'none'; // Hide button during wait
                     let timeoutId;
-                    const unsubscribe = onValue(ref(database, `games/${selected_sessionId}`), (snapshot) => {
+                    let unsubscribe; // Store listener for cleanup
+                    unsubscribe = onValue(ref(database, `games/${selected_sessionId}`), (snapshot) => {
                         const game = snapshot.val();
                         console.log('handlePlayer1Input: Snapshot received', game);
                         if (game && game.player2 && game.status === 'ready') {
@@ -707,17 +715,18 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             console.warn('handlePlayer1Input: Timeout waiting for Player 2');
                             output.innerText = 'Tiempo de espera agotado. Intenta crear un nuevo juego.';
                             output.style.color = 'red';
-                            input.style.display = 'inline-block';
-                            button.style.display = 'inline-block';
+                            input.style.display = 'inline-block'; // Restore input
+                            button.style.display = 'inline-block'; // Restore button
                             input.value = '';
                             focusInput(input);
                             button.onclick = () => main();
+                            // Clean up Firebase session
                             remove(ref(database, `games/${selected_sessionId}`))
                                 .then(() => console.log('handlePlayer1Input: Cleaned up Firebase session', selected_sessionId))
                                 .catch(err => console.error('handlePlayer1Input: Error cleaning up Firebase session', err));
-                            unsubscribe();
+                            if (unsubscribe) unsubscribe(); // Clean up listener
                         }
-                    }, 60000);
+                    }, 60000); // 60-second timeout
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 1 in Firebase:', error);
                     output.innerText = 'Error al registrar el Jugador 1. Intenta de nuevo.';
