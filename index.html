@@ -1,34 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juego de Adivinar Palabras</title>
-  <link rel="stylesheet" href="/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Adivinar Palabras</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <!-- Load Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js"></script>
-  <!-- Initialize Firebase -->
-  <script>
-    // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyD4PoM3u5DcJWG-4pBlNW8I7vdUlvrTk-0",
-      authDomain: "adivinar-palabras-5ca6e.firebaseapp.com",
-      databaseURL: "https://adivinar-palabras-5ca6e-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "adivinar-palabras-5ca6e",
-      storageBucket: "adivinar-palabras-5ca6e.firebasestorage.app",
-      messagingSenderId: "291779074101",
-      appId: "1:291779074101:web:a35d6d5bcae4d6b9b4397c"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    window.database = firebase.database();
-    console.log('Firebase initialized:', window.database);
-  </script>
-  <!-- Load game script -->
-  <script src="wordgame4.js"></script>
+    <!-- Load game script as a module -->
+    <script type="module" src="wordgame4.js"></script>
 </body>
 </html>
