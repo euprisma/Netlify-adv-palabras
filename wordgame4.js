@@ -5,6 +5,34 @@ var __name__ = '__main__';
 let isGameActive = false;
 let isCreatingUI = false;
 
+// Your web app's Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyD4PoM3u5DcJWG-4pBlNW8I7vdUlvrTk-0",
+    authDomain: "adivinar-palabras-5ca6e.firebaseapp.com",
+    databaseURL: "https://adivinar-palabras-5ca6e-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "adivinar-palabras-5ca6e",
+    storageBucket: "adivinar-palabras-5ca6e.firebasestorage.app",
+    messagingSenderId: "291779074101",
+    appId: "1:291779074101:web:a35d6d5bcae4d6b9b4397c"
+};
+
+// Initialize Firebase
+let database;
+try {
+    if (typeof firebase === 'undefined') {
+        throw new Error('Firebase SDK not loaded. Please ensure the Firebase SDK is included before this script.');
+    }
+    // Initialize Firebase only if not already initialized
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    database = firebase.database();
+    console.log('Firebase initialized successfully in wordgame4.js:', database);
+} catch (error) {
+    console.error('Failed to initialize Firebase in wordgame4.js:', error);
+    document.body.innerHTML = '<p style="color: red; text-align: center;">Error: No se pudo conectar con la base de datos. Por favor, verifica tu conexión o recarga la página.</p>';
+}
+
 // Static fallback word list (Spanish, used if APIs fail)
 const palabras = [
     "manzana", "banana", "naranja", "guitarra", "planeta", "ventana", "cohete", "flor",
@@ -39,20 +67,6 @@ const WORD_API_KEY = 'JGZtMGy2radD8zIA1hAQgoqJKa8Nzhck0XhgDtoL'; // Get from api
 const TRANSLATE_API_URL = 'https://api-free.deepl.com/v2/translate';
 const TRANSLATE_API_KEY = '8c71deb7-78c4-4ee2-8bf1-621a0a490d85:fx'; // Get from deepl.com
 // Note: Translation uses a proxy at http://localhost:3000/translate. Ensure proxy is running for API calls.
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyD4PoM3u5DcJWG-4pBlNW8I7vdUlvrTk-0",
-  authDomain: "adivinar-palabras-5ca6e.firebaseapp.com",
-  databaseURL: "https://adivinar-palabras-5ca6e-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "adivinar-palabras-5ca6e",
-  storageBucket: "adivinar-palabras-5ca6e.firebasestorage.app",
-  messagingSenderId: "291779074101",
-  appId: "1:291779074101:web:a35d6d5bcae4d6b9b4397c"
-};
-
-// Initialize Firebase
-const database = window.database;
 
 async function fetchSingleWord() {
     try {
@@ -575,74 +589,74 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         }
       }
 
-      async function handleRemoteRoleInput() {
+    async function handleRemoteRoleInput() {
         const value = input.value.trim().toLowerCase();
         console.log('create_game_ui: Remote role input:', value);
         if (value === 'crear') {
-          selected_sessionId = Math.random().toString(36).substring(2, 10);
-          console.log('create_game_ui: Generated session ID:', selected_sessionId);
-          await database.ref(`games/${selected_sessionId}`).set({
-            status: 'waiting',
-            player1: null,
-            player2: null,
-            mode: selected_mode,
-            gameType: selected_gameType,
-            secretWord: null,
-            guessedLetters: [],
-            tries: {},
-            scores: {},
-            currentPlayer: null
-          });
-          prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
-          input.value = '';
-          focusInput(input);
-          input.removeEventListener('keypress', currentHandler);
-          button.onclick = handlePlayer1Input;
-          currentHandler = (e) => {
-            if (e.key === 'Enter') button.click();
-          };
-          input.addEventListener('keypress', currentHandler);
+            if (!database) {
+                console.error('create_game_ui: Firebase database not initialized');
+                output.innerText = 'Error: No se pudo conectar con la base de datos.';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return;
+            }
+            selected_sessionId = Math.random().toString(36).substring(2, 10);
+            console.log('create_game_ui: Generated session ID:', selected_sessionId);
+            try {
+                await database.ref(`games/${selected_sessionId}`).set({
+                    status: 'waiting',
+                    player1: null,
+                    player2: null,
+                    mode: selected_mode,
+                    gameType: selected_gameType,
+                    secretWord: null,
+                    guessedLetters: [],
+                    tries: {},
+                    scores: {},
+                    currentPlayer: null
+                });
+                prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
+                input.value = '';
+                focusInput(input);
+                input.removeEventListener('keypress', currentHandler);
+                button.onclick = handlePlayer1Input;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            } catch (error) {
+                console.error('create_game_ui: Error creating game session:', error);
+                output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo.';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+            }
         } else if (value === 'unirse') {
-          prompt.innerText = 'Ingresa el ID de sesión:';
-          input.value = '';
-          focusInput(input);
-          input.removeEventListener('keypress', currentHandler);
-          button.onclick = handleSessionIdInput;
-          currentHandler = (e) => {
-            if (e.key === 'Enter') button.click();
-          };
-          input.addEventListener('keypress', currentHandler);
+            if (!database) {
+                console.error('create_game_ui: Firebase database not initialized');
+                output.innerText = 'Error: No se pudo conectar con la base de datos.';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return;
+            }
+            prompt.innerText = 'Ingresa el ID de sesión:';
+            input.value = '';
+            focusInput(input);
+            input.removeEventListener('keypress', currentHandler);
+            button.onclick = handleSessionIdInput;
+            currentHandler = (e) => {
+                if (e.key === 'Enter') button.click();
+            };
+            input.addEventListener('keypress', currentHandler);
         } else {
-          output.innerText = 'Inválido. Ingresa "crear" o "unirse".';
-          output.style.color = 'red';
-          input.value = '';
-          focusInput(input);
+            output.innerText = 'Inválido. Ingresa "crear" o "unirse".';
+            output.style.color = 'red';
+            input.value = '';
+            focusInput(input);
         }
-      }
-
-      async function handleSessionIdInput() {
-        const value = input.value.trim();
-        console.log('create_game_ui: Session ID input:', value);
-        const sessionRef = database.ref(`games/${value}`);
-        const snapshot = await sessionRef.once('value');
-        if (snapshot.exists() && snapshot.val().status === 'waiting') {
-          selected_sessionId = value;
-          prompt.innerText = 'Nombre Jugador 2:';
-          input.value = '';
-          focusInput(input);
-          input.removeEventListener('keypress', currentHandler);
-          button.onclick = handlePlayer2Input;
-          currentHandler = (e) => {
-            if (e.key === 'Enter') button.click();
-          };
-          input.addEventListener('keypress', currentHandler);
-        } else {
-          output.innerText = 'ID de sesión inválido o juego no disponible.';
-          output.style.color = 'red';
-          input.value = '';
-          focusInput(input);
-        }
-      }
+    }
 
       function handlePlayer1Input() {
         selected_player1 = format_name(input.value.trim()) || 'Jugador 1';
