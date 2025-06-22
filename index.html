@@ -7,11 +7,11 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <!-- Load Firebase as a module -->
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-    import { getDatabase } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
-
+  <!-- Load Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js"></script>
+  <!-- Initialize Firebase -->
+  <script>
     // Your web app's Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyD4PoM3u5DcJWG-4pBlNW8I7vdUlvrTk-0",
@@ -24,15 +24,11 @@
     };
 
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-
-    // Make Firebase database available globally (to avoid 'firebase is not defined')
-    window.database = database;
-    console.log('Firebase initialized:', database); // Debug log
-
-    // Import your game script
-    import './wordgame4.js';
+    firebase.initializeApp(firebaseConfig);
+    window.database = firebase.database();
+    console.log('Firebase initialized:', window.database);
   </script>
+  <!-- Load game script -->
+  <script src="wordgame4.js"></script>
 </body>
 </html>

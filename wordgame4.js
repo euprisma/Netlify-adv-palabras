@@ -5,33 +5,19 @@ var __name__ = '__main__';
 let isGameActive = false;
 let isCreatingUI = false;
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyD4PoM3u5DcJWG-4pBlNW8I7vdUlvrTk-0",
-    authDomain: "adivinar-palabras-5ca6e.firebaseapp.com",
-    databaseURL: "https://adivinar-palabras-5ca6e-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "adivinar-palabras-5ca6e",
-    storageBucket: "adivinar-palabras-5ca6e.firebasestorage.app",
-    messagingSenderId: "291779074101",
-    appId: "1:291779074101:web:a35d6d5bcae4d6b9b4397c"
-};
+// Remove redundant firebaseConfig and initialization
+// Use window.database set by index.html
+let database = window.database;
 
-// Initialize Firebase
-let database;
-try {
-    if (typeof firebase === 'undefined') {
-        throw new Error('Firebase SDK not loaded. Please ensure the Firebase SDK is included before this script.');
-    }
-    // Initialize Firebase only if not already initialized
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    database = firebase.database();
-    console.log('Firebase initialized successfully in wordgame4.js:', database);
-} catch (error) {
-    console.error('Failed to initialize Firebase in wordgame4.js:', error);
+// Check if database is available
+if (!database) {
+    console.error('Firebase database not initialized in wordgame4.js');
     document.body.innerHTML = '<p style="color: red; text-align: center;">Error: No se pudo conectar con la base de datos. Por favor, verifica tu conexión o recarga la página.</p>';
+    throw new Error('Firebase database not initialized');
 }
+console.log('Using Firebase database from window.database:', database);
+
+// ... rest of the code (palabras, letterFrequency, etc.) ...
 
 // Static fallback word list (Spanish, used if APIs fail)
 const palabras = [
