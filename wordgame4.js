@@ -759,8 +759,8 @@ async function start_game(mode, players, output, container, prompt, input, butto
             console.error('start_game: Invalid players');
             return;
         }
-        if (!container || !prompt || !output || !input) {
-            console.error('start_game: Missing required DOM elements', { container, prompt, output, input });
+        if (!container || !prompt || !output || !input || !button) {
+            console.error('start_game: Missing required DOM elements', { container, prompt, output, input, button });
             output.innerText = 'Error: Elementos de interfaz no definidos.';
             return;
         }
@@ -798,11 +798,12 @@ async function start_game(mode, players, output, container, prompt, input, butto
             Array.from(container.children).forEach(el => {
                 container.removeChild(el);
             });
-            // Reattach prompt and output
+            // Reattach all core elements
             container.appendChild(prompt);
+            container.appendChild(input);
             container.appendChild(output);
-            // Do not reattach button here
-            button.style.display = 'none'; // Ensure button is hidden
+            container.appendChild(button);
+            button.style.display = 'none'; // Hide button but keep it attached
             prompt.innerText = '';
             output.innerText = '';
             // Show loading message
@@ -811,7 +812,7 @@ async function start_game(mode, players, output, container, prompt, input, butto
             loadingMessage.style.fontSize = '16px';
             loadingMessage.style.color = 'blue';
             container.appendChild(loadingMessage);
-            console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode });
+            console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode, buttonAttached: !!button.parentNode });
 
             // Start the game
             const secret_word = await get_secret_word();
@@ -1260,6 +1261,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     if (!prompt.parentNode) container.appendChild(prompt);
     if (!output.parentNode) container.appendChild(output);
     if (!input.parentNode) container.appendChild(input);
+    if (!button.parentNode) container.appendChild(button); // Add this line
     button.style.display = 'none';
     container.appendChild(output);
 
