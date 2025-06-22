@@ -676,6 +676,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         return;
                     }
                     selected_sessionId = sessionIdInput;
+                    selected_player1 = game.player1; // Set player1 from existing game
+                    console.log('create_game_ui: Retrieved Player 1:', selected_player1);
                     prompt.innerText = 'Nombre Jugador 2:';
                     input.value = '';
                     focusInput(input);
@@ -1663,6 +1665,12 @@ async function main() {
         const players = [player1];
         if (mode === '2' || mode === '3') players.push(player2);
         console.log('main: Players:', players);
+        // Validate players before starting game
+        if (!players.every(p => p && typeof p === 'string' && p.trim())) {
+            console.error('main: Invalid players detected', players);
+            output.innerText = 'Error: Jugadores no definidos correctamente.';
+            return;
+        }
         const total_scores = Object.fromEntries(players.map(p => [p, 0]));
         const wins = Object.fromEntries(players.map(p => [p, 0]));
         await start_game(mode, players, output, container, prompt, input, button, difficulty, 0, total_scores, wins, gameType, sessionId);
