@@ -285,40 +285,37 @@ function escapeHTML(str) {
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
-    console.log('get_guess: Starting, Loaded version 2025-06-19-v9.16', JSON.stringify({ 
-        prompt: prompt?.innerText, 
-        inputExists: !!input?.parentNode, 
-        buttonExists: !!button?.parentNode 
-    }));
+    console.log('get_guess: Starting, Loaded version 2025-06-19-v9.19', {
+        prompt: prompt?.innerText,
+        inputExists: !!input?.parentNode,
+        buttonExists: !!button?.parentNode,
+        inputValue: input?.value,
+        inputId: input?.id || 'no-id'
+    });
     if (!prompt || !input || !output) {
         console.error('get_guess: Missing required DOM elements', { prompt, input, output });
         throw new Error('Missing required DOM elements');
     }
+
+    // Assign a unique ID to the input for tracking
+    input.id = input.id || `guess-input-${Date.now()}`;
 
     const normalized_secret = normalizar(secret_word);
     const min_guesses_for_word = secret_word.length < 5 ? 1 : 2;
     const permitir_palabra = guessed_letters.size >= min_guesses_for_word || Array.from(guessed_letters).some(l => secret_word.split('').filter(x => x === l).length > 1);
     prompt.innerText = permitir_palabra ? `Adivina una letra o la palabra completa:` : `Adivina una letra:`;
 
-    // Ensure input and button are attached
-    if (!input.parentNode) {
-        console.warn('get_guess: Input not attached, reattaching');
-        prompt.parentNode.appendChild(input);
-    }
-    if (button && !button.parentNode) {
-        console.warn('get_guess: Button not attached, reattaching');
-        prompt.parentNode.appendChild(button);
+    // Hide the Enviar button for guessing
+    if (button && button.parentNode) {
+        button.style.display = 'none'; // Hide button during guessing
+        console.log('get_guess: Enviar button hidden for guessing');
     }
 
     try {
-        input.value = '';
-        if (input.parentNode) input.focus();
-        if (button) {
-            button.disabled = true;
-            const enableButton = () => {
-                button.disabled = !input.value.trim();
-            };
-            input.addEventListener('input', enableButton);
+        input.value = ''; // Clear input initially
+        if (input.parentNode) {
+            input.focus();
+            console.log('get_guess: Input focused', { inputValue: input.value, inputId: input.id });
         }
     } catch (err) {
         console.error('get_guess: Error setting input focus', err);
@@ -326,70 +323,66 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     }
 
     return new Promise((resolve, reject) => {
-        let enterHandler, buttonHandler;
+        let enterHandler;
 
-        const handleGuess = async () => {
-            const rawGuess = input.value || '';
-            const trimmedGuess = await rawGuess.trim();
-            console.log('get_guess: rawGuess', JSON.stringify({ rawGuess, trimmedGuess, secret_word, normalized_secret }));
+        const handleGuess = (source, guessValue) => {
+            console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
+            const rawGuess = guessValue || '';
+            const trimmedGuess = rawGuess.trim();
+            const normalizedGuess = normalizar(trimmedGuess);
+            console.log('get_guess: Processing guess', { rawGuess, trimmedGuess, normalizedGuess, secret_word, normalized_secret });
             if (!trimmedGuess) {
                 output.innerText = 'Entrada vacía. Ingresa una letra o palabra válida.';
                 output.style.color = 'red';
-                input.value = '';
                 if (input.parentNode) {
                     try {
-                        await input.focus();
+                        input.focus();
+                        console.log('get_guess: Input refocused after empty input', { inputId: input.id });
                     } catch (err) {
                         console.error('get_guess: Error refocusing input', err);
                     }
                 }
-                return;
+                return false;
             }
-            // Validate word or letter guess
-            if (permitir_palabra && trimmedGuess.length === secret_word.length && /^[a-záéíóúüñ]+$/.test(trimmedGuess)) {
-                cleanup();
-                resolve(trimmedGuess);
-            } else if (trimmedGuess.length === 1 && /^[a-záéíóúüñ]+$/.test(trimmedGuess)) {
-                cleanup();
-                resolve(trimmedGuess);
+            // Validate normalized guess
+            if (permitir_palabra && normalizedGuess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                input.value = ''; // Clear input only after valid guess
+                return { valid: true, guess: normalizedGuess };
+            } else if (normalizedGuess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                input.value = ''; // Clear input only after valid guess
+                return { valid: true, guess: normalizedGuess };
             } else {
-                output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida.';
+                output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida (solo letras, sin caracteres especiales).';
                 output.style.color = 'red';
-                input.value = '';
+                input.value = ''; // Clear on invalid guess
                 if (input.parentNode) {
                     try {
-                        await input.focus();
+                        input.focus();
+                        console.log('get_guess: Input refocused after invalid input', { inputId: input.id });
                     } catch (err) {
                         console.error('get_guess: Error refocusing input', err);
                     }
                 }
+                return false;
             }
         };
 
-        enterHandler = async (e) => {
+        enterHandler = (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                console.log('get_guess: Enter pressed', JSON.stringify({ rawGuess: input.value }));
-                await handleGuess();
+                console.log('get_guess: Enter pressed', { inputValue: input.value, inputId: input.id });
+                const result = handleGuess('enter', input.value);
+                if (result.valid) {
+                    cleanup();
+                    resolve(result.guess);
+                }
             }
         };
-
-        if (button) {
-            buttonHandler = async () => {
-                console.log('get_guess: button clicked', JSON.stringify({ rawGuess: input.value }));
-                await handleGuess();
-            };
-            button.addEventListener('click', buttonHandler);
-        }
 
         const cleanup = () => {
             try {
                 input.removeEventListener('keypress', enterHandler);
-                input.removeEventListener('input', () => {});
-                if (button && buttonHandler) {
-                    button.removeEventListener('click', buttonHandler);
-                    button.disabled = true;
-                }
+                console.log('get_guess: Event listeners cleaned up', { inputId: input.id });
             } catch (e) {
                 console.error('get_guess: Error cleaning up listeners', e);
             }
@@ -398,9 +391,9 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         try {
             input.addEventListener('keypress', enterHandler);
         } catch (err) {
-            console.error('get_guess: Error attaching input', err);
+            console.error('get_guess: Error attaching input listener', err);
             cleanup();
-            reject(new Error('failed to attach input listener'));
+            reject(new Error('Failed to attach input listener'));
         }
     });
 }
@@ -451,6 +444,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     button.style.fontSize = '16px';
     button.style.cursor = 'pointer';
     button.style.margin = '5px';
+    button.style.display = 'inline-block'; // Ensure button is visible for setup
     const output = document.createElement('span');
     output.style.color = 'black';
     output.style.marginTop = '20px';
@@ -467,6 +461,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     if (mode && player1 && (mode !== '3' || difficulty)) {
         console.log('create_game_ui: Using provided parameters', { mode, player1, player2, difficulty });
         prompt.innerText = 'Ingresa una letra o la palabra completa:';
+        button.style.display = 'none'; // Hide button for guessing phase
         if (input.parentNode) input.focus();
         return { mode, player1, player2, prompt, input, button, output, container, difficulty };
     }
@@ -538,6 +533,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         // Reattach input and button
                         if (!input.parentNode) container.appendChild(input);
                         if (!button.parentNode) container.appendChild(button);
+                        button.style.display = 'none'; // Hide button for guessing phase
                         prompt.innerText = 'Ingresa una letra o la palabra completa:';
                         if (input.parentNode) input.focus();
                         resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty });
@@ -547,6 +543,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 container.appendChild(buttonContainer);
             } else {
                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
+                button.style.display = 'none'; // Hide button for guessing phase
                 if (input.parentNode) input.focus();
                 resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty });
             }
@@ -559,6 +556,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             if (input.parentNode) input.focus();
             input.removeEventListener('keypress', currentHandler);
             prompt.innerText = 'Ingresa una letra o la palabra completa:';
+            button.style.display = 'none'; // Hide button for guessing phase
             if (input.parentNode) input.focus();
             resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty });
         }
@@ -579,8 +577,8 @@ async function start_game(mode, players, output, container, prompt, input, butto
         console.error('start_game: Invalid players');
         return;
     }
-    if (!container || !prompt || !output || !input || !button) {
-        console.error('start_game: Missing required DOM elements', { container, prompt, output, input, button });
+    if (!container || !prompt || !output || !input) {
+        console.error('start_game: Missing required DOM elements', { container, prompt, output, input });
         output.innerText = 'Error: Elementos de interfaz no definidos.';
         return;
     }
@@ -591,7 +589,6 @@ async function start_game(mode, players, output, container, prompt, input, butto
     }
 
     const games_to_play = mode === '1' ? 1 : 3;
-    // Initialize total_scores and wins only if not provided (e.g., first game or Repeat)
     const accumulated_scores = total_scores || Object.fromEntries(players.map(p => [p, 0]));
     const accumulated_wins = wins || Object.fromEntries(players.map(p => [p, 0]));
 
@@ -621,6 +618,8 @@ async function start_game(mode, players, output, container, prompt, input, butto
         // Reattach prompt and output
         container.appendChild(prompt);
         container.appendChild(output);
+        // Do not reattach button here
+        button.style.display = 'none'; // Ensure button is hidden
         prompt.innerText = '';
         output.innerText = '';
         // Show loading message
@@ -629,7 +628,7 @@ async function start_game(mode, players, output, container, prompt, input, butto
         loadingMessage.style.fontSize = '16px';
         loadingMessage.style.color = 'blue';
         container.appendChild(loadingMessage);
-        console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode, buttonAttached: !!button.parentNode });
+        console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode });
 
         // Start the game
         const secret_word = await get_secret_word();
@@ -660,6 +659,7 @@ async function start_game(mode, players, output, container, prompt, input, butto
         }
     }
 }
+
 async function process_guess(player, guessed_letters, secret_word, tries, scores, lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels, max_score, difficulty, mode, prompt, input, output, button, delay, display_feedback) {
     console.log('process_guess: Starting for', player, { 
         max_score, 
@@ -1006,13 +1006,14 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         if (!output.parentNode) container.appendChild(output);
         // Clear other elements except prompt and output
         Array.from(container.children).forEach(el => {
-            if (el !== prompt && el !== output && el !== input && el !== button) {
+            if (el !== prompt && el !== output && el !== input) {
                 container.removeChild(el);
             }
         });
         container.appendChild(prompt);
         container.appendChild(input);
-        container.appendChild(button);
+        // Do not append button for guessing phase
+        button.style.display = 'none'; // Ensure button is hidden
         container.appendChild(output);
         prompt.innerText = 'Ingresa una letra o la palabra completa:';
         input.value = ''; // Clear input at initialization
