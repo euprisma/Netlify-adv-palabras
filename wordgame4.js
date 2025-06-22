@@ -464,6 +464,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'game-input';
+        input.id = 'game-input';
         input.style.width = '200px';
         input.style.padding = '10px';
         input.style.fontSize = '14px';
@@ -723,6 +724,17 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
                             }
                         }, { onlyOnce: true });
+                        setTimeout(() => {
+                            if (prompt.innerText.includes('Esperando')) {
+                                console.warn('create_game_ui: Timeout waiting for Player 2');
+                                output.innerText = 'Tiempo de espera agotado. Intenta crear un nuevo juego.';
+                                output.style.color = 'red';
+                                input.style.display = 'inline-block';
+                                button.style.display = 'inline-block';
+                                input.value = '';
+                                focusInput(input);
+                            }
+                        }, 60000); // 60-second timeout
                     } else {
                         prompt.innerText = 'Nombre Jugador 2:';
                         button.onclick = handlePlayer2Input;
@@ -1246,6 +1258,8 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
   }
 }
 
+// ... (Imports, Firebase initialization, and other functions unchanged) ...
+
 async function play_game(loadingMessage, secret_word, mode, players, output, container, prompt, input, button, difficulty, games_played, games_to_play, total_scores, wins, delay, display_feedback, gameType, sessionId) {
     console.log('play_game: Starting, Loaded version 2025-06-22-v9.9', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
     
@@ -1269,9 +1283,10 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     if (mode === '2' && gameType === 'remoto') {
         try {
             sessionRef = ref(database, `games/${sessionId}`);
+            // Ensure initial game state is complete
             await update(sessionRef, {
                 secretWord: provided_secret_word,
-                guessedLetters: Array.from(guessed_letters),
+                guessedLetters: Array.from(guessed_letters), // Ensure array
                 tries,
                 scores,
                 currentPlayer: players[current_player_idx],
@@ -1377,20 +1392,34 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         if (mode === '2' && gameType === 'remoto') {
             onValue(sessionRef, async (snapshot) => {
                 const game = snapshot.val();
+                console.log('game_loop: Firebase snapshot received', game); // Debug log
                 if (!game) {
                     display_feedback('El juego ha sido terminado o eliminado por el otro jugador.', 'red', null, false);
                     container.appendChild(button_group);
                     return;
                 }
-                if (game.status !== 'playing') return;
+                if (game.status !== 'playing') {
+                    console.log('game_loop: Game not in playing state, exiting', game.status);
+                    return;
+                }
+                // Defensive check for guessedLetters
+                if (!Array.isArray(game.guessedLetters)) {
+                    console.warn('game_loop: game.guessedLetters is not an array, initializing as empty', game.guessedLetters);
+                    game.guessedLetters = [];
+                }
                 guessed_letters.clear();
                 game.guessedLetters.forEach(l => guessed_letters.add(l));
-                Object.assign(tries, game.tries);
-                Object.assign(scores, game.scores);
+                Object.assign(tries, game.tries || {});
+                Object.assign(scores, game.scores || {});
                 current_player_idx = players.indexOf(game.currentPlayer);
+                if (current_player_idx === -1) {
+                    console.warn('game_loop: Invalid currentPlayer, resetting to 0', game.currentPlayer);
+                    current_player_idx = 0;
+                }
                 update_ui();
                 if (game.status === 'ended') {
-                    // Listener cleanup handled in finally block
+                    console.log('game_loop: Game ended via Firebase');
+                    // Listener cleanup handled automatically
                 }
             }, (error) => {
                 console.error('game_loop: Firebase snapshot error', error);
@@ -1451,6 +1480,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                         scores,
                         currentPlayer: players[current_player_idx]
                     });
+                    console.log('game_loop: Firebase updated', { guessedLetters: Array.from(guessed_letters), tries, scores, currentPlayer: players[current_player_idx] });
                 } catch (err) {
                     console.error('game_loop: Firebase update error', err);
                     display_feedback('Error al actualizar el estado del juego remoto.', 'red', null, true);
@@ -1642,15 +1672,12 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
     } finally {
         if (sessionRef) {
-            // No need to call off() as onValue handles cleanup
             console.log('play_game: Firebase listeners cleaned up');
-        }
-        if (mode === '2' && gameType === 'remoto') {
-            const connectedRef = ref(database, '.info/connected');
-            // No need to call off() as onValue handles cleanup
         }
     }
 }
+
+// ... (Rest of the file unchanged) ...
 
 async function main() {
     console.log('main: Starting, Loaded version 2025-06-16-v9.8');
