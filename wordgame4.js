@@ -697,88 +697,62 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
             }
 
-            function handlePlayer1Input() {
-                selected_player1 = format_name(input.value.trim()) || 'Jugador 1';
-                console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
-                input.value = '';
-                focusInput(input);
-                input.removeEventListener('keypress', currentHandler);
-                if (selected_mode === '2') {
-                    if (selected_gameType === 'remoto') {
-                        update(ref(database, `games/${selected_sessionId}`), {
-                            player1: selected_player1,
-                            status: 'waiting_for_player2'
-                        });
-                        prompt.innerText = `Esperando a que otro jugador se una (ID: ${selected_sessionId})...`;
-                        button.style.display = 'none';
-                        input.style.display = 'none';
-                        onValue(ref(database, `games/${selected_sessionId}`), (snapshot) => {
-                            const game = snapshot.val();
-                            if (game && game.player2 && game.status === 'ready') {
-                                selected_player2 = game.player2;
-                                console.log('create_game_ui: Player 2 joined:', selected_player2);
-                                prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                button.style.display = 'none';
-                                input.style.display = 'inline-block';
-                                focusInput(input);
-                                resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
-                            }
-                        }, { onlyOnce: true });
-                        setTimeout(() => {
-                            if (prompt.innerText.includes('Esperando')) {
-                                console.warn('create_game_ui: Timeout waiting for Player 2');
-                                output.innerText = 'Tiempo de espera agotado. Intenta crear un nuevo juego.';
-                                output.style.color = 'red';
-                                input.style.display = 'inline-block';
-                                button.style.display = 'inline-block';
-                                input.value = '';
-                                focusInput(input);
-                            }
-                        }, 60000); // 60-second timeout
-                    } else {
-                        prompt.innerText = 'Nombre Jugador 2:';
-                        button.onclick = handlePlayer2Input;
-                        currentHandler = (e) => {
-                            if (e.key === 'Enter') button.click();
-                        };
-                        input.addEventListener('keypress', currentHandler);
-                    }
-                } else if (selected_mode === '3') {
-                    selected_player2 = 'IA';
-                    console.log('create_game_ui: Assigned Player 2: IA');
-                    if (input.parentNode) container.removeChild(input);
-                    if (button.parentNode) container.removeChild(button);
-                    prompt.innerText = 'Seleccione la dificultad:';
-                    const buttonContainer = document.createElement('div');
-                    buttonContainer.className = 'button-group';
-                    buttonContainer.style.margin = '10px';
-                    ['Fácil', 'Normal', 'Difícil'].forEach((label, index) => {
-                        const diffButton = document.createElement('button');
-                        diffButton.className = 'game-button difficulty-button';
-                        diffButton.innerText = label;
-                        diffButton.style.padding = '8px 16px';
-                        diffButton.style.fontSize = '16px';
-                        diffButton.style.cursor = 'pointer';
-                        diffButton.style.margin = '5px';
-                        diffButton.onclick = () => {
-                            selected_difficulty = ['facil', 'normal', 'dificil'][index];
-                            console.log('create_game_ui: Difficulty selected:', selected_difficulty);
-                            container.removeChild(buttonContainer);
-                            if (!input.parentNode) container.appendChild(input);
-                            if (!button.parentNode) container.appendChild(button);
-                            button.style.display = 'none';
-                            prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                            focusInput(input);
-                            resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
-                        };
-                        buttonContainer.appendChild(diffButton);
-                    });
-                    container.appendChild(buttonContainer);
-                } else {
-                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                    button.style.display = 'none';
+            async function handlePlayer1Input() {
+                const player1Input = input.value.trim();
+                console.log('create_game_ui: Player 1 input:', player1Input);
+                if (!player1Input) {
+                    output.innerText = 'Ingresa un nombre válido para Jugador 1.';
+                    output.style.color = 'red';
+                    input.value = '';
                     focusInput(input);
-                    resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
+                    return;
+                }
+                selected_player1 = player1Input.charAt(0).toUpperCase() + player1Input.slice(1).toLowerCase();
+                console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
+                try {
+                    await update(ref(database, `games/${selected_sessionId}`), {
+                        player1: selected_player1,
+                        status: 'waiting_for_player2'
+                    });
+                    prompt.innerText = 'Esperando a que otro jugador se una...';
+                    output.innerText = `ID de sesión: ${selected_sessionId}`;
+                    output.style.color = 'black';
+                    input.style.display = 'none';
+                    button.style.display = 'none';
+                    let timeoutId;
+                    const unsubscribe = onValue(ref(database, `games/${selected_sessionId}`), (snapshot) => {
+                        const game = snapshot.val();
+                        console.log('handlePlayer1Input: Snapshot received', game);
+                        if (game && game.player2 && game.status === 'ready') {
+                            selected_player2 = game.player2;
+                            clearTimeout(timeoutId); // Clear timeout
+                            input.removeEventListener('keypress', currentHandler);
+                            resolve({ mode: selected_mode, prompt, input, button, output, container, player1: selected_player1, player2: selected_player2, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
+                        }
+                    }, { onlyOnce: true });
+                    timeoutId = setTimeout(() => {
+                        if (prompt.innerText.includes('Esperando')) {
+                            console.warn('handlePlayer1Input: Timeout waiting for Player 2');
+                            output.innerText = 'Tiempo de espera agotado. Intenta crear un nuevo juego.';
+                            output.style.color = 'red';
+                            input.style.display = 'inline-block';
+                            button.style.display = 'inline-block';
+                            input.value = '';
+                            focusInput(input);
+                            button.onclick = () => main();
+                            // Clean up Firebase session
+                            remove(ref(database, `games/${selected_sessionId}`))
+                                .then(() => console.log('handlePlayer1Input: Cleaned up Firebase session', selected_sessionId))
+                                .catch(err => console.error('handlePlayer1Input: Error cleaning up Firebase session', err));
+                            unsubscribe(); // Clean up listener
+                        }
+                    }, 60000); // 60-second timeout
+                } catch (error) {
+                    console.error('create_game_ui: Error updating player 1 in Firebase:', error);
+                    output.innerText = 'Error al registrar el Jugador 1. Intenta de nuevo.';
+                    output.style.color = 'red';
+                    input.value = '';
+                    focusInput(input);
                 }
             }
 
@@ -1258,8 +1232,6 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
   }
 }
 
-// ... (Imports, Firebase initialization, and other functions unchanged) ...
-
 async function play_game(loadingMessage, secret_word, mode, players, output, container, prompt, input, button, difficulty, games_played, games_to_play, total_scores, wins, delay, display_feedback, gameType, sessionId) {
     console.log('play_game: Starting, Loaded version 2025-06-22-v9.9', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
     
@@ -1273,7 +1245,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     const total_tries = Math.max(1, mode === '1' ? provided_secret_word.length - 2 : Math.floor(provided_secret_word.length / 2));
     const tries = Object.fromEntries(players.map(p => [p, total_tries]));
     const scores = Object.fromEntries(players.map(p => [p, 0]));
-    const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p, false]));
+    const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p, false])); // Fixed typo
     const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
     let current_player_idx = games_played % players.length;
 
@@ -1283,7 +1255,6 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     if (mode === '2' && gameType === 'remoto') {
         try {
             sessionRef = ref(database, `games/${sessionId}`);
-            // Retry initial game state update
             let attempts = 3;
             while (attempts--) {
                 try {
@@ -1406,8 +1377,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
         let unsubscribe;
         if (mode === '2' && gameType === 'remoto') {
-            // Delay listener setup to ensure initial update is complete
-            await delay(1000); // Wait 1 second for Firebase update to propagate
+            await delay(1000); // Wait for Firebase update to propagate
             unsubscribe = onValue(sessionRef, async (snapshot) => {
                 const game = snapshot.val();
                 console.log('game_loop: Firebase snapshot received', game);
@@ -1420,7 +1390,6 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     console.log('game_loop: Game not in playing state, exiting', game.status);
                     return;
                 }
-                // Validate all required properties
                 if (!Array.isArray(game.guessedLetters)) {
                     console.warn('game_loop: game.guessedLetters is not an array, initializing as empty', game.guessedLetters);
                     game.guessedLetters = [];
@@ -1701,13 +1670,11 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
     } finally {
         if (unsubscribe) {
-            unsubscribe(); // Explicitly clean up listener
+            unsubscribe();
             console.log('play_game: Firebase listeners cleaned up');
         }
     }
 }
-
-// ... (Rest of the file unchanged) ...
 
 async function main() {
     console.log('main: Starting, Loaded version 2025-06-16-v9.8');
@@ -1722,7 +1689,6 @@ async function main() {
         const players = [player1];
         if (mode === '2' || mode === '3') players.push(player2);
         console.log('main: Players:', players);
-        // Validate players before starting game
         if (!players.every(p => p && typeof p === 'string' && p.trim())) {
             console.error('main: Invalid players detected', players);
             output.innerText = 'Error: Jugadores no definidos correctamente.';
@@ -1734,7 +1700,9 @@ async function main() {
         console.log('main: Game started');
     } catch (err) {
         console.error('main: Error in game setup', err);
-        document.body.innerHTML = '<p style="color: red; text-align: center;">Error al iniciar el juego. Por favor, recarga la página.</p>';
+        output.innerText = 'Error al iniciar el juego. Por favor, recarga la página.';
+        output.style.color = 'red';
+        return; // Stop execution
     }
 }
 
