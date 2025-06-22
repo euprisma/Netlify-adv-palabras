@@ -427,18 +427,23 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     }
     document.body.innerHTML = '';
     const container = document.createElement('div');
+    container.className = 'game-container'; // Add class for styling
     container.style.textAlign = 'center';
     container.style.fontFamily = 'Arial, sans-serif';
     const title = document.createElement('h1');
+    title.className = 'game-title'; // Add class for styling
     title.innerText = 'Juego de Adivinar Palabras';
     const prompt = document.createElement('p');
+    prompt.className = 'game-prompt'; // Add class for styling
     const input = document.createElement('input');
     input.type = 'text';
+    input.className = 'game-input'; // Add class for styling
     input.style.width = '200px';
     input.style.padding = '10px';
     input.style.fontSize = '14px';
     input.style.margin = '5px';
     const button = document.createElement('button');
+    button.className = 'game-button'; // Add class for styling
     button.innerText = 'Enviar';
     button.style.padding = '8px 16px';
     button.style.fontSize = '16px';
@@ -446,6 +451,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
     button.style.margin = '5px';
     button.style.display = 'inline-block'; // Ensure button is visible for setup
     const output = document.createElement('span');
+    output.className = 'game-output'; // Add class for styling
     output.style.color = 'black';
     output.style.marginTop = '20px';
     output.style.fontSize = '16px';
@@ -466,7 +472,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         return { mode, player1, player2, prompt, input, button, output, container, difficulty };
     }
 
-    prompt.innerText = 'Ingresa 1 para un jugador, 2 para dos jugadores, o 3 para jugador vs IA:';
+    prompt.innerHTML = 'Ingresa 1 para <strong>un jugador</strong>, 2 para <strong>dos jugadores</strong>, o 3 para <strong>jugador contra IA</strong>:';
     if (input.parentNode) input.focus();
 
     return new Promise(resolve => {
@@ -518,9 +524,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 if (button.parentNode) container.removeChild(button);
                 prompt.innerText = 'Seleccione la dificultad:';
                 const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'button-group'; // Add class for styling
                 buttonContainer.style.margin = '10px';
                 ['Fácil', 'Normal', 'Difícil'].forEach((label, index) => {
                     const diffButton = document.createElement('button');
+                    diffButton.className = 'game-button difficulty-button'; // Add classes for styling
                     diffButton.innerText = label;
                     diffButton.style.padding = '8px 16px';
                     diffButton.style.fontSize = '16px';
@@ -1019,11 +1027,14 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         input.value = ''; // Clear input at initialization
         if (input.parentNode) input.focus();
         game_info = document.createElement('p');
+        game_info.className = 'game-info'; // Add class for styling
         game_info.innerHTML = `--- Juego ${games_played + 1} de ${games_to_play} ---<br>Palabra secreta: ${provided_secret_word.length} letras.<br>Intentos: ${total_tries}. Puntaje máximo: ${max_score}.` +
             (mode === '3' ? `<br>Dificultad: ${difficulty || 'N/A'}` : '');
         player_info = document.createElement('p');
         player_info.id = 'player_info';
+        player_info.className = 'player-info'; // Add class for styling
         progress = document.createElement('p');
+        progress.className = 'game-progress'; // Add class for styling
         container.insertBefore(game_info, prompt);
         container.insertBefore(player_info, prompt);
         container.insertBefore(progress, prompt);
@@ -1122,6 +1133,11 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             }));
 
             if (result.tries[player] == null || result.tries[player] === 0) {
+                // Add delay for AI in mode 3 before clearing and showing message
+                if (mode === '3' && player === 'IA') {
+                    console.log('game_loop: Adding delay for AI out of tries');
+                    await delay(1000); // 1-second delay before clearing and showing "IA sin intentos"
+                }
                 output.innerHTML = ''; // Clear before final message
                 display_feedback(`¡<strong>${player}</strong> sin intentos!`, 'red', player, false);
                 await delay(500);
@@ -1163,6 +1179,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     console.log('play_game: Total_scores after update', JSON.stringify({ ...total_scores }));
 
     const button_group = document.createElement('div');
+    button_group.className = 'button-group'; // Add class for styling
     button_group.style.display = 'inline-block';
     button_group.style.marginTop = '10px';
 
@@ -1198,6 +1215,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     }
 
     const repeat_button = document.createElement('button');
+    repeat_button.className = 'game-button repeat-button'; // Add classes for styling
     repeat_button.innerText = 'Repetir Juego';
     repeat_button.style.padding = '8px 16px';
     repeat_button.style.fontSize = '16px';
@@ -1213,6 +1231,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     button_group.appendChild(repeat_button);
 
     const restart_button = document.createElement('button');
+    restart_button.className = 'game-button restart-button'; // Add classes for styling
     restart_button.innerText = 'Reiniciar Juego';
     restart_button.style.padding = '8px 16px';
     restart_button.style.fontSize = '16px';
@@ -1227,6 +1246,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
     if (mode !== '1' && games_played < games_to_play - 1 && !Object.values(wins).some(w => w === 2)) {
         const next_button = document.createElement('button');
+        next_button.className = 'game-button next-button'; // Add classes for styling
         next_button.innerText = 'Siguiente Juego';
         next_button.style.padding = '8px 16px';
         next_button.style.fontSize = '16px';
