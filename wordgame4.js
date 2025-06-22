@@ -434,383 +434,379 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-22-v9.9', { mode, player1, player2, difficulty, gameType, sessionId });
+    console.log('create_game_ui: Starting, Loaded version 2025-06-22-v9.9', JSON.stringify({ mode, player1, player2, difficulty, gameType, sessionId }));
 
-    if (isCreatingUI) {
-        console.warn('create_game_ui: UI creation already in progress, skipping');
-        return null;
-    }
-    if (isGameActive && !mode) {
-        console.warn('create_game_ui: Game already active, skipping reset');
-        return null;
-    }
+    let selected_mode = mode;
+    let selected_player1 = player1;
+    let selected_player2 = player2;
+    let selected_difficulty = difficulty;
+    let selected_gameType = gameType;
+    let selected_sessionId = sessionId;
 
-    isCreatingUI = true;
-    try {
-        document.body.innerHTML = '';
+    const container = document.createElement('div');
+    container.style.textAlign = 'center';
+    container.style.marginTop = '20px';
 
-        const container = document.createElement('div');
-        container.className = 'game-container';
-        container.style.textAlign = 'center';
-        container.style.fontFamily = 'Arial, sans-serif';
+    const prompt = document.createElement('p');
+    prompt.style.fontSize = '18px';
+    prompt.style.marginBottom = '10px';
 
-        const title = document.createElement('h1');
-        title.className = 'game-title';
-        title.innerText = 'Juego de Adivinar Palabras';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'game-input';
+    input.style.padding = '8px';
+    input.style.fontSize = '16px';
+    input.style.marginRight = '10px';
+    input.style.width = '200px';
 
-        const prompt = document.createElement('p');
-        prompt.className = 'game-prompt';
+    const button = document.createElement('button');
+    button.innerText = 'Enviar';
+    button.style.padding = '8px 16px';
+    button.style.fontSize = '16px';
+    button.style.cursor = 'pointer';
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'game-input';
-        input.id = 'game-input';
-        input.style.width = '200px';
-        input.style.padding = '10px';
-        input.style.fontSize = '14px';
-        input.style.margin = '5px';
+    const output = document.createElement('p');
+    output.style.fontSize = '16px';
+    output.style.marginTop = '10px';
+    output.style.color = 'black';
 
-        const button = document.createElement('button');
-        button.className = 'game-button';
-        button.innerText = 'Enviar';
-        button.style.padding = '8px 16px';
-        button.style.fontSize = '16px';
-        button.style.cursor = 'pointer';
-        button.style.margin = '5px';
-        button.style.display = 'inline-block';
+    container.appendChild(prompt);
+    container.appendChild(input);
+    container.appendChild(button);
+    container.appendChild(output);
+    document.body.appendChild(container);
 
-        const output = document.createElement('span');
-        output.className = 'game-output';
-        output.style.color = 'black';
-        output.style.marginTop = '20px';
-        output.style.fontSize = '16px';
-        output.style.whiteSpace = 'pre-wrap';
-        output.style.display = 'block';
+    let currentHandler;
 
-        document.body.appendChild(container);
-        container.appendChild(title);
-        container.appendChild(prompt);
-        container.appendChild(input);
-        container.appendChild(button);
-        container.appendChild(output);
-
-        if (mode && player1 && (mode !== '3' || difficulty) && (mode !== '2' || gameType)) {
-            console.log('create_game_ui: Using provided parameters', { mode, player1, player2, difficulty, gameType, sessionId });
-            prompt.innerText = 'Ingresa una letra o la palabra completa:';
-            button.style.display = 'none';
-            focusInput(input);
-            return { mode, player1, player2, prompt, input, button, output, container, difficulty, gameType, sessionId };
+    function focusInput(element) {
+        try {
+            element.focus();
+            console.log('focusInput: Input focused', { inputId: element.id });
+        } catch (err) {
+            console.error('focusInput: Error focusing input', err);
         }
+    }
 
-        prompt.innerHTML = 'Ingresa 1 para <strong>un jugador</strong>, 2 para <strong>dos jugadores</strong>, o 3 para <strong>jugador contra IA</strong>:';
+    return new Promise((resolve) => {
+        prompt.innerText = 'Selecciona el modo de juego (1: Un jugador, 2: Dos jugadores, 3: IA):';
+        input.value = selected_mode || '';
         focusInput(input);
 
-        return new Promise(resolve => {
-            let selected_mode, selected_player1, selected_player2, selected_difficulty, selected_gameType, selected_sessionId;
-            let currentHandler;
-
-            function handleModeInput() {
-                const value = input.value.trim();
-                console.log('create_game_ui: Mode input:', value);
-                if (value === '1' || value === '2' || value === '3') {
-                    selected_mode = value;
-                    input.removeEventListener('keypress', currentHandler);
-                    if (selected_mode === '2') {
-                        if (input.parentNode) container.removeChild(input);
-                        if (button.parentNode) container.removeChild(button);
-                        prompt.innerText = 'Escoge tipo de juego:';
-                        const buttonContainer = document.createElement('div');
-                        buttonContainer.className = 'button-group';
-                        buttonContainer.style.margin = '10px';
-                        ['Local', 'Remoto'].forEach(type => {
-                            const typeButton = document.createElement('button');
-                            typeButton.className = 'game-button game-type-button';
-                            typeButton.innerText = type;
-                            typeButton.style.padding = '8px 16px';
-                            typeButton.style.fontSize = '16px';
-                            typeButton.style.cursor = 'pointer';
-                            typeButton.style.margin = '5px';
-                            typeButton.onclick = () => handleGameTypeInput(type.toLowerCase(), buttonContainer);
-                            buttonContainer.appendChild(typeButton);
-                        });
-                        container.appendChild(buttonContainer);
-                    } else {
-                        prompt.innerText = 'Nombre Jugador 1:';
-                        input.value = '';
-                        focusInput(input);
-                        button.onclick = handlePlayer1Input;
-                        currentHandler = (e) => {
-                            if (e.key === 'Enter') button.click();
-                        };
-                        input.addEventListener('keypress', currentHandler);
-                    }
-                } else {
-                    output.innerText = 'Inválido. Ingresa 1, 2, o 3.';
-                    output.style.color = 'red';
-                    input.value = '';
-                    focusInput(input);
-                }
+        function handleModeInput() {
+            const modeInput = input.value.trim();
+            console.log('create_game_ui: Mode input:', modeInput);
+            if (!['1', '2', '3'].includes(modeInput)) {
+                output.innerText = 'Modo inválido. Ingresa 1, 2 o 3.';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return;
             }
+            selected_mode = modeInput;
+            input.removeEventListener('keypress', currentHandler);
+            if (selected_mode === '1') {
+                prompt.innerText = 'Nombre Jugador:';
+                input.value = selected_player1 || '';
+                focusInput(input);
+                button.onclick = handlePlayer1Input;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            } else if (selected_mode === '2') {
+                prompt.innerText = 'Selecciona tipo de juego (local/remoto):';
+                input.value = selected_gameType || '';
+                focusInput(input);
+                button.onclick = handleGameTypeInput;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            } else if (selected_mode === '3') {
+                prompt.innerText = 'Selecciona dificultad (fácil/medio/difícil):';
+                input.value = selected_difficulty || '';
+                focusInput(input);
+                button.onclick = handleDifficultyInput;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            }
+        }
 
-            function handleGameTypeInput(type, buttonContainer) {
-                console.log('create_game_ui: Game type selected:', type);
-                selected_gameType = type;
-                if (buttonContainer.parentNode) container.removeChild(buttonContainer);
-                if (!input.parentNode) container.appendChild(input);
-                if (!button.parentNode) container.appendChild(button);
-                input.removeEventListener('keypress', currentHandler);
-                if (selected_gameType === 'remoto') {
-                    prompt.innerText = '¿Crear juego o unirse? (Ingresa "crear" o "unirse"):';
-                    input.value = '';
-                    focusInput(input);
-                    button.onclick = handleRemoteRoleInput;
-                    currentHandler = (e) => {
-                        if (e.key === 'Enter') button.click();
-                    };
-                    input.addEventListener('keypress', currentHandler);
-                } else {
+        async function handleGameTypeInput() {
+            const gameTypeInput = input.value.trim().toLowerCase();
+            console.log('create_game_ui: Game type selected:', gameTypeInput);
+            if (!['local', 'remoto'].includes(gameTypeInput)) {
+                output.innerText = 'Tipo de juego inválido. Ingresa "local" o "remoto".';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return;
+            }
+            selected_gameType = gameTypeInput;
+            input.removeEventListener('keypress', currentHandler);
+            if (selected_gameType === 'remoto') {
+                prompt.innerText = '¿Crear o unirse a un juego? (crear/unirse):';
+                input.value = '';
+                focusInput(input);
+                button.onclick = handleRemoteRoleInput;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            } else {
+                prompt.innerText = 'Nombre Jugador 1:';
+                input.value = selected_player1 || '';
+                focusInput(input);
+                button.onclick = handlePlayer1Input;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            }
+        }
+
+        async function handleRemoteRoleInput() {
+            const roleInput = input.value.trim().toLowerCase();
+            console.log('create_game_ui: Remote role input:', roleInput);
+            if (!['crear', 'unirse'].includes(roleInput)) {
+                output.innerText = 'Opción inválida. Ingresa "crear" o "unirse".';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return;
+            }
+            input.removeEventListener('keypress', currentHandler);
+            if (roleInput === 'crear') {
+                selected_sessionId = Math.random().toString(36).substring(2, 10);
+                console.log('create_game_ui: Generated session ID:', selected_sessionId);
+                try {
+                    await set(ref(database, `games/${selected_sessionId}`), {
+                        status: 'waiting',
+                        player1: null,
+                        player2: null,
+                        mode: selected_mode,
+                        gameType: selected_gameType,
+                        secretWord: null,
+                        guessedLetters: [],
+                        tries: {},
+                        scores: {},
+                        currentPlayer: null
+                    });
                     prompt.innerText = 'Nombre Jugador 1:';
-                    input.value = '';
+                    input.value = selected_player1 || '';
                     focusInput(input);
                     button.onclick = handlePlayer1Input;
                     currentHandler = (e) => {
                         if (e.key === 'Enter') button.click();
                     };
                     input.addEventListener('keypress', currentHandler);
-                }
-            }
-
-            async function handleRemoteRoleInput() {
-                const value = input.value.trim().toLowerCase();
-                console.log('create_game_ui: Remote role input:', value);
-                if (value === 'crear') {
-                    if (!database) {
-                        console.error('create_game_ui: Firebase database not initialized');
-                        output.innerText = 'Error: No se pudo conectar con la base de datos.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                    selected_sessionId = Math.random().toString(36).substring(2, 10);
-                    console.log('create_game_ui: Generated session ID:', selected_sessionId);
-                    try {
-                        await set(ref(database, `games/${selected_sessionId}`), {
-                            status: 'waiting',
-                            player1: null,
-                            player2: null,
-                            mode: selected_mode,
-                            gameType: selected_gameType,
-                            secretWord: null,
-                            guessedLetters: [],
-                            tries: {},
-                            scores: {},
-                            currentPlayer: null
-                        });
-                        prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
-                        input.value = '';
-                        focusInput(input);
-                        input.removeEventListener('keypress', currentHandler);
-                        button.onclick = handlePlayer1Input;
-                        currentHandler = (e) => {
-                            if (e.key === 'Enter') button.click();
-                        };
-                        input.addEventListener('keypress', currentHandler);
-                    } catch (error) {
-                        console.error('create_game_ui: Error creating game session:', error);
-                        output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                    }
-                } else if (value === 'unirse') {
-                    if (!database) {
-                        console.error('create_game_ui: Firebase database not initialized');
-                        output.innerText = 'Error: No se pudo conectar con la base de datos.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                    prompt.innerText = 'Ingresa el ID de sesión:';
-                    input.value = '';
-                    focusInput(input);
-                    input.removeEventListener('keypress', currentHandler);
-                    button.onclick = handleSessionIdInput;
-                    currentHandler = (e) => {
-                        if (e.key === 'Enter') button.click();
-                    };
-                    input.addEventListener('keypress', currentHandler);
-                } else {
-                    output.innerText = 'Inválido. Ingresa "crear" o "unirse".';
+                } catch (error) {
+                    console.error('create_game_ui: Error creating game session:', error);
+                    output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
                 }
+            } else if (roleInput === 'unirse') {
+                prompt.innerText = 'Ingresa el ID de sesión:';
+                input.value = selected_sessionId || '';
+                focusInput(input);
+                button.onclick = handleSessionIdInput;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
             }
+        }
 
-            async function handleSessionIdInput() {
-                const sessionIdInput = input.value.trim();
-                console.log('create_game_ui: Session ID input:', sessionIdInput);
-                if (!sessionIdInput) {
-                    output.innerText = 'Ingresa un ID de sesión válido.';
+        async function handleSessionIdInput() {
+            const sessionIdInput = input.value.trim();
+            console.log('create_game_ui: Session ID input:', sessionIdInput);
+            if (!sessionIdInput) {
+                output.innerText = 'Ingresa un ID de sesión válido.';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return;
+            }
+            try {
+                const snapshot = await get(ref(database, `games/${sessionIdInput}`));
+                if (!snapshot.exists()) {
+                    output.innerText = 'ID de sesión no encontrado.';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
                     return;
                 }
-                try {
-                    const snapshot = await get(ref(database, `games/${sessionIdInput}`));
-                    if (!snapshot.exists()) {
-                        output.innerText = 'ID de sesión no encontrado.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                    const game = snapshot.val();
-                    if (game.status !== 'waiting_for_player2') {
-                        output.innerText = 'El juego no está disponible para unirse.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                    selected_sessionId = sessionIdInput;
-                    selected_player1 = game.player1; // Set player1 from existing game
-                    console.log('create_game_ui: Retrieved Player 1:', selected_player1);
-                    prompt.innerText = 'Nombre Jugador 2:';
+                const game = snapshot.val();
+                if (game.status !== 'waiting_for_player2') {
+                    output.innerText = 'El juego no está disponible para unirse.';
+                    output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
-                    input.removeEventListener('keypress', currentHandler);
-                    button.onclick = handlePlayer2Input;
-                    currentHandler = (e) => {
-                        if (e.key === 'Enter') button.click();
-                    };
-                    input.addEventListener('keypress', currentHandler);
+                    return;
+                }
+                selected_sessionId = sessionIdInput;
+                selected_player1 = game.player1;
+                console.log('create_game_ui: Retrieved Player 1:', selected_player1);
+                prompt.innerText = 'Nombre Jugador 2:';
+                input.value = selected_player2 || '';
+                focusInput(input);
+                button.onclick = handlePlayer2Input;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            } catch (error) {
+                console.error('create_game_ui: Error checking session ID:', error);
+                output.innerText = 'Error al verificar el ID de sesión. Intenta de nuevo.';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+            }
+        }
+
+        async function handlePlayer1Input() {
+            const player1Input = input.value.trim();
+            console.log('create_game_ui: Player 1 input:', player1Input);
+            if (!player1Input) {
+                output.innerText = 'Ingresa un nombre válido para Jugador 1.';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return;
+            }
+            selected_player1 = player1Input.charAt(0).toUpperCase() + player1Input.slice(1).toLowerCase();
+            console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
+            if (selected_gameType === 'remoto') {
+                try {
+                    await update(ref(database, `games/${selected_sessionId}`), {
+                        player1: selected_player1,
+                        status: 'waiting_for_player2'
+                    });
+                    prompt.innerText = 'Esperando a que otro jugador se una...';
+                    output.innerText = `ID de sesión: ${selected_sessionId}`;
+                    output.style.color = 'black';
+                    input.style.display = 'none';
+                    button.style.display = 'none';
+                    let timeoutId;
+                    const unsubscribe = onValue(ref(database, `games/${selected_sessionId}`), (snapshot) => {
+                        const game = snapshot.val();
+                        console.log('handlePlayer1Input: Snapshot received', game);
+                        if (game && game.player2 && game.status === 'ready') {
+                            selected_player2 = game.player2;
+                            clearTimeout(timeoutId);
+                            input.removeEventListener('keypress', currentHandler);
+                            resolve({ mode: selected_mode, prompt, input, button, output, container, player1: selected_player1, player2: selected_player2, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
+                        }
+                    }, { onlyOnce: true });
+                    timeoutId = setTimeout(() => {
+                        if (prompt.innerText.includes('Esperando')) {
+                            console.warn('handlePlayer1Input: Timeout waiting for Player 2');
+                            output.innerText = 'Tiempo de espera agotado. Intenta crear un nuevo juego.';
+                            output.style.color = 'red';
+                            input.style.display = 'inline-block';
+                            button.style.display = 'inline-block';
+                            input.value = '';
+                            focusInput(input);
+                            button.onclick = () => main();
+                            remove(ref(database, `games/${selected_sessionId}`))
+                                .then(() => console.log('handlePlayer1Input: Cleaned up Firebase session', selected_sessionId))
+                                .catch(err => console.error('handlePlayer1Input: Error cleaning up Firebase session', err));
+                            unsubscribe();
+                        }
+                    }, 60000);
                 } catch (error) {
-                    console.error('create_game_ui: Error checking session ID:', error);
-                    output.innerText = 'Error al verificar el ID de sesión. Intenta de nuevo.';
+                    console.error('create_game_ui: Error updating player 1 in Firebase:', error);
+                    output.innerText = 'Error al registrar el Jugador 1. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
                 }
+            } else {
+                prompt.innerText = 'Nombre Jugador 2:';
+                input.value = selected_player2 || '';
+                focusInput(input);
+                button.onclick = handlePlayer2Input;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
             }
+        }
 
-            function handlePlayer1Input() {
-                selected_player1 = format_name(input.value.trim()) || 'Jugador 1';
-                console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
+        async function handlePlayer2Input() {
+            const player2Input = input.value.trim();
+            console.log('create_game_ui: Player 2 input:', player2Input);
+            if (!player2Input) {
+                output.innerText = 'Ingresa un nombre válido para Jugador 2.';
+                output.style.color = 'red';
                 input.value = '';
                 focusInput(input);
-                input.removeEventListener('keypress', currentHandler);
-                if (selected_mode === '2') {
-                    if (selected_gameType === 'remoto') {
-                        update(ref(database, `games/${selected_sessionId}`), {
-                            player1: selected_player1,
-                            status: 'waiting_for_player2'
-                        });
-                        prompt.innerText = `Esperando a que otro jugador se una (ID: ${selected_sessionId})...`;
-                        button.style.display = 'none';
-                        input.style.display = 'none';
-                        onValue(ref(database, `games/${selected_sessionId}`), (snapshot) => {
-                            const game = snapshot.val();
-                            if (game && game.player2 && game.status === 'ready') {
-                                selected_player2 = game.player2;
-                                console.log('create_game_ui: Player 2 joined:', selected_player2);
-                                prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                button.style.display = 'none';
-                                input.style.display = 'inline-block';
-                                focusInput(input);
-                                resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
-                            }
-                        }, { onlyOnce: true });
-                        setTimeout(() => {
-                            if (prompt.innerText.includes('Esperando')) {
-                                console.warn('create_game_ui: Timeout waiting for Player 2');
-                                output.innerText = 'Tiempo de espera agotado. Intenta crear un nuevo juego.';
-                                output.style.color = 'red';
-                                input.style.display = 'inline-block';
-                                button.style.display = 'inline-block';
-                                input.value = '';
-                                focusInput(input);
-                            }
-                        }, 60000); // 60-second timeout
-                    } else {
-                        prompt.innerText = 'Nombre Jugador 2:';
-                        button.onclick = handlePlayer2Input;
-                        currentHandler = (e) => {
-                            if (e.key === 'Enter') button.click();
-                        };
-                        input.addEventListener('keypress', currentHandler);
-                    }
-                } else if (selected_mode === '3') {
-                    selected_player2 = 'IA';
-                    console.log('create_game_ui: Assigned Player 2: IA');
-                    if (input.parentNode) container.removeChild(input);
-                    if (button.parentNode) container.removeChild(button);
-                    prompt.innerText = 'Seleccione la dificultad:';
-                    const buttonContainer = document.createElement('div');
-                    buttonContainer.className = 'button-group';
-                    buttonContainer.style.margin = '10px';
-                    ['Fácil', 'Normal', 'Difícil'].forEach((label, index) => {
-                        const diffButton = document.createElement('button');
-                        diffButton.className = 'game-button difficulty-button';
-                        diffButton.innerText = label;
-                        diffButton.style.padding = '8px 16px';
-                        diffButton.style.fontSize = '16px';
-                        diffButton.style.cursor = 'pointer';
-                        diffButton.style.margin = '5px';
-                        diffButton.onclick = () => {
-                            selected_difficulty = ['facil', 'normal', 'dificil'][index];
-                            console.log('create_game_ui: Difficulty selected:', selected_difficulty);
-                            container.removeChild(buttonContainer);
-                            if (!input.parentNode) container.appendChild(input);
-                            if (!button.parentNode) container.appendChild(button);
-                            button.style.display = 'none';
-                            prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                            focusInput(input);
-                            resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
-                        };
-                        buttonContainer.appendChild(diffButton);
-                    });
-                    container.appendChild(buttonContainer);
-                } else {
-                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                    button.style.display = 'none';
-                    focusInput(input);
-                    resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
-                }
+                return;
             }
-
-            function handlePlayer2Input() {
-                selected_player2 = format_name(input.value.trim()) || 'Jugador 2';
-                console.log('create_game_ui: Formatted Player 2 name:', selected_player2);
-                if (selected_gameType === 'remoto') {
-                    update(ref(database, `games/${selected_sessionId}`), {
+            selected_player2 = player2Input.charAt(0).toUpperCase() + player2Input.slice(1).toLowerCase();
+            console.log('create_game_ui: Formatted Player 2 name:', selected_player2);
+            if (selected_gameType === 'remoto') {
+                try {
+                    await update(ref(database, `games/${selected_sessionId}`), {
                         player2: selected_player2,
                         status: 'ready'
                     });
+                    console.log('handlePlayer2Input: Updated Firebase with player2', { sessionId: selected_sessionId, player2: selected_player2 });
+                    input.removeEventListener('keypress', currentHandler);
+                    resolve({ mode: selected_mode, prompt, input, button, output, container, player1: selected_player1, player2: selected_player2, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
+                } catch (error) {
+                    console.error('create_game_ui: Error updating player 2 in Firebase:', error);
+                    output.innerText = 'Error al registrar el Jugador 2. Intenta de nuevo.';
+                    output.style.color = 'red';
+                    input.value = '';
+                    focusInput(input);
                 }
+            } else {
+                input.removeEventListener('keypress', currentHandler);
+                resolve({ mode: selected_mode, prompt, input, button, output, container, player1: selected_player1, player2: selected_player2, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
+            }
+        }
+
+        function handleDifficultyInput() {
+            const difficultyInput = input.value.trim().toLowerCase();
+            console.log('create_game_ui: Difficulty selected:', difficultyInput);
+            if (!['fácil', 'medio', 'difícil'].includes(difficultyInput)) {
+                output.innerText = 'Dificultad inválida. Ingresa "fácil", "medio" o "difícil".';
+                output.style.color = 'red';
                 input.value = '';
                 focusInput(input);
-                input.removeEventListener('keypress', currentHandler);
-                prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                button.style.display = 'none';
-                focusInput(input);
-                resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
+                return;
             }
-
+            selected_difficulty = difficultyInput;
+            prompt.innerText = 'Nombre Jugador:';
+            input.value = selected_player1 || '';
+            focusInput(input);
+            button.onclick = handlePlayer1Input;
+            input.removeEventListener('keypress', currentHandler);
             currentHandler = (e) => {
                 if (e.key === 'Enter') button.click();
             };
-            button.onclick = handleModeInput;
             input.addEventListener('keypress', currentHandler);
-            focusInput(input);
-        });
-    } finally {
-        isCreatingUI = false;
+        }
+
+        button.onclick = handleModeInput;
+        currentHandler = (e) => {
+            if (e.key === 'Enter') button.click();
+        };
+        input.addEventListener('keypress', currentHandler);
+    }).then((result) => {
         console.log('create_game_ui: UI creation completed');
-    }
+        return result;
+    }).catch((err) => {
+        console.error('create_game_ui: Error in UI creation', err);
+        output.innerText = 'Error al crear la interfaz. Por favor, recarga la página.';
+        output.style.color = 'red';
+        return null;
+    });
 }
 
 async function start_game(mode, players, output, container, prompt, input, button, difficulty = null, games_played = 0, total_scores = null, wins = null, gameType = null, sessionId = null) {
@@ -1260,8 +1256,6 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
 
 // ... (Imports, Firebase initialization, and other functions unchanged) ...
 
-// ... (Imports, Firebase initialization, and other functions unchanged) ...
-
 async function play_game(loadingMessage, secret_word, mode, players, output, container, prompt, input, button, difficulty, games_played, games_to_play, total_scores, wins, delay, display_feedback, gameType, sessionId) {
     console.log('play_game: Starting, Loaded version 2025-06-22-v9.9', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
     
@@ -1275,7 +1269,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     const total_tries = Math.max(1, mode === '1' ? provided_secret_word.length - 2 : Math.floor(provided_secret_word.length / 2));
     const tries = Object.fromEntries(players.map(p => [p, total_tries]));
     const scores = Object.fromEntries(players.map(p => [p, 0]));
-    const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p549, false]));
+    const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p, false])); // Fixed typo
     const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
     let current_player_idx = games_played % players.length;
 
@@ -1285,7 +1279,6 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     if (mode === '2' && gameType === 'remoto') {
         try {
             sessionRef = ref(database, `games/${sessionId}`);
-            // Retry initial game state update
             let attempts = 3;
             while (attempts--) {
                 try {
@@ -1408,8 +1401,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
         let unsubscribe;
         if (mode === '2' && gameType === 'remoto') {
-            // Delay listener setup to ensure initial update is complete
-            await delay(1000); // Wait 1 second for Firebase update to propagate
+            await delay(1000); // Wait for Firebase update to propagate
             unsubscribe = onValue(sessionRef, async (snapshot) => {
                 const game = snapshot.val();
                 console.log('game_loop: Firebase snapshot received', game);
@@ -1422,7 +1414,6 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     console.log('game_loop: Game not in playing state, exiting', game.status);
                     return;
                 }
-                // Validate all required properties
                 if (!Array.isArray(game.guessedLetters)) {
                     console.warn('game_loop: game.guessedLetters is not an array, initializing as empty', game.guessedLetters);
                     game.guessedLetters = [];
@@ -1703,13 +1694,11 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
     } finally {
         if (unsubscribe) {
-            unsubscribe(); // Explicitly clean up listener
+            unsubscribe();
             console.log('play_game: Firebase listeners cleaned up');
         }
     }
 }
-
-// ... (Rest of the file unchanged) ...
 
 async function main() {
     console.log('main: Starting, Loaded version 2025-06-16-v9.8');
@@ -1724,7 +1713,6 @@ async function main() {
         const players = [player1];
         if (mode === '2' || mode === '3') players.push(player2);
         console.log('main: Players:', players);
-        // Validate players before starting game
         if (!players.every(p => p && typeof p === 'string' && p.trim())) {
             console.error('main: Invalid players detected', players);
             output.innerText = 'Error: Jugadores no definidos correctamente.';
@@ -1736,7 +1724,9 @@ async function main() {
         console.log('main: Game started');
     } catch (err) {
         console.error('main: Error in game setup', err);
-        document.body.innerHTML = '<p style="color: red; text-align: center;">Error al iniciar el juego. Por favor, recarga la página.</p>';
+        output.innerText = 'Error al iniciar el juego. Por favor, recarga la página.';
+        output.style.color = 'red';
+        return; // Stop execution
     }
 }
 
