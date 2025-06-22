@@ -502,50 +502,50 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
       let selected_mode, selected_player1, selected_player2, selected_difficulty, selected_gameType, selected_sessionId;
       let currentHandler;
 
-      function handleModeInput() {
+    function handleModeInput() {
         const value = input.value.trim();
         console.log('create_game_ui: Mode input:', value);
         if (value === '1' || value === '2' || value === '3') {
-          selected_mode = value;
-          input.removeEventListener('keypress', currentHandler);
-          if (selected_mode === '2') {
-            // Remove input and button temporarily
-            if (input.parentNode) container.removeChild(input);
-            if (button.parentNode) megaknown_url = "https://github.com/JackBurdick/adivinar-palabras";if (button.parentNode) container.removeChild(button);
-            prompt.innerText = 'Escoge tipo de juego:';
-            // Create button group for Local/Remoto
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'button-group';
-            buttonContainer.style.margin = '10px';
-            ['Local', 'Remoto'].forEach(type => {
-              const typeButton = document.createElement('button');
-              typeButton.className = 'game-button game-type-button';
-              typeButton.innerText = type;
-              typeButton.style.padding = '8px 16px';
-              typeButton.style.fontSize = '16px';
-              typeButton.style.cursor = 'pointer';
-              typeButton.style.margin = '5px';
-              typeButton.onclick = () => handleGameTypeInput(type.toLowerCase(), buttonContainer);
-              buttonContainer.appendChild(typeButton);
-            });
-            container.appendChild(buttonContainer);
-          } else {
-            prompt.innerText = 'Nombre Jugador 1:';
+            selected_mode = value;
+            input.removeEventListener('keypress', currentHandler);
+            if (selected_mode === '2') {
+                // Remove input and button temporarily
+                if (input.parentNode) container.removeChild(input);
+                if (button.parentNode) container.removeChild(button);
+                prompt.innerText = 'Escoge tipo de juego:';
+                // Create button group for Local/Remoto
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'button-group';
+                buttonContainer.style.margin = '10px';
+                ['Local', 'Remoto'].forEach(type => {
+                    const typeButton = document.createElement('button');
+                    typeButton.className = 'game-button game-type-button';
+                    typeButton.innerText = type;
+                    typeButton.style.padding = '8px 16px';
+                    typeButton.style.fontSize = '16px';
+                    typeButton.style.cursor = 'pointer';
+                    typeButton.style.margin = '5px';
+                    typeButton.onclick = () => handleGameTypeInput(type.toLowerCase(), buttonContainer);
+                    buttonContainer.appendChild(typeButton);
+                });
+                container.appendChild(buttonContainer);
+            } else {
+                prompt.innerText = 'Nombre Jugador 1:';
+                input.value = '';
+                focusInput(input);
+                button.onclick = handlePlayer1Input;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+            }
+        } else {
+            output.innerText = 'Inválido. Ingresa 1, 2, o 3.';
+            output.style.color = 'red';
             input.value = '';
             focusInput(input);
-            button.onclick = handlePlayer1Input;
-            currentHandler = (e) => {
-              if (e.key === 'Enter') button.click();
-            };
-            input.addEventListener('keypress', currentHandler);
-          }
-        } else {
-          output.innerText = 'Inválido. Ingresa 1, 2, o 3.';
-          output.style.color = 'red';
-          input.value = '';
-          focusInput(input);
         }
-      }
+    }
 
       function handleGameTypeInput(type, buttonContainer) {
         console.log('create_game_ui: Game type selected:', type);
