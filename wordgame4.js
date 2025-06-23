@@ -447,7 +447,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed15', { 
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed16', { 
         mode, player1, player2, difficulty, gameType, sessionId,
         firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId },
         authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
@@ -620,7 +620,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         return;
                     }
                     try {
-                        const secretWord = await get_secret_word();
+                        const secretWord = await getSecretWord();
                         if (!secretWord) {
                             console.error('create_game_ui: Failed to fetch secret word');
                             output.innerText = 'Error al generar la palabra secreta. Intenta de nuevo.';
@@ -636,7 +636,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             try {
                                 const snapshot = await get(sessionRef);
                                 if (snapshot.exists()) {
-                                    console.warn('create_game_ui: Session ID already exists', selected_sessionId);
+                                    console.warn('create_game_ui: Session ID collision', selected_sessionId);
                                     selected_sessionId = Math.random().toString(36).substring(2, 12);
                                     continue;
                                 }
@@ -656,13 +656,20 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 console.log('create_game_ui: Attempting to set initial state', { 
                                     sessionId: selected_sessionId, 
                                     initialState, 
-                                    authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined' 
+                                    authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
                                 });
                                 await set(sessionRef, initialState);
+                                await delay(500); // Wait for Firebase propagation
                                 const createdSnapshot = await get(sessionRef);
                                 const createdState = createdSnapshot.val();
-                                if (!createdState || !createdState.secretWord || !Array.isArray(createdState.guessedLetters) || !createdState.initialized) {
-                                    console.error('create_game_ui: Invalid state after set', createdState);
+                                console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
+                                if (!createdState || !createdState.secretWord || !createdState.initialized || (createdState.guessedLetters == null || !Array.isArray(createdState.guessedLetters))) {
+                                    console.error('create_game_ui: Invalid state after set', { 
+                                        createdState, 
+                                        hasSecretWord: !!createdState?.secretWord,
+                                        hasInitialized: !!createdState?.initialized,
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters
+                                    });
                                     try {
                                         await remove(sessionRef);
                                         console.log('create_game_ui: Cleaned up invalid session', selected_sessionId);
@@ -774,8 +781,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         focusInput(input);
                         return;
                     }
-                    if (!game.secretWord || !game.initialized || !Array.isArray(game.guessedLetters)) {
-                        console.warn('create_game_ui: Invalid session state, attempting correction', { secretWord: !!game.secretWord, initialized: !!game.initialized, guessedLetters: game.guessedLetters });
+                    if (!game.secretWord || !game.initialized || (game.guessedLetters == null || !Array.isArray(game.guessedLetters))) {
+                        console.warn('create_game_ui: Invalid session state, attempting correction', { 
+                            secretWord: !!game.secretWord, 
+                            initialized: !!game.initialized, 
+                            guessedLettersType: game.guessedLetters == null ? 'null/undefined' : typeof game.guessedLetters 
+                        });
                         let attempts = 3;
                         while (attempts--) {
                             try {
@@ -799,8 +810,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 await delay(500);
                             }
                         }
-                        if (!game.secretWord || !game.initialized || !Array.isArray(game.guessedLetters)) {
-                            console.error('create_game_ui: Failed to correct invalid session state', { secretWord: !!game.secretWord, initialized: !!game.initialized, guessedLetters: game.guessedLetters });
+                        if (!game.secretWord || !game.initialized || (game.guessedLetters == null || !Array.isArray(game.guessedLetters))) {
+                            console.error('create_game_ui: Failed to correct invalid session state', { 
+                                secretWord: !!game.secretWord, 
+                                initialized: !!game.initialized, 
+                                guessedLettersType: game.guessedLetters == null ? 'null/undefined' : typeof game.guessedLetters 
+                            });
                             output.innerText = 'Error: Sesión inválida, falta la palabra secreta o estado incorrecto.';
                             output.style.color = 'red';
                             input.value = '';
@@ -858,7 +873,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     while (attempts--) {
                         try {
                             const snapshot = await get(sessionRef);
-                            if (!snapshot.exists() || !snapshot.val().secretWord || !Array.isArray(snapshot.val().guessedLetters)) {
+                            if (!snapshot.exists() || !snapshot.val().secretWord || (snapshot.val().guessedLetters == null || !Array.isArray(snapshot.val().guessedLetters))) {
                                 console.error('create_game_ui: Invalid session for player1 update', selected_sessionId, snapshot.val());
                                 throw new Error('Invalid session state');
                             }
@@ -999,7 +1014,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     const sessionRef = ref(database, `games/${selected_sessionId}`);
                     while (attempts--) {
                         const snapshot = await get(sessionRef);
-                        if (!snapshot.exists() || !snapshot.val().secretWord || !Array.isArray(snapshot.val().guessedLetters) || !snapshot.val().initialized) {
+                        if (!snapshot.exists() || !snapshot.val().secretWord || (snapshot.val().guessedLetters == null || !Array.isArray(snapshot.val().guessedLetters)) || !snapshot.val().initialized) {
                             console.warn(`create_game_ui: Invalid session state, retry ${attempts}/5`, snapshot.val());
                             await delay(1000);
                             continue;
@@ -1007,7 +1022,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         game = snapshot.val();
                         break;
                     }
-                    if (!game || !game.secretWord || !Array.isArray(game.guessedLetters)) {
+                    if (!game || !game.secretWord || (game.guessedLetters == null || !Array.isArray(game.guessedLetters))) {
                         console.error('create_game_ui: Invalid session or missing secret word', selected_sessionId);
                         output.innerText = 'Error: Sesión inválida o palabra secreta no definida.';
                         output.style.color = 'red';
@@ -1980,7 +1995,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 }
 
 async function main() {
-    console.log('main: Starting, Loaded version 2025-06-23-v9.10-fixed15');
+    console.log('main: Starting, Loaded version 2025-06-23-v9.10-fixed16');
     try {
         await create_game_ui();
     } catch (error) {
