@@ -437,7 +437,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed11', { 
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed12', { 
         mode, player1, player2, difficulty, gameType, sessionId,
         firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId }
     });
@@ -598,7 +598,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         focusInput(input);
                         return;
                     }
-                    selected_sessionId = Math.random().toString(36).substring(2, 10);
+                    // Generate a longer session ID
+                    selected_sessionId = Math.random().toString(36).substring(2, 12);
                     console.log('create_game_ui: Generated session ID:', selected_sessionId);
                     if (!selected_sessionId) {
                         console.error('create_game_ui: Failed to generate session ID');
@@ -626,20 +627,20 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 const snapshot = await get(sessionRef);
                                 if (snapshot.exists()) {
                                     console.warn('create_game_ui: Session ID already exists', selected_sessionId);
-                                    selected_sessionId = Math.random().toString(36).substring(2, 10);
+                                    selected_sessionId = Math.random().toString(36).substring(2, 12);
                                     continue;
                                 }
                                 const initialState = {
                                     status: 'waiting',
-                                    player1: null,
-                                    player2: null,
+                                    player1: '',
+                                    player2: '',
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
                                     guessedLetters: [],
                                     tries: {},
                                     scores: {},
-                                    currentPlayer: null,
+                                    currentPlayer: '',
                                     initialized: true
                                 };
                                 console.log('create_game_ui: Attempting to set initial state', { sessionId: selected_sessionId, initialState });
@@ -647,8 +648,15 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 // Validate state post-set
                                 const createdSnapshot = await get(sessionRef);
                                 const createdState = createdSnapshot.val();
-                                if (!createdState || !createdState.secretWord || !Array.isArray(createdState.guessedLetters)) {
+                                if (!createdState || !createdState.secretWord || !Array.isArray(createdState.guessedLetters) || !createdState.initialized) {
                                     console.error('create_game_ui: Invalid state after set', createdState);
+                                    // Attempt to clean up invalid session
+                                    try {
+                                        await remove(sessionRef);
+                                        console.log('create_game_ui: Cleaned up invalid session', selected_sessionId);
+                                    } catch (cleanupError) {
+                                        console.warn('create_game_ui: Failed to clean up invalid session', cleanupError);
+                                    }
                                     throw new Error('Failed to validate session state');
                                 }
                                 console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId, secretWord, createdState });
@@ -1000,8 +1008,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 player2: selected_player2,
                                 status: 'playing',
                                 currentPlayer: selected_player1,
-                                tries: { [selected_player1]: game.tries[selected_player1] || 4, [selected_player2]: 4 },
-                                scores: { [selected_player1]: game.scores[selected_player1] || 0, [selected_player2]: 0 }
+                                tries: { [selected_player1]: game.tries && game.tries[selected_player1] || 4, [selected_player2]: 4 },
+                                scores: { [selected_player1]: game.scores && game.scores[selected_player1] || 0, [selected_player2]: 0 }
                             });
                             console.log('handlePlayer2Input: Updated Firebase with player2', { sessionId: selected_sessionId, player2: selected_player2, state: (await get(sessionRef)).val() });
                             success = true;
