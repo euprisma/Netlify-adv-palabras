@@ -341,6 +341,27 @@ function escapeHTML(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function display_feedback(message, color, player = null, append = false) {
+    console.log('display_feedback:', { message, color, player, append });
+    const output = document.querySelector('.game-output');
+    if (!output) {
+        console.warn('display_feedback: Output element not found');
+        return;
+    }
+    const escapedPlayer = player ? escapeHTML(player) : null;
+    const formatted_feedback = escapedPlayer ? message.replace(player, `<strong>${escapedPlayer}</strong>`) : message;
+    if (append) {
+        output.innerHTML += `<br><span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
+    } else {
+        output.innerHTML = `<span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
+    }
+    try {
+        output.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+        console.error('display_feedback: Error scrolling output', err);
+    }
+}
+
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
   console.log('get_guess: Starting, Loaded version 2025-06-19-v9.19', {
     prompt: prompt?.innerText,
@@ -1265,22 +1286,6 @@ async function start_game(mode, players, output, container, prompt, input, butto
 
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        function display_feedback(message, color, player, append = false) {
-            const escapedPlayer = player ? escapeHTML(player) : null;
-            const formatted_feedback = escapedPlayer ? message.replace(player, `<strong>${escapedPlayer}</strong>`) : message;
-            if (append) {
-                output.innerHTML += `<br><span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
-            } else {
-                output.innerHTML = `<span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
-            }
-            console.log(`display_feedback: ${append ? 'Appended' : 'Displayed'}:`, formatted_feedback);
-            try {
-                output.scrollIntoView({ behavior: 'smooth' });
-            } catch (err) {
-                console.error('display_feedback: Error scrolling output', err);
-            }
-        }
-
         let loadingMessage;
         try {
             // Clear all elements except container
@@ -2160,26 +2165,42 @@ async function main() {
     if (gameState) {
         console.log('main: create_game_ui resolved', gameState);
         const players = [gameState.player1, gameState.player2].filter(Boolean);
-        await play_game(
-            null, // loadingMessage
-            null, // secret_word (fetched from Firebase)
-            gameState.mode,
-            players,
-            gameState.output,
-            gameState.container,
-            gameState.prompt,
-            gameState.input,
-            gameState.button,
-            gameState.difficulty,
-            0, // games_played
-            3, // games_to_play
-            Object.fromEntries(players.map(p => [p, 0])), // total_scores
-            Object.fromEntries(players.map(p => [p, 0])), // wins
-            delay, // defined as: const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-            display_feedback, // defined elsewhere
-            gameState.gameType,
-            gameState.sessionId
-        );
+        try {
+            await play_game(
+                null,
+                null,
+                gameState.mode,
+                players,
+                gameState.output,
+                gameState.container,
+                gameState.prompt,
+                gameState.input,
+                gameState.button,
+                gameState.difficulty,
+                0,
+                3,
+                Object.fromEntries(players.map(p => [p, 0])),
+                Object.fromEntries(players.map(p => [p, 0])),
+                delay,
+                display_feedback,
+                gameState.gameType,
+                gameState.sessionId
+            );
+        } catch (error) {
+            console.error('main: Error in play_game:', error);
+            const output = document.querySelector('.game-output');
+            if (output) {
+                output.innerText = 'Error al iniciar el juego. Intenta de nuevo.';
+                output.style.color = 'red';
+            }
+        }
+    } else {
+        console.warn('main: create_game_ui returned null');
+        const output = document.querySelector('.game-output');
+        if (output) {
+            output.innerText = 'Error al configurar el juego. Intenta de nuevo.';
+            output.style.color = 'red';
+        }
     }
 }
 
