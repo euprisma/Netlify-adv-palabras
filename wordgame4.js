@@ -1806,5 +1806,35 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     }
 }
 
+async function main() {
+    console.log('main: Starting, Loaded version 2025-06-16-v9.8');
+    try {
+        const ui = await create_game_ui();
+        if (!ui) {
+            console.error('main: UI creation failed, aborting');
+            return;
+        }
+        const { mode, prompt, input, button, output, container, player1, player2, difficulty, gameType, sessionId } = ui;
+        console.log('main: UI created', { mode, player1, player2, difficulty, gameType, sessionId });
+        const players = [player1];
+        if (mode === '2' || mode === '3') players.push(player2);
+        console.log('main: Players:', players);
+        if (!players.every(p => p && typeof p === 'string' && p.trim())) {
+            console.error('main: Invalid players detected', players);
+            output.innerText = 'Error: Jugadores no definidos correctamente.';
+            return;
+        }
+        const total_scores = Object.fromEntries(players.map(p => [p, 0]));
+        const wins = Object.fromEntries(players.map(p => [p, 0]));
+        await start_game(mode, players, output, container, prompt, input, button, difficulty, 0, total_scores, wins, gameType, sessionId);
+        console.log('main: Game started');
+    } catch (err) {
+        console.error('main: Error in game setup', err);
+        output.innerText = 'Error al iniciar el juego. Por favor, recarga la página.';
+        output.style.color = 'red';
+        return; // Stop execution
+    }
+}
+
 // Start the game
 main();
