@@ -437,7 +437,10 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed10', { mode, player1, player2, difficulty, gameType, sessionId });
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed11', { 
+        mode, player1, player2, difficulty, gameType, sessionId,
+        firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId }
+    });
 
     if (isCreatingUI) {
         console.warn('create_game_ui: UI creation already in progress, skipping');
@@ -589,7 +592,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 if (value === 'crear') {
                     if (!database) {
                         console.error('create_game_ui: Firebase database not initialized');
-                        output.innerText = 'Error: No se pudo conectar con la base de datos.';
+                        output.innerText = 'Error: No se pudo conectar con la base de datos. Verifica la configuración de Firebase.';
                         output.style.color = 'red';
                         input.value = '';
                         focusInput(input);
@@ -639,6 +642,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     currentPlayer: null,
                                     initialized: true
                                 };
+                                console.log('create_game_ui: Attempting to set initial state', { sessionId: selected_sessionId, initialState });
                                 await set(sessionRef, initialState);
                                 // Validate state post-set
                                 const createdSnapshot = await get(sessionRef);
@@ -647,14 +651,17 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     console.error('create_game_ui: Invalid state after set', createdState);
                                     throw new Error('Failed to validate session state');
                                 }
-                                console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId, secretWord, initialState });
+                                console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId, secretWord, createdState });
                                 success = true;
                                 break;
                             } catch (error) {
                                 console.warn(`create_game_ui: Retry ${5 - attempts}/5 for Firebase set`, error);
                                 if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
-                                    console.error('create_game_ui: Permission denied, check Firebase rules');
-                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase o inicia sesión.';
+                                    console.error('create_game_ui: Permission denied, check Firebase rules and database URL', {
+                                        databaseURL: firebaseConfig.databaseURL,
+                                        projectId: firebaseConfig.projectId
+                                    });
+                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto o inicia sesión.';
                                     output.style.color = 'red';
                                     input.value = '';
                                     focusInput(input);
@@ -664,8 +671,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             }
                         }
                         if (!success) {
-                            console.error('create_game_ui: Failed to create Firebase session');
-                            output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo o verifica la conexión.';
+                            console.error('create_game_ui: Failed to create Firebase session after retries');
+                            output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo o verifica la conexión a Firebase.';
                             output.style.color = 'red';
                             input.value = '';
                             focusInput(input);
@@ -683,7 +690,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     } catch (error) {
                         console.error('create_game_ui: Error creating game session:', error);
                         output.innerText = error.message.includes('permission_denied')
-                            ? 'Error: Permiso denegado. Verifica las reglas de Firebase.'
+                            ? 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto.'
                             : 'Error al crear la sesión de juego. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
@@ -692,7 +699,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 } else if (value === 'remoto') {
                     if (!database) {
                         console.error('create_game_ui: Firebase database not initialized');
-                        output.innerText = 'Error: No se pudo conectar con la base de datos.';
+                        output.innerText = 'Error: No se pudo conectar con la base de datos. Verifica la configuración de Firebase.';
                         output.style.color = 'red';
                         input.value = '';
                         focusInput(input);
