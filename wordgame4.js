@@ -38,15 +38,6 @@ const format_name = typeof format_name === 'function' ? format_name : (name) => 
     return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 };
 
-const focusInput = typeof focusInput === 'function' ? focusInput : (input) => {
-    try {
-        input.focus();
-        console.log('focusInput: Input focused', { inputId: input.id });
-    } catch (err) {
-        console.warn('focusInput: Failed to focus input', err);
-    }
-};
-
 // Global game state to prevent UI resets during active game
 let isGameActive = false;
 let isCreatingUI = false;
