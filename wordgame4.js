@@ -1,7 +1,7 @@
 // Transcrypt'ed from Python, 2025-06-16, updated 2025-10-14 for Firebase v10.14.0
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getDatabase, ref, set, update, onValue, get, remove } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
-import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js';
+import { getDatabase, ref, set, update, onValue, get, remove } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js';
+import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js';
 
 // Global variables for Firebase
 let app;
@@ -659,10 +659,29 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
                                 });
                                 await set(sessionRef, initialState);
-                                await delay(500); // Wait for Firebase propagation
-                                const createdSnapshot = await get(sessionRef);
-                                const createdState = createdSnapshot.val();
-                                console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
+                                await delay(1000); // Increased delay to 1000ms for propagation
+                                let validationAttempts = 3;
+                                let createdState;
+                                while (validationAttempts--) {
+                                    const createdSnapshot = await get(sessionRef);
+                                    createdState = createdSnapshot.val();
+                                    console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
+                                    if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters)) {
+                                        break;
+                                    }
+                                    console.warn('create_game_ui: Validation attempt failed', {
+                                        attempt: 3 - validationAttempts,
+                                        hasSecretWord: !!createdState?.secretWord,
+                                        hasInitialized: !!createdState?.initialized,
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters
+                                    });
+                                    if (createdState && createdState.secretWord && createdState.initialized && (createdState.guessedLetters == null || !Array.isArray(createdState.guessedLetters))) {
+                                        // Attempt to correct guessedLetters
+                                        await update(sessionRef, { guessedLetters: [] });
+                                        console.log('create_game_ui: Corrected guessedLetters for session', selected_sessionId);
+                                        await delay(500);
+                                    }
+                                }
                                 if (!createdState || !createdState.secretWord || !createdState.initialized || (createdState.guessedLetters == null || !Array.isArray(createdState.guessedLetters))) {
                                     console.error('create_game_ui: Invalid state after set', { 
                                         createdState, 
