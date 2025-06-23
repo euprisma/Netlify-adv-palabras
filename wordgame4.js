@@ -319,13 +319,11 @@ function formato_palabra(progreso) {
 
 // Helper function to escape HTML characters for XSS prevention
 function escapeHTML(str) {
-    return str.replace(/[&<>"']/g, match => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    })[match]);
+    if (str == null || typeof str !== 'string') {
+        console.warn('escapeHTML: Received invalid input', str);
+        return '';
+    }
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
@@ -1315,13 +1313,21 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
 }
 
 async function play_game(loadingMessage, secret_word, mode, players, output, container, prompt, input, button, difficulty, games_played, games_to_play, total_scores, wins, delay, display_feedback, gameType, sessionId) {
-    console.log('play_game: Starting, Loaded version 2025-06-22-v9.9', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
+    console.log('play_game: Starting, Loaded version 2025-06-23-v9.10', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
     
     if (mode === '2' && gameType === 'remoto' && !sessionId) {
         console.error('play_game: Invalid sessionId for remote mode', sessionId);
         display_feedback('Error: ID de sesión no definido. Reinicia el juego.', 'red', null, false);
         return;
     }
+
+    // Validate players array
+    if (!Array.isArray(players) || players.some(p => !p || typeof p !== 'string')) {
+        console.error('play_game: Invalid players array', players);
+        display_feedback('Error: Jugadores no válidos. Reinicia el juego.', 'red', null, false);
+        return;
+    }
+    console.log('play_game: Validated players', players);
 
     let provided_secret_word = secret_word || await get_secret_word();
     console.log('play_game: Secret word:', provided_secret_word);
@@ -1347,7 +1353,13 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             if (snapshot.exists() && snapshot.val().status === 'ready' && snapshot.val().player1) {
                 console.log('play_game: Player 2 joining existing game', snapshot.val());
                 provided_secret_word = snapshot.val().secretWord || provided_secret_word;
-                current_player_idx = players.indexOf(snapshot.val().currentPlayer) || 0;
+                const firebaseCurrentPlayer = snapshot.val().currentPlayer;
+                current_player_idx = players.indexOf(firebaseCurrentPlayer);
+                if (current_player_idx === -1) {
+                    console.warn('play_game: Invalid currentPlayer from Firebase, defaulting to 0', firebaseCurrentPlayer);
+                    current_player_idx = 0;
+                }
+                console.log('play_game: Set current_player_idx', current_player_idx);
             } else {
                 let attempts = 3;
                 while (attempts--) {
@@ -1433,19 +1445,20 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         update_ui();
     } catch (err) {
         console.error('play_game: Error setting up UI', err);
-        display_feedback('Error al configurar la interfaz.', 'red', null, false);
+        display_feedback('Error al configurar la interfaz.', 'red', null, err);
         return;
     }
 
     function update_ui() {
-        const player = players[current_player_idx];
+        const player = players[current_player_idx] || 'Jugador 1';
         const other_player = players[(current_player_idx + 1) % players.length] || null;
+        console.log('update_ui: Updating with', { player, other_player, current_player_idx, players });
         try {
             if (mode === '1') {
-                player_info.innerHTML = `<strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player]} | Puntaje: ${scores[player]}`;
+                player_info.innerHTML = `<strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}`;
             } else {
-                player_info.innerHTML = `Turno de <strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player]} | Puntaje: ${scores[player]}` +
-                    (other_player ? `<br><strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player]} | Puntaje: ${scores[other_player]}` : '');
+                player_info.innerHTML = `Turno de <strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}` +
+                    (other_player ? `<br><strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player] || 0} | Puntaje: ${scores[other_player] || 0}` : '');
             }
             progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
             prompt.innerText = mode === '2' && gameType === 'remoto' && player !== players[current_player_idx] ? 'Esperando el turno del otro jugador...' : 'Ingresa una letra o la palabra completa:';
@@ -1458,6 +1471,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             console.log('update_ui: UI updated', JSON.stringify({ player, score: scores[player], player_info: player_info.innerHTML }));
         } catch (err) {
             console.error('update_ui: Error updating UI', err);
+            display_feedback('Error al actualizar la interfaz del juego.', 'red', null, false);
         }
     }
 
