@@ -437,9 +437,10 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed12', { 
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed13', { 
         mode, player1, player2, difficulty, gameType, sessionId,
-        firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId }
+        firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId },
+        authState: auth.currentUser ? 'Authenticated' : 'Unauthenticated'
     });
 
     if (isCreatingUI) {
@@ -598,7 +599,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         focusInput(input);
                         return;
                     }
-                    // Generate a longer session ID
+                    // Generate a 10-character session ID
                     selected_sessionId = Math.random().toString(36).substring(2, 12);
                     console.log('create_game_ui: Generated session ID:', selected_sessionId);
                     if (!selected_sessionId) {
@@ -643,14 +644,13 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     currentPlayer: '',
                                     initialized: true
                                 };
-                                console.log('create_game_ui: Attempting to set initial state', { sessionId: selected_sessionId, initialState });
+                                console.log('create_game_ui: Attempting to set initial state', { sessionId: selected_sessionId, initialState, authState: auth.currentUser ? 'Authenticated' : 'Unauthenticated' });
                                 await set(sessionRef, initialState);
                                 // Validate state post-set
                                 const createdSnapshot = await get(sessionRef);
                                 const createdState = createdSnapshot.val();
                                 if (!createdState || !createdState.secretWord || !Array.isArray(createdState.guessedLetters) || !createdState.initialized) {
                                     console.error('create_game_ui: Invalid state after set', createdState);
-                                    // Attempt to clean up invalid session
                                     try {
                                         await remove(sessionRef);
                                         console.log('create_game_ui: Cleaned up invalid session', selected_sessionId);
@@ -667,9 +667,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
                                     console.error('create_game_ui: Permission denied, check Firebase rules and database URL', {
                                         databaseURL: firebaseConfig.databaseURL,
-                                        projectId: firebaseConfig.projectId
+                                        projectId: firebaseConfig.projectId,
+                                        authState: auth.currentUser ? 'Authenticated' : 'Unauthenticated'
                                     });
-                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto o inicia sesión.';
+                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto o intenta de nuevo.';
                                     output.style.color = 'red';
                                     input.value = '';
                                     focusInput(input);
