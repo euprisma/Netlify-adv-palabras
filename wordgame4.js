@@ -650,15 +650,15 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     continue;
                                 }
                                 const initialState = {
-                                    status: 'waiting',
+                                    status: 'waiting', // Ensure correct value
                                     player1: '',
                                     player2: '',
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
-                                    guessedLetters: ['__empty__'], // Placeholder to force array persistence
-                                    tries: { __empty__: null }, // Placeholder to force object persistence
-                                    scores: { __empty__: null }, // Placeholder to force object persistence
+                                    guessedLetters: ['__empty__'], // Placeholder for array
+                                    tries: { placeholder: 'empty' }, // Non-null placeholder
+                                    scores: { placeholder: 'empty' }, // Non-null placeholder
                                     currentPlayer: '',
                                     initialized: true
                                 };
@@ -668,7 +668,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
                                 });
                                 await set(sessionRef, initialState);
-                                await delay(2000); // Increased to 2000ms
+                                await delay(2500); // Increased to 2500ms
                                 let validationAttempts = 3;
                                 let createdState;
                                 while (validationAttempts--) {
@@ -676,56 +676,59 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     createdState = createdSnapshot.val();
                                     console.log('Raw Firebase response:', JSON.stringify(createdState, null, 2));
                                     console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
-                                    // Clean up placeholders for validation
+                                    // Clean up placeholders
                                     if (createdState && createdState.guessedLetters && createdState.guessedLetters[0] === '__empty__') {
                                         createdState.guessedLetters = [];
                                     }
-                                    if (createdState && createdState.tries && createdState.tries.__empty__ === null) {
+                                    if (createdState && createdState.tries && createdState.tries.placeholder === 'empty') {
                                         createdState.tries = {};
                                     }
-                                    if (createdState && createdState.scores && createdState.scores.__empty__ === null) {
+                                    if (createdState && createdState.scores && createdState.scores.placeholder === 'empty') {
                                         createdState.scores = {};
                                     }
-                                    if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters) && createdState.tries && createdState.scores) {
+                                    if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters) && typeof createdState.tries === 'object' && typeof createdState.scores === 'object' && createdState.status === 'waiting') {
                                         break;
                                     }
                                     console.warn('create_game_ui: Validation attempt failed', {
                                         attempt: 3 - validationAttempts,
                                         hasSecretWord: !!createdState?.secretWord,
                                         hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState?.guessedLetters,
                                         hasTries: !!createdState?.tries,
-                                        hasScores: !!createdState?.scores
+                                        hasScores: !!createdState?.scores,
+                                        status: createdState?.status
                                     });
                                     if (createdState && createdState.secretWord && createdState.initialized) {
                                         console.log('create_game_ui: Attempting to correct missing fields for session', selected_sessionId);
                                         await update(sessionRef, {
                                             guessedLetters: createdState.guessedLetters && createdState.guessedLetters[0] === '__empty__' ? [] : ['__empty__'],
-                                            tries: createdState.tries && createdState.tries.__empty__ === null ? {} : { __empty__: null },
-                                            scores: createdState.scores && createdState.scores.__empty__ === null ? {} : { __empty__: null }
+                                            tries: createdState.tries && createdState.tries.placeholder === 'empty' ? {} : { placeholder: 'empty' },
+                                            scores: createdState.scores && createdState.scores.placeholder === 'empty' ? {} : { placeholder: 'empty' },
+                                            status: 'waiting' // Ensure correct status
                                         });
                                         console.log('create_game_ui: Corrected missing fields for session', selected_sessionId);
-                                        await delay(1500); // Increased to 1500ms
+                                        await delay(2000); // Increased to 2000ms
                                         // Fallback: Re-set entire state
                                         if (validationAttempts > 0) {
                                             const recheckSnapshot = await get(sessionRef);
                                             const recheckState = recheckSnapshot.val();
-                                            if (!recheckState || !Array.isArray(recheckState.guessedLetters) || !recheckState.tries || !recheckState.scores) {
+                                            if (!recheckState || !Array.isArray(recheckState.guessedLetters) || !recheckState.tries || !recheckState.scores || recheckState.status !== 'waiting') {
                                                 console.log('create_game_ui: Update failed, re-setting initial state', selected_sessionId);
                                                 await set(sessionRef, initialState);
-                                                await delay(2000);
+                                                await delay(2500);
                                             }
                                         }
                                     }
                                 }
-                                if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters) || !createdState.tries || !createdState.scores) {
+                                if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters) || typeof createdState.tries !== 'object' || typeof createdState.scores !== 'object' || createdState.status !== 'waiting') {
                                     console.error('create_game_ui: Invalid state after set', { 
                                         createdState, 
                                         hasSecretWord: !!createdState?.secretWord,
                                         hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState?.guessedLetters,
                                         hasTries: !!createdState?.tries,
-                                        hasScores: !!createdState?.scores
+                                        hasScores: !!createdState?.scores,
+                                        status: createdState?.status
                                     });
                                     try {
                                         await remove(sessionRef);
