@@ -677,7 +677,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         return;
                     }
                     selected_sessionId = sessionIdInput;
-                    selected_player1 = game.player1; // Set player1 from existing game
+                    selected_player1 = game.player1;
                     console.log('create_game_ui: Retrieved Player 1:', selected_player1);
                     prompt.innerText = 'Nombre Jugador 2:';
                     input.value = '';
@@ -723,19 +723,43 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     const unsubscribe = onValue(ref(database, `games/${selected_sessionId}`), (snapshot) => {
                         const game = snapshot.val();
                         console.log('handlePlayer1Input: Snapshot received', game);
+                        if (!snapshot.exists()) {
+                            console.warn('handlePlayer1Input: Game session deleted');
+                            clearTimeout(timeoutId);
+                            output.innerText = 'Sesión terminada. Intenta crear un nuevo juego.';
+                            output.style.color = 'red';
+                            input.style.display = 'inline-block';
+                            button.style.display = 'inline-block';
+                            input.value = '';
+                            focusInput(input);
+                            button.onclick = () => main();
+                            unsubscribe();
+                            return;
+                        }
                         if (game && game.player2 && game.status === 'ready') {
+                            console.log('handlePlayer1Input: Player 2 joined', game.player2);
                             selected_player2 = game.player2;
-                            clearTimeout(timeoutId); // Clear timeout
+                            clearTimeout(timeoutId);
                             input.removeEventListener('keypress', currentHandler);
-                            // Restore input for gameplay
                             input.style.display = 'inline-block';
                             focusInput(input);
+                            unsubscribe();
                             resolve({ mode: selected_mode, prompt, input, button, output, container, player1: selected_player1, player2: selected_player2, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
                         }
-                    }, { onlyOnce: true });
+                    }, (error) => {
+                        console.error('handlePlayer1Input: Firebase snapshot error', error);
+                        output.innerText = 'Error de sincronización. Intenta de nuevo.';
+                        output.style.color = 'red';
+                        input.style.display = 'inline-block';
+                        button.style.display = 'inline-block';
+                        input.value = '';
+                        focusInput(input);
+                        button.onclick = () => main();
+                        clearTimeout(timeoutId);
+                        unsubscribe();
+                    });
                     timeoutId = setTimeout(async () => {
                         if (prompt.innerText.includes('Esperando')) {
-                            // Check if Player 2 has joined before cleanup
                             const snapshot = await get(ref(database, `games/${selected_sessionId}`));
                             if (snapshot.exists() && snapshot.val().player2) {
                                 console.log('handlePlayer1Input: Player 2 joined, skipping cleanup');
@@ -749,11 +773,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             input.value = '';
                             focusInput(input);
                             button.onclick = () => main();
-                            // Clean up Firebase session
                             remove(ref(database, `games/${selected_sessionId}`))
                                 .then(() => console.log('handlePlayer1Input: Cleaned up Firebase session', selected_sessionId))
                                 .catch(err => console.error('handlePlayer1Input: Error cleaning up Firebase session', err));
-                            unsubscribe(); // Clean up listener
+                            unsubscribe();
                         }
                     }, 120000); // 120-second timeout
                 } catch (error) {
@@ -787,11 +810,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     }
                 }
                 input.value = '';
-                focusInput(input);
                 input.removeEventListener('keypress', currentHandler);
                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
                 button.style.display = 'none';
                 focusInput(input);
+                // Explicitly pass parameters to start_game
+                console.log('handlePlayer2Input: Resolving with', { mode: selected_mode, player1: selected_player1, player2: selected_player2, gameType: selected_gameType, sessionId: selected_sessionId });
                 resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
             }
 
@@ -1276,26 +1300,35 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     if (mode === '2' && gameType === 'remoto') {
         try {
             sessionRef = ref(database, `games/${sessionId}`);
-            let attempts = 3;
-            while (attempts--) {
-                try {
-                    await update(sessionRef, {
-                        secretWord: provided_secret_word,
-                        guessedLetters: [], // Ensure array
-                        tries,
-                        scores,
-                        currentPlayer: players[current_player_idx],
-                        status: 'playing'
-                    });
-                    console.log('play_game: Initial Firebase update successful', { sessionId, guessedLetters: [] });
-                    break;
-                } catch (err) {
-                    console.warn(`play_game: Retry ${3 - attempts}/3 for initial Firebase update`, err);
-                    await delay(500);
-                    if (attempts === 0) {
-                        console.error('play_game: Failed to initialize Firebase game state', err);
-                        display_feedback('Error al iniciar el juego remoto. Intenta de nuevo.', 'red', null, false);
-                        return;
+            // Check existing game state for Player 2
+            const snapshot = await get(sessionRef);
+            if (snapshot.exists() && snapshot.val().status === 'ready' && snapshot.val().player1) {
+                console.log('play_game: Player 2 joining existing game', snapshot.val());
+                // Use existing secret word and state
+                provided_secret_word = snapshot.val().secretWord || provided_secret_word;
+                current_player_idx = players.indexOf(snapshot.val().currentPlayer) || 0;
+            } else {
+                let attempts = 3;
+                while (attempts--) {
+                    try {
+                        await update(sessionRef, {
+                            secretWord: provided_secret_word,
+                            guessedLetters: [],
+                            tries,
+                            scores,
+                            currentPlayer: players[current_player_idx],
+                            status: 'playing'
+                        });
+                        console.log('play_game: Initial Firebase update successful', { sessionId, guessedLetters: [] });
+                        break;
+                    } catch (err) {
+                        console.warn(`play_game: Retry ${3 - attempts}/3 for initial Firebase update`, err);
+                        await delay(500);
+                        if (attempts === 0) {
+                            console.error('play_game: Failed to initialize Firebase game state', err);
+                            display_feedback('Error al iniciar el juego remoto. Intenta de nuevo.', 'red', null, false);
+                            return;
+                        }
                     }
                 }
             }
