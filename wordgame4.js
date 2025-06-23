@@ -437,7 +437,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed7', { mode, player1, player2, difficulty, gameType, sessionId });
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed10', { mode, player1, player2, difficulty, gameType, sessionId });
 
     if (isCreatingUI) {
         console.warn('create_game_ui: UI creation already in progress, skipping');
@@ -617,9 +617,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         }
                         let attempts = 5;
                         let success = false;
+                        const sessionRef = ref(database, `games/${selected_sessionId}`);
                         while (attempts--) {
                             try {
-                                const sessionRef = ref(database, `games/${selected_sessionId}`);
                                 const snapshot = await get(sessionRef);
                                 if (snapshot.exists()) {
                                     console.warn('create_game_ui: Session ID already exists', selected_sessionId);
@@ -640,17 +640,32 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     initialized: true
                                 };
                                 await set(sessionRef, initialState);
+                                // Validate state post-set
+                                const createdSnapshot = await get(sessionRef);
+                                const createdState = createdSnapshot.val();
+                                if (!createdState || !createdState.secretWord || !Array.isArray(createdState.guessedLetters)) {
+                                    console.error('create_game_ui: Invalid state after set', createdState);
+                                    throw new Error('Failed to validate session state');
+                                }
                                 console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId, secretWord, initialState });
                                 success = true;
                                 break;
                             } catch (error) {
                                 console.warn(`create_game_ui: Retry ${5 - attempts}/5 for Firebase set`, error);
+                                if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
+                                    console.error('create_game_ui: Permission denied, check Firebase rules');
+                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase o inicia sesión.';
+                                    output.style.color = 'red';
+                                    input.value = '';
+                                    focusInput(input);
+                                    return;
+                                }
                                 await delay(1000);
                             }
                         }
                         if (!success) {
                             console.error('create_game_ui: Failed to create Firebase session');
-                            output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo.';
+                            output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo o verifica la conexión.';
                             output.style.color = 'red';
                             input.value = '';
                             focusInput(input);
@@ -667,7 +682,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         input.addEventListener('keypress', currentHandler);
                     } catch (error) {
                         console.error('create_game_ui: Error creating game session:', error);
-                        output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo.';
+                        output.innerText = error.message.includes('permission_denied')
+                            ? 'Error: Permiso denegado. Verifica las reglas de Firebase.'
+                            : 'Error al crear la sesión de juego. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
                         focusInput(input);
@@ -743,6 +760,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 break;
                             } catch (error) {
                                 console.warn(`create_game_ui: Retry ${3 - attempts}/3 for state correction`, error);
+                                if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
+                                    console.error('create_game_ui: Permission denied for state correction');
+                                    output.innerText = 'Error: Permiso denegado al corregir la sesión. Verifica las reglas de Firebase.';
+                                    output.style.color = 'red';
+                                    input.value = '';
+                                    focusInput(input);
+                                    return;
+                                }
                                 await delay(500);
                             }
                         }
@@ -769,7 +794,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     input.addEventListener('keypress', currentHandler);
                 } catch (error) {
                     console.error('create_game_ui: Error checking session ID:', error);
-                    output.innerText = 'Error al verificar el ID de sesión. Intenta de nuevo.';
+                    output.innerText = error.message.includes('permission_denied')
+                        ? 'Error: Permiso denegado al verificar la sesión. Verifica las reglas de Firebase.'
+                        : 'Error al verificar el ID de sesión. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
@@ -816,6 +843,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             break;
                         } catch (error) {
                             console.warn(`create_game_ui: Retry ${5 - attempts}/5 for player1 update`, error);
+                            if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
+                                console.error('create_game_ui: Permission denied for player1 update');
+                                output.innerText = 'Error: Permiso denegado al registrar Jugador 1. Verifica las reglas de Firebase.';
+                                output.style.color = 'red';
+                                input.value = '';
+                                focusInput(input);
+                                return;
+                            }
                             await delay(1000);
                         }
                     }
@@ -861,7 +896,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         }
                     }, (error) => {
                         console.error('handlePlayer1Input: Firebase snapshot error', error);
-                        output.innerText = 'Error de sincronización. Intenta de nuevo.';
+                        output.innerText = error.message.includes('permission_denied')
+                            ? 'Error: Permiso denegado en la sincronización. Verifica las reglas de Firebase.'
+                            : 'Error de sincronización. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.style.display = 'inline-block';
                         button.style.display = 'inline-block';
@@ -897,7 +934,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     }, 60000);
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 1 in Firebase:', error);
-                    output.innerText = 'Error al registrar el Jugador 1. Intenta de nuevo.';
+                    output.innerText = error.message.includes('permission_denied')
+                        ? 'Error: Permiso denegado al registrar Jugador 1. Verifica las reglas de Firebase.'
+                        : 'Error al registrar el Jugador 1. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
                     input.style.display = 'inline-block';
@@ -962,6 +1001,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             break;
                         } catch (error) {
                             console.warn(`handlePlayer2Input: Retry ${5 - attempts}/5 for Firebase update`, error);
+                            if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
+                                console.error('create_game_ui: Permission denied for player2 update');
+                                output.innerText = 'Error: Permiso denegado al registrar Jugador 2. Verifica las reglas de Firebase.';
+                                output.style.color = 'red';
+                                input.value = '';
+                                focusInput(input);
+                                return;
+                            }
                             await delay(1000);
                         }
                     }
@@ -977,7 +1024,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     output.style.color = 'black';
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Firebase:', error);
-                    output.innerText = 'Error al registrar el Jugador 2. Intenta de nuevo.';
+                    output.innerText = error.message.includes('permission_denied')
+                        ? 'Error: Permiso denegado al registrar Jugador 2. Verifica las reglas de Firebase.'
+                        : 'Error al registrar el Jugador 2. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
