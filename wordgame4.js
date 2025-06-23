@@ -620,7 +620,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         return;
                     }
                     try {
-                        const secretWord = await getSecretWord();
+                        const secretWord = await get_secret_word();
                         if (!secretWord) {
                             console.error('create_game_ui: Failed to fetch secret word');
                             output.innerText = 'Error al generar la palabra secreta. Intenta de nuevo.';
