@@ -1313,7 +1313,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
 }
 
 async function play_game(loadingMessage, secret_word, mode, players, output, container, prompt, input, button, difficulty, games_played, games_to_play, total_scores, wins, delay, display_feedback, gameType, sessionId) {
-    console.log('play_game: Starting, Loaded version 2025-06-23-v9.10', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
+    console.log('play_game: Starting, Loaded version 2025-06-23-v9.11', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
     
     if (mode === '2' && gameType === 'remoto' && !sessionId) {
         console.error('play_game: Invalid sessionId for remote mode', sessionId);
@@ -1445,7 +1445,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         update_ui();
     } catch (err) {
         console.error('play_game: Error setting up UI', err);
-        display_feedback('Error al configurar la interfaz.', 'red', null, err);
+        display_feedback('Error al configurar la interfaz.', 'red', null, false);
         return;
     }
 
@@ -1468,7 +1468,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             } else if (input.parentNode) {
                 input.disabled = true;
             }
-            console.log('update_ui: UI updated', JSON.stringify({ player, score: scores[player], player_info: player_info.innerHTML }));
+            console.log('update_ui: UI updated', JSON.stringify({ player, score: scores[player], player_info: player_info.innerHTML, input_disabled: input.disabled }));
         } catch (err) {
             console.error('update_ui: Error updating UI', err);
             display_feedback('Error al actualizar la interfaz del juego.', 'red', null, false);
@@ -1486,10 +1486,10 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
         let unsubscribe;
         if (mode === '2' && gameType === 'remoto') {
-            await delay(1000);
+            console.log('game_loop: Setting up Firebase listener for', sessionId);
             unsubscribe = onValue(sessionRef, async (snapshot) => {
                 const game = snapshot.val();
-                console.log('game_loop: Firebase snapshot received', game);
+                console.log('game_loop: Firebase snapshot received', JSON.stringify(game));
                 if (!game) {
                     console.log('game_loop: Game session deleted or terminated');
                     display_feedback('El juego ha sido terminado o eliminado por el otro jugador.', 'red', null, false);
@@ -1499,10 +1499,12 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     focusInput(input);
                     button.style.display = 'inline-block';
                     button.onclick = () => main();
+                    if (unsubscribe) unsubscribe();
                     return;
                 }
                 if (game.status !== 'playing') {
                     console.log('game_loop: Game not in playing state, exiting', game.status);
+                    if (unsubscribe) unsubscribe();
                     return;
                 }
                 if (!Array.isArray(game.guessedLetters)) {
@@ -1533,14 +1535,18 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 if (current_player_idx === -1) {
                     console.warn('game_loop: Invalid currentPlayer after validation, resetting to 0', game.currentPlayer);
                     current_player_idx = 0;
+                    await update(sessionRef, { currentPlayer: players[0] });
                 }
+                console.log('game_loop: State updated from Firebase', { current_player_idx, guessed_letters: Array.from(guessed_letters), tries, scores });
                 update_ui();
                 if (game.status === 'ended') {
                     console.log('game_loop: Game ended via Firebase');
+                    if (unsubscribe) unsubscribe();
                 }
             }, (error) => {
                 console.error('game_loop: Firebase snapshot error:', error);
                 display_feedback('Error de sincronización con el servidor remoto.', 'red', null, false);
+                if (unsubscribe) unsubscribe();
             });
         }
 
@@ -1552,6 +1558,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 current_player_idx = (current_player_idx + 1) % players.length;
                 if (mode === '2' && gameType === 'remoto') {
                     await update(sessionRef, { currentPlayer: players[current_player_idx] });
+                    console.log('game_loop: Updated currentPlayer', players[current_player_idx]);
                 }
                 update_ui();
                 continue;
@@ -1597,9 +1604,10 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                         scores,
                         currentPlayer: players[current_player_idx]
                     });
-                    console.log('game_loop: Firebase updated', { guessedLetters: Array.from(guessed_letters), tries, scores, currentPlayer: players[current_player_idx] });
+                    console.log('game_loop: Firebase updated after guess', { guessedLetters: Array.from(guessed_letters), tries, scores, currentPlayer: players[current_player_idx] });
+                    await delay(500); // Ensure Firebase propagates update
                 } catch (err) {
-                    console.error('game_loop: Firebase update error', err);
+                    console.error('game_loop: Firebase update error after guess', err);
                     display_feedback('Error al actualizar el estado del juego remoto.', 'red', null, true);
                 }
             }
@@ -1626,6 +1634,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 await delay(500);
                 if (mode === '2' && gameType === 'remoto') {
                     await update(sessionRef, { tries, scores });
+                    console.log('game_loop: Firebase updated after out of tries', { tries, scores });
                 }
             }
 
@@ -1634,6 +1643,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 display_feedback(`¡Felicidades, <strong>${escapeHTML(player)}</strong>! Adivinaste la palabra!`, 'green', player, false);
                 if (mode === '2' && gameType === 'remoto') {
                     await update(sessionRef, { status: 'ended' });
+                    console.log('game_loop: Firebase updated to ended');
                 }
                 break;
             }
@@ -1652,6 +1662,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 current_player_idx = next_idx;
                 if (mode === '2' && gameType === 'remoto') {
                     await update(sessionRef, { currentPlayer: players[current_player_idx] });
+                    console.log('game_loop: Updated currentPlayer after turn change', players[current_player_idx]);
                 }
             }
             update_ui();
@@ -1792,36 +1803,6 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             unsubscribe();
             console.log('play_game: Firebase listeners cleaned up');
         }
-    }
-}
-
-async function main() {
-    console.log('main: Starting, Loaded version 2025-06-16-v9.8');
-    try {
-        const ui = await create_game_ui();
-        if (!ui) {
-            console.error('main: UI creation failed, aborting');
-            return;
-        }
-        const { mode, prompt, input, button, output, container, player1, player2, difficulty, gameType, sessionId } = ui;
-        console.log('main: UI created', { mode, player1, player2, difficulty, gameType, sessionId });
-        const players = [player1];
-        if (mode === '2' || mode === '3') players.push(player2);
-        console.log('main: Players:', players);
-        if (!players.every(p => p && typeof p === 'string' && p.trim())) {
-            console.error('main: Invalid players detected', players);
-            output.innerText = 'Error: Jugadores no definidos correctamente.';
-            return;
-        }
-        const total_scores = Object.fromEntries(players.map(p => [p, 0]));
-        const wins = Object.fromEntries(players.map(p => [p, 0]));
-        await start_game(mode, players, output, container, prompt, input, button, difficulty, 0, total_scores, wins, gameType, sessionId);
-        console.log('main: Game started');
-    } catch (err) {
-        console.error('main: Error in game setup', err);
-        output.innerText = 'Error al iniciar el juego. Por favor, recarga la página.';
-        output.style.color = 'red';
-        return; // Stop execution
     }
 }
 
