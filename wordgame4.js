@@ -7,7 +7,7 @@ var __name__ = '__main__';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyD4PoM3u5DcJuego-4pBlNW8I7vdUlvrTk-0",
+    apiKey: "AIzaSyD4PoM3u5DcJWG-4pBlNW8I7vdUlvrTk-0",
     authDomain: "adivinar-palabras-5ca6e.firebaseapp.com",
     databaseURL: "https://adivinar-palabras-5ca6e-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "adivinar-palabras-5ca6e",
