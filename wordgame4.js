@@ -656,10 +656,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
-                                    guessedLetters: [],
-                                    tries: {},
-                                    scores: {},
-                                    currentPlayer: null,
+                                    guessedLetters: ['__init__'], // Placeholder to ensure array persistence
+                                    tries: { init: null }, // Placeholder to ensure object persistence
+                                    scores: { init: null }, // Placeholder to ensure object persistence
+                                    currentPlayer: 'none', // Avoid null
                                     initialized: true
                                 };
                                 console.log('create_game_ui: Attempting to set initial state', { 
@@ -668,26 +668,37 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
                                 });
                                 await set(sessionRef, initialState);
-                                await delay(2500);
                                 let validationAttempts = 3;
                                 let createdState;
                                 while (validationAttempts--) {
+                                    await delay(1000); // Reduced delay
                                     const createdSnapshot = await get(sessionRef);
                                     createdState = createdSnapshot.val();
                                     console.log('Raw Firebase response:', JSON.stringify(createdState, null, 2));
                                     console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
-                                    // Relax validation to handle missing fields
                                     if (createdState && createdState.secretWord && createdState.initialized) {
-                                        // Fix missing fields
-                                        if (!Array.isArray(createdState.guessedLetters) || !createdState.tries || !createdState.scores || createdState.currentPlayer === undefined) {
+                                        // Fix missing or incorrect fields
+                                        let needsUpdate = false;
+                                        const updates = {};
+                                        if (!Array.isArray(createdState.guessedLetters) || createdState.guessedLetters.length === 0) {
+                                            updates.guessedLetters = ['__init__'];
+                                            needsUpdate = true;
+                                        }
+                                        if (!createdState.tries || typeof createdState.tries !== 'object' || createdState.tries === null) {
+                                            updates.tries = { init: null };
+                                            needsUpdate = true;
+                                        }
+                                        if (!createdState.scores || typeof createdState.scores !== 'object' || createdState.scores === null) {
+                                            updates.scores = { init: null };
+                                            needsUpdate = true;
+                                        }
+                                        if (createdState.currentPlayer === undefined || createdState.currentPlayer === null) {
+                                            updates.currentPlayer = 'none';
+                                            needsUpdate = true;
+                                        }
+                                        if (needsUpdate) {
                                             console.log('create_game_ui: Correcting missing fields for session', selected_sessionId);
-                                            await update(sessionRef, {
-                                                guessedLetters: Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [],
-                                                tries: typeof createdState.tries === 'object' && createdState.tries !== null ? createdState.tries : {},
-                                                scores: typeof createdState.scores === 'object' && createdState.scores !== null ? createdState.scores : {},
-                                                currentPlayer: createdState.currentPlayer !== undefined ? createdState.currentPlayer : null,
-                                                status: createdState.status || 'waiting'
-                                            });
+                                            await update(sessionRef, updates);
                                             console.log('create_game_ui: Corrected missing fields for session', selected_sessionId);
                                             await delay(1000);
                                             const finalSnapshot = await get(sessionRef);
@@ -707,7 +718,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         hasCurrentPlayer: createdState?.currentPlayer != null,
                                         status: createdState?.status
                                     });
-                                    await delay(1000);
                                 }
                                 if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters)) {
                                     console.error('create_game_ui: Invalid state after set', { 
@@ -1727,20 +1737,29 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     console.log('play_game: Secret word:', provided_secret_word);
                     guessed_letters.clear();
                     if (Array.isArray(game.guessedLetters)) {
-                        game.guessedLetters.forEach(l => guessed_letters.add(l));
+                        // Filter out placeholder
+                        game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
                     }
-                    Object.assign(tries, game.tries || Object.fromEntries(players.map(p => [p, total_tries])));
-                    Object.assign(scores, game.scores || Object.fromEntries(players.map(p => [p, 0])));
-                    current_player_idx = players.indexOf(game.currentPlayer);
-                    if (current_player_idx === -1 || game.currentPlayer === null || game.currentPlayer === undefined) {
-                        console.warn('play_game: Invalid or null currentPlayer from Firebase, defaulting to first player', game.currentPlayer);
+                    // Clean up placeholder tries and scores
+                    const cleanTries = game.tries && typeof game.tries === 'object' ? Object.fromEntries(
+                        Object.entries(game.tries).filter(([k]) => k !== 'init')
+                    ) : Object.fromEntries(players.map(p => [p, total_tries]));
+                    const cleanScores = game.scores && typeof game.scores === 'object' ? Object.fromEntries(
+                        Object.entries(game.scores).filter(([k]) => k !== 'init')
+                    ) : Object.fromEntries(players.map(p => [p, 0]));
+                    Object.assign(tries, cleanTries);
+                    Object.assign(scores, cleanScores);
+                    current_player_idx = players.indexOf(game.currentPlayer === 'none' ? players[0] : game.currentPlayer);
+                    if (current_player_idx === -1) {
+                        console.warn('play_game: Invalid currentPlayer from Firebase, defaulting to first player', game.currentPlayer);
                         current_player_idx = 0;
-                        await update(sessionRef, {
+                        const updates = {
                             currentPlayer: players[current_player_idx],
-                            guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters : [],
-                            tries: game.tries || Object.fromEntries(players.map(p => [p, total_tries])),
-                            scores: game.scores || Object.fromEntries(players.map(p => [p, 0]))
-                        });
+                            guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters.filter(l => l !== '__init__') : [],
+                            tries: cleanTries,
+                            scores: cleanScores
+                        };
+                        await update(sessionRef, updates);
                     }
                     console.log('play_game: Set current_player_idx:', current_player_idx);
                     break;
