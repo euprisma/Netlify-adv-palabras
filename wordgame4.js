@@ -594,6 +594,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     }
                     selected_sessionId = Math.random().toString(36).substring(2, 10);
                     console.log('create_game_ui: Generated session ID:', selected_sessionId);
+                    if (!selected_sessionId) {
+                        console.error('create_game_ui: Failed to generate session ID');
+                        output.innerText = 'Error al generar el ID de sesión. Intenta de nuevo.';
+                        output.style.color = 'red';
+                        input.value = '';
+                        focusInput(input);
+                        return;
+                    }
                     try {
                         await set(ref(database, `games/${selected_sessionId}`), {
                             status: 'waiting',
@@ -607,6 +615,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             scores: {},
                             currentPlayer: null
                         });
+                        console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId });
                         prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
                         input.value = '';
                         focusInput(input);
@@ -709,11 +718,20 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
                 selected_player1 = player1Input.charAt(0).toUpperCase() + player1Input.slice(1).toLowerCase();
                 console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
+                if (!selected_sessionId) {
+                    console.error('create_game_ui: selected_sessionId is undefined in handlePlayer1Input');
+                    output.innerText = 'Error: ID de sesión no definido. Intenta de nuevo.';
+                    output.style.color = 'red';
+                    input.value = '';
+                    focusInput(input);
+                    return;
+                }
                 try {
                     await update(ref(database, `games/${selected_sessionId}`), {
                         player1: selected_player1,
                         status: 'waiting_for_player2'
                     });
+                    console.log('create_game_ui: Firebase updated with player1', { sessionId: selected_sessionId, player1: selected_player1 });
                     prompt.innerText = 'Esperando a que otro jugador se una...';
                     output.innerText = `ID de sesión: ${selected_sessionId}`;
                     output.style.color = 'black';
@@ -778,7 +796,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 .catch(err => console.error('handlePlayer1Input: Error cleaning up Firebase session', err));
                             unsubscribe();
                         }
-                    }, 120000); // 120-second timeout
+                    }, 120000);
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 1 in Firebase:', error);
                     output.innerText = 'Error al registrar el Jugador 1. Intenta de nuevo.';
@@ -793,6 +811,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             async function handlePlayer2Input() {
                 selected_player2 = format_name(input.value.trim()) || 'Jugador 2';
                 console.log('create_game_ui: Formatted Player 2 name:', selected_player2);
+                if (!selected_sessionId) {
+                    console.error('create_game_ui: selected_sessionId is undefined in handlePlayer2Input');
+                    output.innerText = 'Error: ID de sesión no definido. Intenta de nuevo.';
+                    output.style.color = 'red';
+                    input.value = '';
+                    focusInput(input);
+                    return;
+                }
                 if (selected_gameType === 'remoto') {
                     try {
                         await update(ref(database, `games/${selected_sessionId}`), {
@@ -808,13 +834,19 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         focusInput(input);
                         return;
                     }
+                } else {
+                    console.warn('create_game_ui: Invalid gameType for Player 2', selected_gameType);
+                    output.innerText = 'Error: Tipo de juego no válido. Intenta de nuevo.';
+                    output.style.color = 'red';
+                    input.value = '';
+                    focusInput(input);
+                    return;
                 }
                 input.value = '';
                 input.removeEventListener('keypress', currentHandler);
                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
                 button.style.display = 'none';
                 focusInput(input);
-                // Explicitly pass parameters to start_game
                 console.log('handlePlayer2Input: Resolving with', { mode: selected_mode, player1: selected_player1, player2: selected_player2, gameType: selected_gameType, sessionId: selected_sessionId });
                 resolve({ mode: selected_mode, player1: selected_player1, player2: selected_player2, prompt, input, button, output, container, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
             }
@@ -1280,7 +1312,13 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
 async function play_game(loadingMessage, secret_word, mode, players, output, container, prompt, input, button, difficulty, games_played, games_to_play, total_scores, wins, delay, display_feedback, gameType, sessionId) {
     console.log('play_game: Starting, Loaded version 2025-06-22-v9.9', JSON.stringify({ mode, players, difficulty, games_played, games_to_play, gameType, sessionId }));
     
-    const provided_secret_word = secret_word || await get_secret_word();
+    if (mode === '2' && gameType === 'remoto' && !sessionId) {
+        console.error('play_game: Invalid sessionId for remote mode', sessionId);
+        display_feedback('Error: ID de sesión no definido. Reinicia el juego.', 'red', null, false);
+        return;
+    }
+
+    let provided_secret_word = secret_word || await get_secret_word();
     console.log('play_game: Secret word:', provided_secret_word);
 
     const guessed_letters = new Set();
@@ -1300,11 +1338,9 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     if (mode === '2' && gameType === 'remoto') {
         try {
             sessionRef = ref(database, `games/${sessionId}`);
-            // Check existing game state for Player 2
             const snapshot = await get(sessionRef);
             if (snapshot.exists() && snapshot.val().status === 'ready' && snapshot.val().player1) {
                 console.log('play_game: Player 2 joining existing game', snapshot.val());
-                // Use existing secret word and state
                 provided_secret_word = snapshot.val().secretWord || provided_secret_word;
                 current_player_idx = players.indexOf(snapshot.val().currentPlayer) || 0;
             } else {
@@ -1484,7 +1520,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     console.log('game_loop: Game ended via Firebase');
                 }
             }, (error) => {
-                console.error('game_loop: Firebase snapshot error', error);
+                console.error('game_loop: Firebase snapshot error:', error);
                 display_feedback('Error de sincronización con el servidor remoto.', 'red', null, false);
             });
         }
