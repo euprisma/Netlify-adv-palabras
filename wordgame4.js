@@ -3,7 +3,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/fireba
 import { getDatabase, ref, set, update, onValue, get, remove } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 
-var __name__ = '__main__';
+// Global variables for Firebase
+let app;
+let database;
+let auth;
 
 // Firebase configuration
 const firebaseConfig = {
@@ -18,9 +21,9 @@ const firebaseConfig = {
 
 // Initialize Firebase
 try {
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-    const auth = getAuth(app);
+    app = initializeApp(firebaseConfig);
+    database = getDatabase(app);
+    auth = getAuth(app);
 
     // Attempt anonymous sign-in
     signInAnonymously(auth)
@@ -31,6 +34,8 @@ try {
 } catch (error) {
     console.error('Firebase initialization failed', error);
 }
+
+var __name__ = '__main__';
 
 // Utility function for delays
 function delay(ms) {
@@ -1975,12 +1980,11 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 }
 
 async function main() {
-    console.log('main: Starting, Loaded version 2025-06-23-v9.10-fixed14');
+    console.log('main: Starting, Loaded version 2025-06-23-v9.10-fixed15');
     try {
         await create_game_ui();
     } catch (error) {
         console.error('main: Error in game setup', error);
-        // Create a fallback error display if output is not defined
         let output = document.querySelector('.game-output');
         if (!output) {
             const container = document.createElement('div');
@@ -1999,5 +2003,4 @@ async function main() {
     }
 }
 
-// Start the game
 main();
