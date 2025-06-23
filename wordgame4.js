@@ -447,7 +447,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed17', { 
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed18', { 
         mode, player1, player2, difficulty, gameType, sessionId,
         firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId },
         authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
@@ -676,38 +676,48 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     createdState = createdSnapshot.val();
                                     console.log('Raw Firebase response:', JSON.stringify(createdState, null, 2));
                                     console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
-                                    if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters)) {
-                                        break;
+                                    // Relax validation to handle missing fields
+                                    if (createdState && createdState.secretWord && createdState.initialized) {
+                                        // Fix missing fields
+                                        if (!Array.isArray(createdState.guessedLetters) || !createdState.tries || !createdState.scores || createdState.currentPlayer === undefined) {
+                                            console.log('create_game_ui: Correcting missing fields for session', selected_sessionId);
+                                            await update(sessionRef, {
+                                                guessedLetters: Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [],
+                                                tries: typeof createdState.tries === 'object' && createdState.tries !== null ? createdState.tries : {},
+                                                scores: typeof createdState.scores === 'object' && createdState.scores !== null ? createdState.scores : {},
+                                                currentPlayer: createdState.currentPlayer !== undefined ? createdState.currentPlayer : null,
+                                                status: createdState.status || 'waiting'
+                                            });
+                                            console.log('create_game_ui: Corrected missing fields for session', selected_sessionId);
+                                            await delay(1000);
+                                            const finalSnapshot = await get(sessionRef);
+                                            createdState = finalSnapshot.val();
+                                        }
+                                        if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters)) {
+                                            break;
+                                        }
                                     }
                                     console.warn('create_game_ui: Validation attempt failed', {
                                         attempt: 3 - validationAttempts,
                                         hasSecretWord: !!createdState?.secretWord,
                                         hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState?.guessedLetters,
-                                        hasTries: !!createdState?.tries,
-                                        hasScores: !!createdState?.scores,
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
+                                        hasTries: createdState?.tries != null,
+                                        hasScores: createdState?.scores != null,
+                                        hasCurrentPlayer: createdState?.currentPlayer != null,
                                         status: createdState?.status
                                     });
-                                    if (createdState && createdState.secretWord && createdState.initialized) {
-                                        console.log('create_game_ui: Attempting to correct missing fields for session', selected_sessionId);
-                                        await update(sessionRef, {
-                                            guessedLetters: Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [],
-                                            tries: typeof createdState.tries === 'object' ? createdState.tries : {},
-                                            scores: typeof createdState.scores === 'object' ? createdState.scores : {},
-                                            status: 'waiting'
-                                        });
-                                        console.log('create_game_ui: Corrected missing fields for session', selected_sessionId);
-                                        await delay(2000);
-                                    }
+                                    await delay(1000);
                                 }
                                 if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters)) {
                                     console.error('create_game_ui: Invalid state after set', { 
                                         createdState, 
                                         hasSecretWord: !!createdState?.secretWord,
                                         hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState?.guessedLetters,
-                                        hasTries: !!createdState?.tries,
-                                        hasScores: !!createdState?.scores,
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
+                                        hasTries: createdState?.tries != null,
+                                        hasScores: createdState?.scores != null,
+                                        hasCurrentPlayer: createdState?.currentPlayer != null,
                                         status: createdState?.status
                                     });
                                     try {
@@ -811,14 +821,17 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     while (attempts--) {
                         try {
                             const snapshot = await get(sessionRef);
-                            if (!snapshot.exists() || !snapshot.val().secretWord || !Array.isArray(snapshot.val().guessedLetters)) {
+                            if (!snapshot.exists() || !snapshot.val().secretWord) {
                                 console.error('create_game_ui: Invalid session for player1 update', selected_sessionId, snapshot.val());
                                 throw new Error('Invalid session state');
                             }
                             await update(sessionRef, {
                                 player1: selected_player1,
                                 status: 'waiting_for_player2',
-                                currentPlayer: selected_player1
+                                currentPlayer: selected_player1,
+                                guessedLetters: snapshot.val().guessedLetters || [],
+                                tries: snapshot.val().tries || {},
+                                scores: snapshot.val().scores || {}
                             });
                             console.log('create_game_ui: Firebase updated with player1', { sessionId: selected_sessionId, player1: selected_player1, state: (await get(sessionRef)).val() });
                             success = true;
@@ -866,7 +879,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             unsubscribe();
                             return;
                         }
-                        if (game && game.player2 && game.status === 'playing' && game.secretWord && Array.isArray(game.guessedLetters) && game.currentPlayer) {
+                        if (game && game.player2 && game.status === 'playing' && game.secretWord && Array.isArray(game.guessedLetters)) {
                             console.log('handlePlayer1Input: Player 2 joined', game.player2);
                             selected_player2 = game.player2;
                             clearTimeout(timeoutId);
@@ -982,13 +995,27 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             focusInput(input);
                             return;
                         }
-                        if (!sessionState.secretWord || !sessionState.initialized || !Array.isArray(sessionState.guessedLetters)) {
+                        if (!sessionState.secretWord || !sessionState.initialized) {
                             console.warn('create_game_ui: Invalid session state', { sessionId, sessionState });
                             output.innerText = 'La sesión tiene un estado inválido. Intenta con otro ID.';
                             output.style.color = 'red';
                             input.value = '';
                             focusInput(input);
                             return;
+                        }
+                        // Fix missing fields
+                        if (!Array.isArray(sessionState.guessedLetters) || !sessionState.tries || !sessionState.scores || sessionState.currentPlayer === undefined) {
+                            console.log('create_game_ui: Correcting missing fields for session', sessionId);
+                            await update(sessionRef, {
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : [],
+                                tries: typeof sessionState.tries === 'object' && sessionState.tries !== null ? sessionState.tries : {},
+                                scores: typeof sessionState.scores === 'object' && sessionState.scores !== null ? sessionState.scores : {},
+                                currentPlayer: sessionState.currentPlayer !== undefined ? sessionState.currentPlayer : null
+                            });
+                            console.log('create_game_ui: Corrected missing fields for session', sessionId);
+                            await delay(1000);
+                            const finalSnapshot = await get(sessionRef);
+                            sessionState = finalSnapshot.val();
                         }
                         break;
                     }
@@ -1066,7 +1093,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             return;
                         }
                         sessionState = snapshot.val();
-                        if (!sessionState.secretWord || !sessionState.initialized || !Array.isArray(sessionState.guessedLetters)) {
+                        if (!sessionState.secretWord || !sessionState.initialized) {
                             console.warn('create_game_ui: Invalid session state for Player 2', sessionState);
                             output.innerText = 'La sesión tiene un estado inválido. Intenta con otro ID.';
                             output.style.color = 'red';
@@ -1109,13 +1136,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 status: 'playing',
                                 currentPlayer: sessionState.player1 || selected_player2,
                                 tries: {
-                                    [sessionState.player1 || 'Player1']: sessionState.tries?.[sessionState.player1] || 4,
-                                    [selected_player2]: 4
+                                    [sessionState.player1 || 'Player1']: sessionState.tries?.[sessionState.player1] || Math.floor(sessionState.secretWord.length / 2),
+                                    [selected_player2]: Math.floor(sessionState.secretWord.length / 2)
                                 },
                                 scores: {
                                     [sessionState.player1 || 'Player1']: sessionState.scores?.[sessionState.player1] || 0,
                                     [selected_player2]: 0
-                                }
+                                },
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : []
                             };
                             await update(sessionRef, updateData);
                             console.log('handlePlayer2Input: Updated Firebase with player2', { 
@@ -1693,19 +1721,26 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     return;
                 }
                 const game = snapshot.val();
-                if (game.secretWord && game.status === 'playing' && Array.isArray(game.guessedLetters) && game.initialized) {
+                if (game.secretWord && game.status === 'playing' && game.initialized) {
                     console.log('play_game: Valid Firebase state retrieved', { secretWord: game.secretWord, status: game.status, guessedLetters: game.guessedLetters, currentPlayer: game.currentPlayer });
                     provided_secret_word = game.secretWord;
                     console.log('play_game: Secret word:', provided_secret_word);
                     guessed_letters.clear();
-                    game.guessedLetters.forEach(l => guessed_letters.add(l));
+                    if (Array.isArray(game.guessedLetters)) {
+                        game.guessedLetters.forEach(l => guessed_letters.add(l));
+                    }
                     Object.assign(tries, game.tries || Object.fromEntries(players.map(p => [p, total_tries])));
                     Object.assign(scores, game.scores || Object.fromEntries(players.map(p => [p, 0])));
                     current_player_idx = players.indexOf(game.currentPlayer);
-                    if (current_player_idx === -1 || game.currentPlayer === null) {
+                    if (current_player_idx === -1 || game.currentPlayer === null || game.currentPlayer === undefined) {
                         console.warn('play_game: Invalid or null currentPlayer from Firebase, defaulting to first player', game.currentPlayer);
                         current_player_idx = 0;
-                        await update(sessionRef, { currentPlayer: players[current_player_idx] });
+                        await update(sessionRef, {
+                            currentPlayer: players[current_player_idx],
+                            guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters : [],
+                            tries: game.tries || Object.fromEntries(players.map(p => [p, total_tries])),
+                            scores: game.scores || Object.fromEntries(players.map(p => [p, 0]))
+                        });
                     }
                     console.log('play_game: Set current_player_idx:', current_player_idx);
                     break;
@@ -1716,7 +1751,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     statusIsPlaying: game?.status === 'playing',
                     guessedLettersIsArray: Array.isArray(game?.guessedLetters),
                     initialized: !!game?.initialized,
-                    hasCurrentPlayer: !!game?.currentPlayer,
+                    hasCurrentPlayer: game?.currentPlayer != null,
                     game
                 });
                 await delay(500);
