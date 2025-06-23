@@ -434,7 +434,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-22-v9.9', { mode, player1, player2, difficulty, gameType, sessionId });
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10', { mode, player1, player2, difficulty, gameType, sessionId });
 
     if (isCreatingUI) {
         console.warn('create_game_ui: UI creation already in progress, skipping');
@@ -527,7 +527,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             typeButton.className = 'game-button game-type-button';
                             typeButton.innerText = type;
                             typeButton.style.padding = '8px 16px';
-                            typeButton.style.fontSize = '16px';
+                            typeButton.style.fontSize = '14px';
                             typeButton.style.cursor = 'pointer';
                             typeButton.style.margin = '5px';
                             typeButton.onclick = () => handleGameTypeInput(type.toLowerCase(), buttonContainer);
@@ -560,7 +560,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 if (!button.parentNode) container.appendChild(button);
                 input.removeEventListener('keypress', currentHandler);
                 if (selected_gameType === 'remoto') {
-                    prompt.innerText = '¿Crear juego o unirse? (Ingresa "crear" o "unirse"):';
+                    prompt.innerText = '¿Crear juego o unirse? (Ingresa "crear" o "remoto"):';
                     input.value = '';
                     focusInput(input);
                     button.onclick = handleRemoteRoleInput;
@@ -632,7 +632,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         input.value = '';
                         focusInput(input);
                     }
-                } else if (value === 'unirse') {
+                } else if (value === 'remoto') {
                     if (!database) {
                         console.error('create_game_ui: Firebase database not initialized');
                         output.innerText = 'Error: No se pudo conectar con la base de datos.';
@@ -651,7 +651,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     };
                     input.addEventListener('keypress', currentHandler);
                 } else {
-                    output.innerText = 'Inválido. Ingresa "crear" o "unirse".';
+                    output.innerText = 'Inválido. Ingresa "crear" o "remoto".';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
@@ -671,6 +671,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 try {
                     const snapshot = await get(ref(database, `games/${sessionIdInput}`));
                     if (!snapshot.exists()) {
+                        console.log('create_game_ui: Session not found', { sessionId: sessionIdInput });
                         output.innerText = 'ID de sesión no encontrado.';
                         output.style.color = 'red';
                         input.value = '';
@@ -678,7 +679,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         return;
                     }
                     const game = snapshot.val();
-                    if (game.status !== 'waiting_for_player2') {
+                    console.log('create_game_ui: Game state retrieved', game);
+                    if (game.status !== 'waiting' && game.status !== 'waiting_for_player2') {
+                        console.log('create_game_ui: Game not available to join', { status: game.status });
                         output.innerText = 'El juego no está disponible para unirse.';
                         output.style.color = 'red';
                         input.value = '';
@@ -686,7 +689,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         return;
                     }
                     selected_sessionId = sessionIdInput;
-                    selected_player1 = game.player1;
+                    selected_player1 = game.player1 || 'Jugador 1';
                     console.log('create_game_ui: Retrieved Player 1:', selected_player1);
                     prompt.innerText = 'Nombre Jugador 2:';
                     input.value = '';
@@ -716,7 +719,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     focusInput(input);
                     return;
                 }
-                selected_player1 = player1Input.charAt(0).toUpperCase() + player1Input.slice(1).toLowerCase();
+                selected_player1 = format_name(player1Input) || player1Input.charAt(0).toUpperCase() + player1Input.slice(1).toLowerCase();
                 console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
                 if (!selected_sessionId) {
                     console.error('create_game_ui: selected_sessionId is undefined in handlePlayer1Input');
@@ -791,9 +794,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             input.value = '';
                             focusInput(input);
                             button.onclick = () => main();
-                            remove(ref(database, `games/${selected_sessionId}`))
-                                .then(() => console.log('handlePlayer1Input: Cleaned up Firebase session', selected_sessionId))
-                                .catch(err => console.error('handlePlayer1Input: Error cleaning up Firebase session', err));
+                            try {
+                                await remove(ref(database, `games/${selected_sessionId}`));
+                                console.log('handlePlayer1Input: Cleaned up Firebase session', selected_sessionId);
+                            } catch (err) {
+                                console.error('handlePlayer1Input: Error cleaning up Firebase session', err);
+                            }
                             unsubscribe();
                         }
                     }, 120000);
@@ -819,24 +825,23 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     focusInput(input);
                     return;
                 }
-                if (selected_gameType === 'remoto') {
-                    try {
-                        await update(ref(database, `games/${selected_sessionId}`), {
-                            player2: selected_player2,
-                            status: 'ready'
-                        });
-                        console.log('handlePlayer2Input: Updated Firebase with player2', { sessionId: selected_sessionId, player2: selected_player2 });
-                    } catch (error) {
-                        console.error('create_game_ui: Error updating player 2 in Firebase:', error);
-                        output.innerText = 'Error al registrar el Jugador 2. Intenta de nuevo.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                } else {
-                    console.warn('create_game_ui: Invalid gameType for Player 2', selected_gameType);
+                if (selected_gameType !== 'remoto') {
+                    console.error('create_game_ui: Invalid gameType for Player 2', selected_gameType);
                     output.innerText = 'Error: Tipo de juego no válido. Intenta de nuevo.';
+                    output.style.color = 'red';
+                    input.value = '';
+                    focusInput(input);
+                    return;
+                }
+                try {
+                    await update(ref(database, `games/${selected_sessionId}`), {
+                        player2: selected_player2,
+                        status: 'ready'
+                    });
+                    console.log('handlePlayer2Input: Updated Firebase with player2', { sessionId: selected_sessionId, player2: selected_player2 });
+                } catch (error) {
+                    console.error('create_game_ui: Error updating player 2 in Firebase:', error);
+                    output.innerText = 'Error al registrar el Jugador 2. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
