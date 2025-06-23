@@ -32,12 +32,6 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Fallbacks
-const format_name = typeof format_name === 'function' ? format_name : (name) => {
-    if (!name) return null;
-    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-};
-
 // Global game state to prevent UI resets during active game
 let isGameActive = false;
 let isCreatingUI = false;
