@@ -912,13 +912,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     while (attempts--) {
                         try {
                             const snapshot = await get(sessionRef);
-                            if (!snapshot.exists() || !snapshot.val().secretWord || (snapshot.val().guessedLetters == null || !Array.isArray(snapshot.val().guessedLetters))) {
+                            if (!snapshot.exists() || !snapshot.val().secretWord || !Array.isArray(snapshot.val().guessedLetters)) {
                                 console.error('create_game_ui: Invalid session for player1 update', selected_sessionId, snapshot.val());
                                 throw new Error('Invalid session state');
                             }
                             await update(sessionRef, {
                                 player1: selected_player1,
-                                status: 'waiting_for_player2'
+                                status: 'waiting_for_player2',
+                                currentPlayer: selected_player1 // Initialize currentPlayer
                             });
                             console.log('create_game_ui: Firebase updated with player1', { sessionId: selected_sessionId, player1: selected_player1, state: (await get(sessionRef)).val() });
                             success = true;
@@ -966,7 +967,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             unsubscribe();
                             return;
                         }
-                        if (game && game.player2 && game.status === 'playing' && game.secretWord && Array.isArray(game.guessedLetters)) {
+                        if (game && game.player2 && game.status === 'playing' && game.secretWord && Array.isArray(game.guessedLetters) && game.currentPlayer) {
                             console.log('handlePlayer1Input: Player 2 joined', game.player2);
                             selected_player2 = game.player2;
                             clearTimeout(timeoutId);
@@ -974,7 +975,20 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             input.style.display = 'inline-block';
                             focusInput(input);
                             unsubscribe();
-                            resolve({ mode: selected_mode, prompt, input, button, output, container, player1: selected_player1, player2: selected_player2, difficulty: selected_difficulty, gameType: selected_gameType, sessionId: selected_sessionId });
+                            // Ensure play_game is called with correct parameters
+                            resolve({
+                                mode: selected_mode,
+                                player1: selected_player1,
+                                player2: selected_player2,
+                                prompt,
+                                input,
+                                button,
+                                output,
+                                container,
+                                difficulty: selected_difficulty,
+                                gameType: selected_gameType,
+                                sessionId: selected_sessionId
+                            });
                         }
                     }, (error) => {
                         console.error('handlePlayer1Input: Firebase snapshot error', error);
@@ -1688,7 +1702,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     if (mode === '2' && gameType === 'remoto') {
         try {
             sessionRef = ref(database, `games/${sessionId}`);
-            let attempts = 20; // Further increased retries
+            let attempts = 20;
             let snapshot;
             while (attempts--) {
                 snapshot = await get(sessionRef);
@@ -1698,17 +1712,18 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     return;
                 }
                 const game = snapshot.val();
-                if (game.secretWord && game.status === 'playing' && Array.isArray(game.guessedLetters) && game.initialized) {
-                    console.log('play_game: Valid Firebase state retrieved', { secretWord: game.secretWord, status: game.status, guessedLetters: game.guessedLetters });
+                if (game.secretWord && game.status === 'playing' && Array.isArray(game.guessedLetters) && game.initialized && game.currentPlayer) {
+                    console.log('play_game: Valid Firebase state retrieved', { secretWord: game.secretWord, status: game.status, guessedLetters: game.guessedLetters, currentPlayer: game.currentPlayer });
                     provided_secret_word = game.secretWord;
                     console.log('play_game: Secret word:', provided_secret_word);
                     guessed_letters.clear();
                     game.guessedLetters.forEach(l => guessed_letters.add(l));
-                    Object.assign(tries, game.tries || {});
-                    Object.assign(scores, game.scores || {});
+                    // Initialize tries and scores if missing
+                    Object.assign(tries, game.tries || Object.fromEntries(players.map(p => [p, total_tries])));
+                    Object.assign(scores, game.scores || Object.fromEntries(players.map(p => [p, 0])));
                     current_player_idx = players.indexOf(game.currentPlayer);
                     if (current_player_idx === -1) {
-                        console.warn('play_game: Invalid currentPlayer from Firebase, defaulting to 0', game.currentPlayer);
+                        console.warn('play_game: Invalid currentPlayer from Firebase, defaulting to first player', game.currentPlayer);
                         current_player_idx = 0;
                         await update(sessionRef, { currentPlayer: players[current_player_idx] });
                     }
@@ -1721,6 +1736,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     statusIsPlaying: game?.status === 'playing',
                     guessedLettersIsArray: Array.isArray(game?.guessedLetters),
                     initialized: !!game?.initialized,
+                    hasCurrentPlayer: !!game?.currentPlayer,
                     game
                 });
                 await delay(500);
@@ -1820,7 +1836,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         }
     }
 
-    async function game_loop(players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, current_player_idx_ref, game_info, games_to_play, games_played, total_scores, difficulty = null) {
+    async function game_loop(players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, current_player_idx_ref, game_info, games_played, games_to_play, total_scores, difficulty = null) {
         console.log('game_loop: Starting', { players, tries, scores, mode, secret_word_length, gameType, sessionId });
 
         if (!output || !container || !prompt || !input || !button) {
@@ -1845,6 +1861,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     const game = snapshot.val();
                     if (game.status !== 'playing') {
                         console.log('game_loop: Game not in playing state, exiting', game.status);
+                        unsubscribe();
                         return;
                     }
                     if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer) {
@@ -1856,8 +1873,8 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                                     secretWord: game.secretWord || (await get_secret_word()),
                                     guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters : [],
                                     currentPlayer: game.currentPlayer || players[0],
-                                    tries: game.tries || tries,
-                                    scores: game.scores || scores
+                                    tries: game.tries || Object.fromEntries(players.map(p => [p, total_tries])),
+                                    scores: game.scores || Object.fromEntries(players.map(p => [p, 0]))
                                 });
                                 console.log('game_loop: Corrected invalid Firebase state');
                                 break;
@@ -1886,7 +1903,8 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     }
                     current_player_idx_ref.value = current_player_idx;
 
-                    if (players[current_player_idx] === (game.player1 || game.player2)) {
+                    // Simplified player check
+                    if (players[current_player_idx] === game.currentPlayer) {
                         const guess = await get_guess({ prompt, input, button, output, display_feedback });
                         if (!guess) {
                             console.log('game_loop: No guess received, skipping turn');
@@ -1969,7 +1987,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     }
 
     try {
-        await game_loop();
+        await game_loop(players, tries, scores, mode, provided_secret_word.length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, { value: current_player_idx }, game_info, games_played, games_to_play, total_scores, difficulty);
         await delay(3000);
 
         console.log('play_game: Updating total_scores', JSON.stringify({ before: { ...total_scores }, game_scores: { ...scores } }));
@@ -2104,26 +2122,30 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 }
 
 async function main() {
-    console.log('main: Starting, Loaded version 2025-06-23-v9.10-fixed16');
-    try {
-        await create_game_ui();
-    } catch (error) {
-        console.error('main: Error in game setup', error);
-        let output = document.querySelector('.game-output');
-        if (!output) {
-            const container = document.createElement('div');
-            container.style.textAlign = 'center';
-            container.style.fontFamily = 'Arial, sans-serif';
-            output = document.createElement('span');
-            output.className = 'game-output';
-            output.style.color = 'red';
-            output.style.marginTop = '20px';
-            output.style.fontSize = '16px';
-            output.style.display = 'block';
-            container.appendChild(output);
-            document.body.appendChild(container);
-        }
-        output.innerText = 'Error al iniciar el juego. Por favor, recarga la página e intenta de nuevo.';
+    const gameState = await create_game_ui();
+    if (gameState) {
+        console.log('main: create_game_ui resolved', gameState);
+        const players = [gameState.player1, gameState.player2].filter(Boolean);
+        await play_game(
+            null, // loadingMessage
+            null, // secret_word (fetched from Firebase)
+            gameState.mode,
+            players,
+            gameState.output,
+            gameState.container,
+            gameState.prompt,
+            gameState.input,
+            gameState.button,
+            gameState.difficulty,
+            0, // games_played
+            3, // games_to_play
+            Object.fromEntries(players.map(p => [p, 0])), // total_scores
+            Object.fromEntries(players.map(p => [p, 0])), // wins
+            delay, // defined as: const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+            display_feedback, // defined elsewhere
+            gameState.gameType,
+            gameState.sessionId
+        );
     }
 }
 
