@@ -656,9 +656,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
-                                    guessedLetters: [], // Explicitly set as empty array
-                                    tries: {},
-                                    scores: {},
+                                    guessedLetters: ['__empty__'], // Placeholder to force array persistence
+                                    tries: { __empty__: null }, // Placeholder to force object persistence
+                                    scores: { __empty__: null }, // Placeholder to force object persistence
                                     currentPlayer: '',
                                     initialized: true
                                 };
@@ -668,7 +668,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
                                 });
                                 await set(sessionRef, initialState);
-                                await delay(1500); // Increased delay to 1500ms
+                                await delay(2000); // Increased to 2000ms
                                 let validationAttempts = 3;
                                 let createdState;
                                 while (validationAttempts--) {
@@ -676,38 +676,56 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     createdState = createdSnapshot.val();
                                     console.log('Raw Firebase response:', JSON.stringify(createdState, null, 2));
                                     console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
-                                    if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters)) {
+                                    // Clean up placeholders for validation
+                                    if (createdState && createdState.guessedLetters && createdState.guessedLetters[0] === '__empty__') {
+                                        createdState.guessedLetters = [];
+                                    }
+                                    if (createdState && createdState.tries && createdState.tries.__empty__ === null) {
+                                        createdState.tries = {};
+                                    }
+                                    if (createdState && createdState.scores && createdState.scores.__empty__ === null) {
+                                        createdState.scores = {};
+                                    }
+                                    if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters) && createdState.tries && createdState.scores) {
                                         break;
                                     }
                                     console.warn('create_game_ui: Validation attempt failed', {
                                         attempt: 3 - validationAttempts,
                                         hasSecretWord: !!createdState?.secretWord,
                                         hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
+                                        hasTries: !!createdState?.tries,
+                                        hasScores: !!createdState?.scores
                                     });
-                                    if (createdState && createdState.secretWord && createdState.initialized && (createdState.guessedLetters == null || !Array.isArray(createdState.guessedLetters))) {
-                                        console.log('create_game_ui: Attempting to correct guessedLetters for session', selected_sessionId);
-                                        await update(sessionRef, { guessedLetters: [] });
-                                        console.log('create_game_ui: Corrected guessedLetters for session', selected_sessionId);
-                                        await delay(1000); // Increased delay to 1000ms
-                                        // Fallback: Re-set entire state if update fails
+                                    if (createdState && createdState.secretWord && createdState.initialized) {
+                                        console.log('create_game_ui: Attempting to correct missing fields for session', selected_sessionId);
+                                        await update(sessionRef, {
+                                            guessedLetters: createdState.guessedLetters && createdState.guessedLetters[0] === '__empty__' ? [] : ['__empty__'],
+                                            tries: createdState.tries && createdState.tries.__empty__ === null ? {} : { __empty__: null },
+                                            scores: createdState.scores && createdState.scores.__empty__ === null ? {} : { __empty__: null }
+                                        });
+                                        console.log('create_game_ui: Corrected missing fields for session', selected_sessionId);
+                                        await delay(1500); // Increased to 1500ms
+                                        // Fallback: Re-set entire state
                                         if (validationAttempts > 0) {
                                             const recheckSnapshot = await get(sessionRef);
                                             const recheckState = recheckSnapshot.val();
-                                            if (recheckState?.guessedLetters == null || !Array.isArray(recheckState?.guessedLetters)) {
+                                            if (!recheckState || !Array.isArray(recheckState.guessedLetters) || !recheckState.tries || !recheckState.scores) {
                                                 console.log('create_game_ui: Update failed, re-setting initial state', selected_sessionId);
                                                 await set(sessionRef, initialState);
-                                                await delay(1500);
+                                                await delay(2000);
                                             }
                                         }
                                     }
                                 }
-                                if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters)) {
+                                if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters) || !createdState.tries || !createdState.scores) {
                                     console.error('create_game_ui: Invalid state after set', { 
                                         createdState, 
                                         hasSecretWord: !!createdState?.secretWord,
                                         hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters
+                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
+                                        hasTries: !!createdState?.tries,
+                                        hasScores: !!createdState?.scores
                                     });
                                     try {
                                         await remove(sessionRef);
