@@ -621,9 +621,18 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     }
                     try {
                         const secretWord = await get_secret_word();
-                        if (!secretWord) {
-                            console.error('create_game_ui: Failed to fetch secret word');
-                            output.innerText = 'Error al generar la palabra secreta. Intenta de nuevo.';
+                        if (!secretWord || typeof secretWord !== 'string') {
+                            console.error('create_game_ui: Invalid secretWord:', secretWord);
+                            output.innerText = 'Error: Palabra secreta inválida. Intenta de nuevo.';
+                            output.style.color = 'red';
+                            input.value = '';
+                            focusInput(input);
+                            return;
+                        }
+                        console.log('Initial state setup:', { selected_mode, selected_gameType, secretWord });
+                        if (typeof selected_mode !== 'string' || typeof selected_gameType !== 'string') {
+                            console.error('Invalid mode or gameType:', { selected_mode, selected_gameType });
+                            output.innerText = 'Error: Modo o tipo de juego inválido. Intenta de nuevo.';
                             output.style.color = 'red';
                             input.value = '';
                             focusInput(input);
@@ -647,7 +656,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
-                                    guessedLetters: [],
+                                    guessedLetters: [], // Explicitly set as empty array
                                     tries: {},
                                     scores: {},
                                     currentPlayer: '',
@@ -659,12 +668,13 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
                                 });
                                 await set(sessionRef, initialState);
-                                await delay(1000); // Increased delay to 1000ms for propagation
+                                await delay(1500); // Increased delay to 1500ms
                                 let validationAttempts = 3;
                                 let createdState;
                                 while (validationAttempts--) {
                                     const createdSnapshot = await get(sessionRef);
                                     createdState = createdSnapshot.val();
+                                    console.log('Raw Firebase response:', JSON.stringify(createdState, null, 2));
                                     console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
                                     if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters)) {
                                         break;
@@ -676,13 +686,23 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters
                                     });
                                     if (createdState && createdState.secretWord && createdState.initialized && (createdState.guessedLetters == null || !Array.isArray(createdState.guessedLetters))) {
-                                        // Attempt to correct guessedLetters
+                                        console.log('create_game_ui: Attempting to correct guessedLetters for session', selected_sessionId);
                                         await update(sessionRef, { guessedLetters: [] });
                                         console.log('create_game_ui: Corrected guessedLetters for session', selected_sessionId);
-                                        await delay(500);
+                                        await delay(1000); // Increased delay to 1000ms
+                                        // Fallback: Re-set entire state if update fails
+                                        if (validationAttempts > 0) {
+                                            const recheckSnapshot = await get(sessionRef);
+                                            const recheckState = recheckSnapshot.val();
+                                            if (recheckState?.guessedLetters == null || !Array.isArray(recheckState?.guessedLetters)) {
+                                                console.log('create_game_ui: Update failed, re-setting initial state', selected_sessionId);
+                                                await set(sessionRef, initialState);
+                                                await delay(1500);
+                                            }
+                                        }
                                     }
                                 }
-                                if (!createdState || !createdState.secretWord || !createdState.initialized || (createdState.guessedLetters == null || !Array.isArray(createdState.guessedLetters))) {
+                                if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters)) {
                                     console.error('create_game_ui: Invalid state after set', { 
                                         createdState, 
                                         hasSecretWord: !!createdState?.secretWord,
@@ -743,29 +763,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         input.value = '';
                         focusInput(input);
                     }
-                } else if (value === 'remoto') {
-                    if (!database) {
-                        console.error('create_game_ui: Firebase database not initialized');
-                        output.innerText = 'Error: No se pudo conectar con la base de datos. Verifica la configuración de Firebase.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                    prompt.innerText = 'Ingresa el ID de sesión:';
-                    input.value = '';
-                    focusInput(input);
-                    input.removeEventListener('keypress', currentHandler);
-                    button.onclick = handleSessionIdInput;
-                    currentHandler = (e) => {
-                        if (e.key === 'Enter') button.click();
-                    };
-                    input.addEventListener('keypress', currentHandler);
-                } else {
-                    output.innerText = 'Inválido. Ingresa "crear" o "remoto".';
-                    output.style.color = 'red';
-                    input.value = '';
-                    focusInput(input);
                 }
             }
 
