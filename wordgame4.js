@@ -17,22 +17,20 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let database;
 try {
     const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
     const auth = getAuth(app);
-    database = getDatabase(app);
-    console.log('Firebase initialized successfully in wordgame4.js:', database);
-} catch (error) {
-    console.error('Failed to initialize Firebase in wordgame4.js:', error);
-    document.body.innerHTML = '<p style="color: red; text-align: center;">Error: No se pudo conectar con la base de datos. Por favor, verifica tu conexión o recarga la página.</p>';
-    throw error;
-}
 
-// Attempt anonymous sign-in
-signInAnonymously(auth)
-    .then(() => console.log('create_game_ui: Anonymous sign-in successful'))
-    .catch(err => console.error('create_game_ui: Anonymous sign-in failed', err));
+    // Attempt anonymous sign-in
+    signInAnonymously(auth)
+        .then(() => console.log('Firebase: Anonymous sign-in successful'))
+        .catch(err => console.error('Firebase: Anonymous sign-in failed', err));
+
+    console.log('Firebase initialized successfully', database);
+} catch (error) {
+    console.error('Firebase initialization failed', error);
+}
 
 // Utility function for delays
 function delay(ms) {
