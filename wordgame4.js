@@ -1,6 +1,7 @@
 // Transcrypt'ed from Python, 2025-06-16, updated 2025-10-14 for Firebase v10.14.0
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getDatabase, ref, set, update, onValue, get, remove } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 
 var __name__ = '__main__';
 
@@ -19,6 +20,7 @@ const firebaseConfig = {
 let database;
 try {
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     database = getDatabase(app);
     console.log('Firebase initialized successfully in wordgame4.js:', database);
 } catch (error) {
@@ -26,6 +28,11 @@ try {
     document.body.innerHTML = '<p style="color: red; text-align: center;">Error: No se pudo conectar con la base de datos. Por favor, verifica tu conexión o recarga la página.</p>';
     throw error;
 }
+
+// Attempt anonymous sign-in
+signInAnonymously(auth)
+    .then(() => console.log('create_game_ui: Anonymous sign-in successful'))
+    .catch(err => console.error('create_game_ui: Anonymous sign-in failed', err));
 
 // Utility function for delays
 function delay(ms) {
@@ -437,7 +444,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed13', { 
+    console.log('create_game_ui: Starting, Loaded version 2025-06-23-v9.10-fixed14', { 
         mode, player1, player2, difficulty, gameType, sessionId,
         firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId },
         authState: auth.currentUser ? 'Authenticated' : 'Unauthenticated'
@@ -670,7 +677,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         projectId: firebaseConfig.projectId,
                                         authState: auth.currentUser ? 'Authenticated' : 'Unauthenticated'
                                     });
-                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto o intenta de nuevo.';
+                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto.';
                                     output.style.color = 'red';
                                     input.value = '';
                                     focusInput(input);
@@ -1968,32 +1975,27 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 }
 
 async function main() {
-    console.log('main: Starting, Loaded version 2025-06-16-v9.8');
+    console.log('main: Starting, Loaded version 2025-06-23-v9.10-fixed14');
     try {
-        const ui = await create_game_ui();
-        if (!ui) {
-            console.error('main: UI creation failed, aborting');
-            return;
+        await create_game_ui();
+    } catch (error) {
+        console.error('main: Error in game setup', error);
+        // Create a fallback error display if output is not defined
+        let output = document.querySelector('.game-output');
+        if (!output) {
+            const container = document.createElement('div');
+            container.style.textAlign = 'center';
+            container.style.fontFamily = 'Arial, sans-serif';
+            output = document.createElement('span');
+            output.className = 'game-output';
+            output.style.color = 'red';
+            output.style.marginTop = '20px';
+            output.style.fontSize = '16px';
+            output.style.display = 'block';
+            container.appendChild(output);
+            document.body.appendChild(container);
         }
-        const { mode, prompt, input, button, output, container, player1, player2, difficulty, gameType, sessionId } = ui;
-        console.log('main: UI created', { mode, player1, player2, difficulty, gameType, sessionId });
-        const players = [player1];
-        if (mode === '2' || mode === '3') players.push(player2);
-        console.log('main: Players:', players);
-        if (!players.every(p => p && typeof p === 'string' && p.trim())) {
-            console.error('main: Invalid players detected', players);
-            output.innerText = 'Error: Jugadores no definidos correctamente.';
-            return;
-        }
-        const total_scores = Object.fromEntries(players.map(p => [p, 0]));
-        const wins = Object.fromEntries(players.map(p => [p, 0]));
-        await start_game(mode, players, output, container, prompt, input, button, difficulty, 0, total_scores, wins, gameType, sessionId);
-        console.log('main: Game started');
-    } catch (err) {
-        console.error('main: Error in game setup', err);
-        output.innerText = 'Error al iniciar el juego. Por favor, recarga la página.';
-        output.style.color = 'red';
-        return; // Stop execution
+        output.innerText = 'Error al iniciar el juego. Por favor, recarga la página e intenta de nuevo.';
     }
 }
 
