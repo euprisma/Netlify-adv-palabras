@@ -597,21 +597,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         container.appendChild(button);
         container.appendChild(output);
 
-        const initialState = {
-            status: 'waiting',
-            player1: '',
-            player2: '',
-            mode: selected_mode,
-            gameType: selected_gameType,
-            secretWord: await get_secret_word(),
-            guessedLetters: ['__init__'],
-            tries: Object.fromEntries(players.map(p => [p, 3])),
-            scores: Object.fromEntries(players.map(p => [p, 0])),
-            currentPlayer: players[0] || 'none',
-            initialized: true
-        };
-        await set(sessionRef, initialState);
-        console.log('create_game_ui: Initialized Firebase state', initialState);
+        
 
         if (mode && player1 && (mode !== '3' || difficulty) && (mode !== '2' || gameType)) {
             console.log('create_game_ui: Using provided parameters', { mode, player1, player2, difficulty, gameType, sessionId });
