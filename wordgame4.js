@@ -2206,13 +2206,14 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
         } else {
             // Original logic for non-remote modes
             while (true) {
-                const guess = await get_guess({
+                const guess = await get_guess(
+                    guessed_letters,
+                    secret_word,
                     prompt,
                     input,
-                    button,
                     output,
-                    display_feedback
-                });
+                    button
+                );
                 if (!guess) {
                     console.log('game_loop: No guess received, skipping');
                     continue;
