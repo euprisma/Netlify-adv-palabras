@@ -2140,13 +2140,14 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                     current_player_idx_ref.value = current_player_idx;
                     // Simplified player check
                     if (players[current_player_idx] === game.currentPlayer) {
-                        const guess = await get_guess({
+                        const guess = await get_guess(
+                            guessed_letters,
+                            secret_word,
                             prompt,
                             input,
-                            button,
                             output,
-                            display_feedback
-                        });
+                            button
+                        );
                         if (!guess) {
                             console.log('game_loop: No guess received, skipping turn');
                             return;
@@ -2206,14 +2207,13 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
         } else {
             // Original logic for non-remote modes
             while (true) {
-                const guess = await get_guess(
-                    guessed_letters,
-                    secret_word,
+                const guess = await get_guess({
                     prompt,
                     input,
+                    button,
                     output,
-                    button
-                );
+                    display_feedback
+                });
                 if (!guess) {
                     console.log('game_loop: No guess received, skipping');
                     continue;
