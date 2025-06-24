@@ -349,6 +349,27 @@ function escapeHTML(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function display_feedback(message, color, player = null, append = false) {
+    console.log('display_feedback:', { message, color, player, append });
+    const output = document.querySelector('.game-output');
+    if (!output) {
+        console.warn('display_feedback: Output element not found');
+        return;
+    }
+    const escapedPlayer = player ? escapeHTML(player) : null;
+    const formatted_feedback = escapedPlayer ? message.replace(player, `<strong>${escapedPlayer}</strong>`) : message;
+    if (append || arguments[3] === true) {
+        output.innerHTML += `<br><span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
+    } else {
+        output.innerHTML = `<span style="color: ${color}">${formatted_feedback.replace(/\n/g, '<br>')}</span>`;
+    }
+    try {
+        output.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+        console.error('display_feedback: Error scrolling output', err);
+    }
+}
+
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
     console.log('get_guess: Starting, Loaded version 2025-06-19-v9.19', {
         prompt: prompt?.innerText,
