@@ -1114,7 +1114,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     input.value = '';
                     focusInput(input);
                     input.removeEventListener('keypress', currentHandler);
-_dotenv
                     button.onclick = handlePlayer2Input;
                     currentHandler = (e) => {
                         if (e.key === 'Enter') button.click();
