@@ -1912,6 +1912,11 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     } else {
         // Local or AI: get a new word if not provided
         provided_secret_word = secret_word || await get_secret_word();
+    }
+    if (!provided_secret_word || typeof provided_secret_word !== 'string') {
+        console.error('play_game: Invalid secret word', provided_secret_word);
+        display_feedback('Error: Palabra secreta no disponible. Reinicia el juego.', 'red', null, false);
+        return;
     }    
     console.log('play_game: Secret word:', provided_secret_word);
     const guessed_letters = new Set();
