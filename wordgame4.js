@@ -2158,13 +2158,16 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                     }
 
                     // Check game status
-                    if (game.status !== 'playing') {
-                        console.log('game_loop: Game not in playing state', game.status);
-                        if (game.status === 'finished') {
-                            display_feedback(`Juego terminado. La palabra era '${escapeHTML(secret_word)}'.`, 'red', null, true);
-                        }
+                    if (game.status === 'finished' || game.status === 'ended') {
+                        console.log('game_loop: Game finished or ended', game.status);
+                        display_feedback(`Juego terminado. La palabra era '${escapeHTML(secret_word)}'.`, 'red', null, true);
                         unsubscribe();
                         return;
+                    }
+                    if (game.status !== 'playing') {
+                        // Wait for the game to enter 'playing' state (e.g., after Player 2 joins)
+                        console.log('game_loop: Waiting for game to enter playing state, current status:', game.status);
+                        return; // Do NOT unsubscribe or exit, just wait for the next snapshot
                     }
 
                     // Handle current player's turn
@@ -2174,12 +2177,13 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                         input.disabled = false;
                         input.focus();
                         console.log('game_loop: Waiting for guess');
-                        const guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button);
-                        console.log('game_loop: Guess received', { guess });
-                        if (!guess) {
-                            console.log('game_loop: No valid guess received, waiting for next input');
-                            display_feedback('Por favor, ingresa una adivinanza válida.', 'orange', null, false);
-                            return; // Wait for next snapshot
+                        let guess = null;
+                        while (!guess) {
+                            guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button);
+                            if (!guess) {
+                                display_feedback('Por favor, ingresa una adivinanza válida.', 'orange', null, false);
+                                // Wait for user input again, do not proceed or update Firebase
+                            }
                         }
                         const result = await process_guess(
                             players[current_player_idx],
