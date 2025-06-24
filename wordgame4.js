@@ -314,6 +314,7 @@ async function get_ai_guess(guessed_letters, secret_word, used_wrong_letters, us
 }
 
 function normalizar(texto) {
+    if (typeof texto !== 'string') return '';
     return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036F]/g, '');
 }
 
