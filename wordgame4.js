@@ -1877,6 +1877,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         gameType,
         sessionId
     }));
+    let unsubscribe = null;
     if (mode === '2' && gameType === 'remoto' && !sessionId) {
         console.error('play_game: Invalid sessionId for remote mode', sessionId);
         display_feedback('Error: ID de sesión no definido. Reinicia el juego.', 'red', null, false);
@@ -2407,7 +2408,7 @@ Empate final!`;
         console.error('play_game: Error in game execution', err);
         display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
     } finally {
-        if (unsubscribe) {
+        if (typeof unsubscribe === 'function') {
             unsubscribe();
             console.log('play_game: Firebase listeners cleaned up');
         }
