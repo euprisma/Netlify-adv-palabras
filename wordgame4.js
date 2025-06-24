@@ -2063,7 +2063,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
             display_feedback('Error al actualizar la interfaz del juego.', 'red', null, false);
         }
     }
-    async function game_loop(players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, current_player_idx_ref, game_info, games_played, games_to_play, total_scores, difficulty = null) {
+    async function game_loop(players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, current_player_idx_ref, game_info, games_played, games_to_play, total_scores, difficulty = null, secret_word) {
         console.log('game_loop: Starting', {
             players,
             tries,
@@ -2252,7 +2252,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
     try {
         await game_loop(players, tries, scores, mode, provided_secret_word.length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, {
             value: current_player_idx
-        }, game_info, games_played, games_to_play, total_scores, difficulty);
+        }, game_info, games_played, games_to_play, total_scores, difficulty, provided_secret_word);
         await delay(3000);
         console.log('play_game: Updating total_scores', JSON.stringify({
             before: {
