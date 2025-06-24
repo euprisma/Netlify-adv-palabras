@@ -1340,6 +1340,21 @@ async function start_game(mode, players, output, container, prompt, input, butto
             output.innerText = 'Error: Elementos de interfaz no definidos.';
             return;
         }
+        if (mode === '2' && gameType === 'remoto') {
+            // Fetch the secret word from Firebase session
+            const sessionRef = ref(database, `games/${sessionId}`);
+            const snapshot = await get(sessionRef);
+            if (!snapshot.exists() || !snapshot.val().secretWord) {
+                // handle error
+                return;
+            }
+            const secret_word = snapshot.val().secretWord;
+            // ...continue with play_game using this secret_word...
+        } else {
+            // Local or AI mode: generate a new word
+            const secret_word = await get_secret_word();
+            // ...continue with play_game using this secret_word...
+        }        
         if (mode === '3' && !['facil', 'normal', 'dificil', null].includes(difficulty)) {
             console.error('start_game: Invalid difficulty', difficulty);
             output.innerText = 'Error: Dificultad inválida.';
@@ -1890,7 +1905,14 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         return;
     }
     console.log('play_game: Validated players', players);
-    let provided_secret_word = secret_word || await get_secret_word();
+    let provided_secret_word;
+    if (mode === '2' && gameType === 'remoto') {
+        // Always use the word from Firebase for remote games
+        provided_secret_word = secret_word; // This should be set from Firebase earlier in your code
+    } else {
+        // Local or AI: get a new word if not provided
+        provided_secret_word = secret_word || await get_secret_word();
+    }    
     console.log('play_game: Secret word:', provided_secret_word);
     const guessed_letters = new Set();
     const used_wrong_letters = new Set();
@@ -2087,6 +2109,15 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
         }
         let current_player_idx = current_player_idx_ref.value;
         if (mode === '2' && gameType === 'remoto') {
+            if (players[current_player_idx] === game.currentPlayer) {
+                // This client is the current player: allow input and process guess
+                const guess = await get_guess();
+                // ...process guess and update Firebase...
+            } else {
+                // Not this client's turn: disable input and show waiting message
+                prompt.innerText = 'Esperando el turno del otro jugador...';
+                input.disabled = true;
+            }
             try {
                 await delay(3000); // Delay for Firebase propagation
                 if (!secret_word || typeof secret_word !== 'string') {
@@ -2103,6 +2134,20 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                         return;
                     }
                     const game = snapshot.val();
+                    
+                    // Always update local state from Firebase
+                    guessed_letters.clear();
+                    if (Array.isArray(game.guessedLetters)) {
+                        game.guessedLetters.forEach(l => guessed_letters.add(l));
+                    }
+                    Object.assign(tries, game.tries);
+                    Object.assign(scores, game.scores);
+                    current_player_idx = players.indexOf(game.currentPlayer);
+                    if (current_player_idx === -1) current_player_idx = 0;
+                    current_player_idx_ref.value = current_player_idx;
+
+                    update_ui();
+
                     if (game.status !== 'playing') {
                         console.log('game_loop: Game not in playing state, exiting', game.status);
                         unsubscribe();
