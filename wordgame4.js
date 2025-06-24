@@ -1915,6 +1915,8 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     let game_info, player_info, progress;
     let sessionRef;
 
+    let current_player_idx_ref = { value: current_player_idx };
+
     if (mode === '2' && gameType === 'remoto') {
         await new Promise((resolve, reject) => {
             try {
