@@ -2470,10 +2470,23 @@ async function main() {
     if (gameState) {
         console.log('main: create_game_ui resolved', gameState);
         const players = [gameState.player1, gameState.player2].filter(Boolean);
+
+        let secret_word = null;
+        if (gameState.mode === '2' && gameState.gameType === 'remoto') {
+            // Fetch the secret word from Firebase before starting the game
+            const sessionRef = ref(database, `games/${gameState.sessionId}`);
+            const snapshot = await get(sessionRef);
+            if (snapshot.exists() && snapshot.val().secretWord) {
+                secret_word = snapshot.val().secretWord;
+            } else {
+                console.error('main: Could not fetch secret word from Firebase');
+            }
+        }
+
         try {
             await play_game(
                 null,
-                null,
+                secret_word, // <-- Now this is set for remote games!
                 gameState.mode,
                 players,
                 gameState.output,
