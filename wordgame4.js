@@ -2078,8 +2078,8 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
     }
 
     function update_ui() {
-        console.log('update_ui: Starting update', { player: players[current_player_idx], current_player_idx });
         try {
+            // Defensive checks
             if (!output || !prompt || !secret_word || !guessed_letters || !tries || !scores || !players[current_player_idx]) {
                 console.error('update_ui: Missing required data', {
                     output: !!output,
@@ -2092,12 +2092,56 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                 });
                 return;
             }
+
+            // Display the masked word
             const display_word = secret_word
                 .split('')
-                .map(letter => (guessed_letters.has(letter) ? letter : '_'))
+                .map(letter => (guessed_letters.has(letter) ? letter.toUpperCase() : '_'))
                 .join(' ');
-            output.innerText = `Palabra: ${display_word}\nIntentos restantes: ${tries[players[current_player_idx]]}\nPuntuación: ${scores[players[current_player_idx]]}`;
-            console.log('update_ui: UI updated successfully', { display_word, tries: tries[players[current_player_idx]], scores: scores[players[current_player_idx]] });
+
+            // Build player info table
+            let playerTable = `<table style="margin:0 auto;font-size:16px;"><tr><th>Jugador</th><th>Puntaje</th><th>Intentos</th></tr>`;
+            players.forEach(p => {
+                playerTable += `<tr${current_player_idx !== undefined && players[current_player_idx] === p ? ' style="background:#e0ffe0;font-weight:bold;"' : ''}>
+                    <td>${escapeHTML(p)}</td>
+                    <td>${scores[p]}</td>
+                    <td>${tries[p]}</td>
+                </tr>`;
+            });
+            playerTable += `</table>`;
+
+            // Compose the info
+            output.innerHTML = `
+                <div style="margin-bottom:8px;">
+                    <strong>Palabra:</strong> ${display_word}
+                    <br>
+                    <strong>Letras adivinadas:</strong> ${Array.from(guessed_letters).join(', ') || '(ninguna)'}
+                    <br>
+                    <strong>Turno:</strong> <span style="color:blue">${escapeHTML(players[current_player_idx])}</span>
+                    <br>
+                    <strong>Puntaje máximo:</strong> ${max_score}
+                    <br>
+                    <strong>Longitud palabra:</strong> ${secret_word.length}
+                </div>
+                ${playerTable}
+            `;
+
+            // Optionally, update a separate player_info element if you use one
+            if (typeof player_info !== 'undefined' && player_info) {
+                player_info.innerHTML = `<strong>Turno de:</strong> <span style="color:blue">${escapeHTML(players[current_player_idx])}</span>`;
+            }
+
+            // Optionally, update a progress element if you use one
+            if (typeof progress !== 'undefined' && progress) {
+                progress.innerHTML = `<strong>Progreso:</strong> ${display_word}`;
+            }
+
+            console.log('update_ui: UI updated successfully', {
+                display_word,
+                tries: tries[players[current_player_idx]],
+                scores: scores[players[current_player_idx]],
+                current_player: players[current_player_idx]
+            });
         } catch (err) {
             console.error('update_ui: Error updating UI', err);
             display_feedback('Error al actualizar la interfaz.', 'red', null, false);
