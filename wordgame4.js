@@ -2183,6 +2183,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                             if (!guess) {
                                 display_feedback('Por favor, ingresa una adivinanza válida.', 'orange', null, false);
                                 // Wait for user input again, do not proceed or update Firebase
+                                return; // <-- Add this line to exit the snapshot handler and wait for the next turn
                             }
                         }
                         const result = await process_guess(
