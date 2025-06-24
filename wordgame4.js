@@ -2088,6 +2088,11 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
         if (mode === '2' && gameType === 'remoto') {
             try {
                 await delay(3000); // Delay for Firebase propagation
+                if (!secret_word || typeof secret_word !== 'string') {
+                    display_feedback('Error: Palabra secreta no disponible. Reinicia el juego.', 'red', null, false);
+                    console.error('game_loop: secret_word is missing or invalid', { secret_word });
+                    return;
+                }
                 const unsubscribe = onValue(sessionRef, async (snapshot) => {
                     console.log('game_loop: Firebase snapshot received', snapshot.val());
                     if (!snapshot.exists()) {
