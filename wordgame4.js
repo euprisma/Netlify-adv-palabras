@@ -1325,7 +1325,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     [sessionState.player1 || 'Player1']: sessionState.scores?.[sessionState.player1] || 0,
                                     [selected_player2]: 0
                                 },
-                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['__init__']
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) && sessionState.guessedLetters.length > 0
+                                    ? sessionState.guessedLetters
+                                    : ['__init__']
                             };
                             await update(sessionRef, updateData);
                             console.log('handlePlayer2Input: Updated Firebase with player2', {
