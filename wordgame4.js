@@ -1318,8 +1318,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 status: 'playing',
                                 currentPlayer: sessionState.player1 || selected_player2,
                                 tries: {
-                                    [sessionState.player1 || 'Player1']: sessionState.tries?.[sessionState.player1] || Math.floor(sessionState.secretWord.length / 2),
-                                    [selected_player2]: Math.floor(sessionState.secretWord.length / 2)
+                                    [sessionState.player1 || 'Player1']: Math.max(1, Math.floor(sessionState.secretWord.length / 2)),
+                                    [selected_player2]: Math.max(1, Math.floor(sessionState.secretWord.length / 2))
                                 },
                                 scores: {
                                     [sessionState.player1 || 'Player1']: sessionState.scores?.[sessionState.player1] || 0,
@@ -1379,6 +1379,24 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         inputDisabled: input.disabled,
                         buttonDisplay: button.style.display
                     });
+
+                    // Clean up placeholder keys after Player 2 joins
+                    sessionRef = ref(database, `games/${selected_sessionId}`);
+                    const snapshot = await get(sessionRef);
+                    if (snapshot.exists()) {
+                        const game = snapshot.val();
+                        const cleanTries = Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'));
+                        const cleanScores = Object.fromEntries(Object.entries(game.scores).filter(([k]) => k !== 'init'));
+                        const cleanGuessedLetters = Array.isArray(game.guessedLetters)
+                            ? game.guessedLetters.filter(l => l !== '__init__')
+                            : [];
+                        await update(sessionRef, {
+                            tries: cleanTries,
+                            scores: cleanScores,
+                            guessedLetters: cleanGuessedLetters
+                        });
+                    }
+
                     console.log('handlePlayer2Input: Resolving with', {
                         mode: selected_mode,
                         player1: sessionState.player1,
@@ -1386,6 +1404,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         gameType: selected_gameType,
                         sessionId: selected_sessionId
                     });
+
                     resolve({
                         mode: selected_mode,
                         player1: sessionState.player1,
@@ -1669,7 +1688,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     word_guessed: false
                 };
             }
-            
+
         } // Process guess with retry logic
         while (retried < max_retries) {
             if (!guess) {
@@ -2242,15 +2261,19 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                     if (Array.isArray(game.guessedLetters)) {
                         game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
                     }
-                    Object.assign(tries, game.tries);
-                    Object.assign(scores, game.scores);
+                    const cleanTries = Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'));
+                    const cleanScores = Object.fromEntries(Object.entries(game.scores).filter(([k]) => k !== 'init'));
+                    Object.assign(tries, cleanTries);
+                    Object.assign(scores, cleanScores);
+                    // Do NOT re-assign game.tries or game.scores here!
+                    // Object.assign(tries, game.tries); // <-- REMOVE THIS
+                    // Object.assign(scores, game.scores); // <-- REMOVE THIS
                     current_player_idx = players.indexOf(game.currentPlayer);
                     if (current_player_idx === -1) {
                         console.warn('game_loop: Invalid currentPlayer, defaulting to first player', game.currentPlayer);
                         current_player_idx = 0;
                         await update(sessionRef, { currentPlayer: players[current_player_idx] });
                     }
-                    current_player_idx_ref.value = current_player_idx;
 
                     // Log before UI update
                     console.log('game_loop: Before update_ui', { current_player_idx, currentPlayer: game.currentPlayer, status: game.status });
@@ -2347,6 +2370,14 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                                 }
                             }
                         }
+
+                        console.log('game_loop: Checking for game over', {
+                            tries: { ...tries },
+                            current_player: players[current_player_idx],
+                            tries_for_current: tries[players[current_player_idx]],
+                            result
+                        });
+
                         if (result.word_guessed || tries[players[current_player_idx]] <= 0) {
                             console.log('game_loop: Game over', { word_guessed: result.word_guessed, tries_remaining: tries[players[current_player_idx]] });
                             display_feedback(
