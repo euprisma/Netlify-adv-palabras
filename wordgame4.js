@@ -943,14 +943,17 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
                 selected_player1 = format_name(player1Input) || player1Input.charAt(0).toUpperCase() + player1Input.slice(1).toLowerCase();
                 console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
-                if (selected_mode === '2' && selected_gameType === 'remoto' && !selected_sessionId) {
-                    console.error('create_game_ui: selected_sessionId is undefined in handlePlayer1Input');
-                    output.innerText = 'Error: ID de sesión no definido. Intenta de nuevo.';
-                    output.style.color = 'red';
-                    input.value = '';
-                    focusInput(input);
-                    return;
-                }
+
+                // Only do Firebase logic for remote mode
+                if (selected_mode === '2' && selected_gameType === 'remoto') {
+                    if (!selected_sessionId) {
+                        console.error('create_game_ui: selected_sessionId is undefined in handlePlayer1Input');
+                        output.innerText = 'Error: ID de sesión no definido. Intenta de nuevo.';
+                        output.style.color = 'red';
+                        input.value = '';
+                        focusInput(input);
+                        return;
+                    }
                     try {
                         let attempts = 5;
                         let success = false;
@@ -959,7 +962,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             try {
                                 const snapshot = await get(sessionRef);
                                 const snapVal = snapshot.val();
-                                if (!snapshot.exists() || !snapVal || !snapVal.secretWord) {
+                                if (!snapshot.exists() || !snapVal || !snapVal.secretWord || !snapVal.initialized) {
                                     console.error('create_game_ui: Invalid session for player1 update', selected_sessionId, snapVal);
                                     throw new Error('Invalid session state');
                                 }
@@ -1053,7 +1056,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             }
                         }, (error) => {
                             console.error('handlePlayer1Input: Firebase snapshot error', error);
-                            output.innerText = error.message && error.message.includes('permission_denied')
+                            output.innerText = error.message.includes('permission_denied')
                                 ? 'Error: Permiso denegado en la sincronización. Verifica las reglas de Firebase.'
                                 : 'Error de sincronización. Intenta de nuevo.';
                             output.style.color = 'red';
@@ -1090,15 +1093,31 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             }
                         }, 60000);
                     } catch (error) {
-                    console.error('create_game_ui: Error updating player 1 in Firebase:', error);
-                    output.innerText = error.message.includes('permission_denied')
-                        ? 'Error: Permiso denegado al registrar Jugador 1. Verifica las reglas de Firebase.'
-                        : 'Error al registrar el Jugador 1. Intenta de nuevo.';
-                    output.style.color = 'red';
-                    input.value = '';
-                    input.style.display = 'inline-block';
-                    button.style.display = 'inline-block';
-                    focusInput(input);
+                        console.error('create_game_ui: Error updating player 1 in Firebase:', error);
+                        output.innerText = error.message.includes('permission_denied')
+                            ? 'Error: Permiso denegado al registrar Jugador 1. Verifica las reglas de Firebase.'
+                            : 'Error al registrar el Jugador 1. Intenta de nuevo.';
+                        output.style.color = 'red';
+                        input.value = '';
+                        input.style.display = 'inline-block';
+                        button.style.display = 'inline-block';
+                        focusInput(input);
+                    }
+                } else {
+                    // LOCAL/SINGLE PLAYER: Just resolve!
+                    resolve({
+                        mode: selected_mode,
+                        player1: selected_player1,
+                        prompt,
+                        input,
+                        button,
+                        output,
+                        container,
+                        difficulty: selected_difficulty,
+                        gameType: selected_gameType,
+                        sessionId: selected_sessionId,
+                        players: [selected_player1]
+                    });
                 }
             }
 
