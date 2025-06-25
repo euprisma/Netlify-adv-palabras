@@ -1526,6 +1526,19 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
             word_guessed: false
         };
     }
+    try {
+    // Defensive: If guess is empty or invalid, return early and do NOT decrement tries
+    if (!guess || typeof guess !== 'string' || !guess.trim()) {
+        console.warn('process_guess: No valid guess provided, not decrementing tries', { player, guess });
+        return {
+            penalizo: false,
+            tries,
+            scores,
+            guessed_letters,
+            word_guessed: false
+        };
+    }
+
     let retried = 0;
     let timeout_retries = 0;
     const max_retries = 3;
