@@ -2273,7 +2273,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                             console.warn('game_loop: Failed to focus input', e);
                         }
                         console.log('game_loop: Waiting for guess');
-                        const guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button);
+                        const guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button, players, current_player_idx);
                         console.log('game_loop: Guess received', { guess });
                         if (!guess) {
                             console.log('game_loop: No valid guess received, retrying');
@@ -2374,7 +2374,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                     console.warn('game_loop: Failed to focus input', e);
                 }
                 console.log('game_loop: Waiting for guess in local mode');
-                const guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button);
+                const guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button, players, current_player_idx);
                 console.log('game_loop: Guess received in local mode', { guess });
                 if (!guess) {
                     console.log('game_loop: No valid guess received, retrying');
