@@ -397,64 +397,69 @@ function display_feedback(message, color, player = null, append = false) {
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
-    if (!secret_word || typeof secret_word !== 'string') {
-        console.error('get_guess: secret_word is missing or invalid', { secret_word });
-        throw new Error('Missing or invalid secret word');
-    }
-    console.log('get_guess: Starting, Loaded version 2025-06-19-v9.19', {
+    console.log('get_guess: Starting, Loaded version 2025-06-25-v9.20', {
         prompt: prompt?.innerText,
         inputExists: !!input?.parentNode,
         buttonExists: !!button?.parentNode,
         inputValue: input?.value,
-        inputId: input?.id || 'no-id'
+        inputId: input?.id || 'no-id',
+        secret_word
     });
-    if (!prompt || !input || !output) {
-        console.error('get_guess: Missing required DOM elements', {
-            prompt,
-            input,
-            output
-        });
-        throw new Error('Missing required DOM elements');
+    if (!secret_word || typeof secret_word !== 'string') {
+        console.error('get_guess: secret_word is missing or invalid', { secret_word });
+        display_feedback('Error: Palabra secreta no disponible.', 'red', null, false);
+        return null;
+    }
+    if (!prompt || !input || !output || !button) {
+        console.error('get_guess: Missing required DOM elements', { prompt, input, output, button });
+        display_feedback('Error: Elementos de interfaz no disponibles.', 'red', null, false);
+        return null;
     }
     input.id = input.id || `guess-input-${Date.now()}`;
     const normalized_secret = normalizar(secret_word);
     const min_guesses_for_word = secret_word.length < 5 ? 1 : 2;
     const permitir_palabra = guessed_letters.size >= min_guesses_for_word ||
         Array.from(guessed_letters).some(l => secret_word.split('').filter(x => x === l).length > 1);
-    prompt.innerText = permitir_palabra ?
-        'Adivina una letra o la palabra completa:' :
-        'Adivina una letra:';
-    if (button && button.parentNode) {
-        button.style.display = 'none';
-        console.log('get_guess: Enviar button hidden for guessing');
-    }
-    try {
-        input.value = '';
-        focusInput(input);
-        return new Promise((resolve, reject) => {
-            const enterHandler = (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    console.log('get_guess: Enter pressed', {
-                        inputValue: input.value,
-                        inputId: input.id
-                    });
-                    const result = handleGuess('enter', input.value);
-                    if (result.valid) {
-                        input.removeEventListener('keypress', enterHandler);
-                        resolve(result.guess);
-                    }
-                }
-            };
 
-            function handleGuess(source, guessValue) {
+    try {
+        prompt.innerText = permitir_palabra
+            ? `${escapeHTML(players[current_player_idx])}, adivina una letra o la palabra completa:`
+            : `${escapeHTML(players[current_player_idx])}, adivina una letra:`;
+        input.value = '';
+        input.disabled = false;
+        //button.style.display = 'inline-block'; // Ensure button is visible
+        button.innerText = 'Enviar';
+        console.log('get_guess: UI initialized', {
+            prompt: prompt.innerText,
+            inputDisabled: input.disabled,
+            buttonDisplay: button.style.display
+        });
+
+        // Attempt to focus input
+        try {
+            focusInput(input);
+            console.log('get_guess: Input focused', { focused: document.activeElement === input });
+        } catch (err) {
+            console.warn('get_guess: focusInput failed, retrying', err);
+            setTimeout(() => {
+                try {
+                    input.focus();
+                    console.log('get_guess: Input refocused', { focused: document.activeElement === input });
+                } catch (e) {
+                    console.error('get_guess: Failed to refocus input', e);
+                }
+            }, 100);
+        }
+
+        return new Promise((resolve) => {
+            const handleGuess = (source, guessValue) => {
                 console.log('get_guess: handleGuess called', {
                     source,
                     guessValue,
                     currentInputValue: input.value,
                     inputId: input.id
                 });
-                const rawGuess = guessValue || '';
+                const rawGuess = guessValue || input.value.trim();
                 const trimmedGuess = rawGuess.trim();
                 const normalizedGuess = normalizar(trimmedGuess);
                 console.log('get_guess: Processing guess', {
@@ -464,50 +469,84 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                     secret_word,
                     normalized_secret
                 });
+
                 if (!trimmedGuess) {
                     output.innerText = 'Entrada vacía. Ingresa una letra o palabra válida.';
                     output.style.color = 'red';
-                    focusInput(input);
-                    return {
-                        valid: false
-                    };
+                    input.value = '';
+                    input.focus();
+                    return { valid: false };
                 }
-                if (permitir_palabra &&
-                    normalizedGuess.length === normalized_secret.length &&
-                    /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                if (permitir_palabra && normalizedGuess.length === normalized_secret.length &&
+                    /^[a-záéíóúñ]+$/.test(normalizedGuess)) {
                     input.value = '';
-                    return {
-                        valid: true,
-                        guess: normalizedGuess
-                    };
-                } else if (normalizedGuess.length === 1 &&
-                    /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                    return { valid: true, guess: normalizedGuess };
+                } else if (normalizedGuess.length === 1 && /^[a-záéíóúñ]+$/.test(normalizedGuess)) {
                     input.value = '';
-                    return {
-                        valid: true,
-                        guess: normalizedGuess
-                    };
+                    return { valid: true, guess: normalizedGuess };
                 } else {
-                    output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida (solo letras, sin caracteres especiales).';
+                    output.innerText = 'Entrada inválida. Ingresa solo letras válidas (sin caracteres especiales).';
                     output.style.color = 'red';
                     input.value = '';
-                    focusInput(input);
-                    return {
-                        valid: false
-                    };
+                    input.focus();
+                    return { valid: false };
                 }
-            }
+            };
+
+            const onSubmit = () => {
+                console.log('get_guess: Submit button clicked', { inputValue: input.value });
+                const result = handleGuess('button', input.value);
+                if (result.valid) {
+                    input.disabled = true;
+                    button.removeEventListener('click', onSubmit);
+                    input.removeEventListener('keypress', onEnter);
+                    console.log('get_guess: Resolving with valid guess', { guess: result.guess });
+                    resolve(result.guess);
+                }
+            };
+
+            const onEnter = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    console.log('get_guess: Enter pressed', { inputValue: input.value, inputId: input.id });
+                    const result = handleGuess('enter', input.value);
+                    if (result.valid) {
+                        input.disabled = true;
+                        button.removeEventListener('click', onSubmit);
+                        input.removeEventListener('keypress', onEnter);
+                        console.log('get_guess: Resolving with valid guess', { guess: result.guess });
+                        resolve(result.guess);
+                    }
+                }
+            };
+
             try {
-                input.addEventListener('keypress', enterHandler);
+                button.addEventListener('click', onSubmit);
+                input.addEventListener('keypress', onEnter);
+                console.log('get_guess: Event listeners attached', { inputId: input.id });
             } catch (err) {
-                console.error('get_guess: Error attaching input listener', err);
-                reject(new Error('Failed to attach input listener'));
-                return;
+                console.error('get_guess: Error attaching event listeners', err);
+                display_feedback('Error al configurar la entrada. Intenta de nuevo.', 'red', null, false);
+                resolve(null);
             }
+
+            // Fallback to ensure input is focused
+            setTimeout(() => {
+                if (document.activeElement !== input) {
+                    console.warn('get_guess: Input not focused, retrying');
+                    try {
+                        input.focus();
+                        console.log('get_guess: Input refocused', { focused: document.activeElement === input });
+                    } catch (e) {
+                        console.error('get_guess: Failed to refocus input', e);
+                    }
+                }
+            }, 100);
         });
     } catch (err) {
-        console.error('get_guess: Error setting input focus', err);
-        throw new Error('Invalid input element');
+        console.error('get_guess: Error in setup', err);
+        display_feedback('Error al procesar la entrada. Intenta de nuevo.', 'red', null, false);
+        return null;
     }
 }
 
@@ -1165,7 +1204,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     output.innerText = 'Ingresa un nombre válido para Jugador 2.';
                     output.style.color = 'red';
                     input.value = '';
-                    focusInput(input);
+                    try {
+                        focusInput(input);
+                    } catch (e) {
+                        console.warn('create_game_ui: Failed to focus input', e);
+                    }
                     return;
                 }
                 selected_player2 = format_name(player2Input) || player2Input.charAt(0).toUpperCase() + player2Input.slice(1).toLowerCase();
@@ -1175,7 +1218,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     output.innerText = 'Error: ID de sesión no definido.';
                     output.style.color = 'red';
                     input.value = '';
-                    focusInput(input);
+                    try {
+                        focusInput(input);
+                    } catch (e) {
+                        console.warn('create_game_ui: Failed to focus input', e);
+                    }
                     return;
                 }
                 if (selected_gameType !== 'remoto') {
@@ -1183,7 +1230,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     output.innerText = 'Error: Tipo de juego no válido. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
-                    focusInput(input);
+                    try {
+                        focusInput(input);
+                    } catch (e) {
+                        console.warn('create_game_ui: Failed to focus input', e);
+                    }
                     return;
                 }
                 try {
@@ -1197,7 +1248,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             output.innerText = 'Sesión no encontrada. Intenta de nuevo.';
                             output.style.color = 'red';
                             input.value = '';
-                            focusInput(input);
+                            try {
+                                focusInput(input);
+                            } catch (e) {
+                                console.warn('create_game_ui: Failed to focus input', e);
+                            }
                             return;
                         }
                         sessionState = snapshot.val();
@@ -1206,7 +1261,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             output.innerText = 'La sesión tiene un estado inválido. Intenta con otro ID.';
                             output.style.color = 'red';
                             input.value = '';
-                            focusInput(input);
+                            try {
+                                focusInput(input);
+                            } catch (e) {
+                                console.warn('create_game_ui: Failed to focus input', e);
+                            }
                             return;
                         }
                         if (sessionState.status !== 'waiting' && sessionState.status !== 'waiting_for_player2') {
@@ -1217,7 +1276,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             output.innerText = 'La sesión no está disponible para unirse.';
                             output.style.color = 'red';
                             input.value = '';
-                            focusInput(input);
+                            try {
+                                focusInput(input);
+                            } catch (e) {
+                                console.warn('create_game_ui: Failed to focus input', e);
+                            }
                             return;
                         }
                         if (sessionState.player2) {
@@ -1225,7 +1288,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             output.innerText = 'La sesión ya tiene un segundo jugador.';
                             output.style.color = 'red';
                             input.value = '';
-                            focusInput(input);
+                            try {
+                                focusInput(input);
+                            } catch (e) {
+                                console.warn('create_game_ui: Failed to focus input', e);
+                            }
                             return;
                         }
                         break;
@@ -1235,7 +1302,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         output.innerText = 'Error al verificar la sesión. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
-                        focusInput(input);
+                        try {
+                            focusInput(input);
+                        } catch (e) {
+                            console.warn('create_game_ui: Failed to focus input', e);
+                        }
                         return;
                     }
                     let success = false;
@@ -1254,7 +1325,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     [sessionState.player1 || 'Player1']: sessionState.scores?.[sessionState.player1] || 0,
                                     [selected_player2]: 0
                                 },
-                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : []
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['__init__']
                             };
                             await update(sessionRef, updateData);
                             console.log('handlePlayer2Input: Updated Firebase with player2', {
@@ -1275,7 +1346,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 output.innerText = 'Error: Permiso denegado al registrar Jugador 2. Verifica las reglas de Firebase.';
                                 output.style.color = 'red';
                                 input.value = '';
-                                focusInput(input);
+                                try {
+                                    focusInput(input);
+                                } catch (e) {
+                                    console.warn('create_game_ui: Failed to focus input', e);
+                                }
                                 return;
                             }
                             await delay(1000);
@@ -1286,16 +1361,24 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         output.innerText = 'Error al registrar el Jugador 2. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
-                        focusInput(input);
+                        try {
+                            focusInput(input);
+                        } catch (e) {
+                            console.warn('create_game_ui: Failed to focus input', e);
+                        }
                         return;
                     }
-                    output.innerText = `Unido al juego con ID: ${selected_sessionId}`;
-                    output.style.color = 'black';
+                    output.innerText = `¡${selected_player2} se ha unido! Comienza ${sessionState.player1}.`;
+                    output.style.color = 'green';
                     input.value = '';
+                    input.disabled = true; // Disable input temporarily until get_guess
                     input.removeEventListener('keypress', currentHandler);
-                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                    button.style.display = 'none';
-                    focusInput(input);
+                    button.style.display = 'inline-block'; // Ensure button is visible for get_guess
+                    console.log('handlePlayer2Input: UI updated', {
+                        prompt: prompt.innerText,
+                        inputDisabled: input.disabled,
+                        buttonDisplay: button.style.display
+                    });
                     console.log('handlePlayer2Input: Resolving with', {
                         mode: selected_mode,
                         player1: sessionState.player1,
@@ -1314,7 +1397,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         container,
                         difficulty: selected_difficulty,
                         gameType: selected_gameType,
-                        sessionId: selected_sessionId
+                        sessionId: selected_sessionId,
+                        players: [sessionState.player1, selected_player2]
                     });
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Firebase:', error);
@@ -1323,7 +1407,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         : 'Error al registrar el Jugador 2. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
-                    focusInput(input);
+                    try {
+                        focusInput(input);
+                    } catch (e) {
+                        console.warn('create_game_ui: Failed to focus input', e);
+                    }
                 }
             }
 
@@ -2095,14 +2183,16 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                     const game = snapshot.val();
 
                     // Validate Firebase state
-                    if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer || !game.status || !game.tries || !game.scores) {
+                    if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer || !game.status || !game.tries || !game.scores || !game.player1 || !game.player2) {
                         console.warn('game_loop: Invalid Firebase state, attempting to correct', {
                             secretWord: !!game.secretWord,
                             guessedLetters: game.guessedLetters,
                             currentPlayer: game.currentPlayer,
                             status: game.status,
                             tries: game.tries,
-                            scores: game.scores
+                            scores: game.scores,
+                            player1: game.player1,
+                            player2: game.player2
                         });
                         let attempts = 3;
                         while (attempts--) {
@@ -2111,11 +2201,13 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                                     secretWord: game.secretWord || secret_word,
                                     guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters : ['__init__'],
                                     currentPlayer: game.currentPlayer || players[0],
-                                    tries: game.tries || Object.fromEntries(players.map(p => [p, 3])),
+                                    tries: game.tries || Object.fromEntries(players.map(p => [p, 2])),
                                     scores: game.scores || Object.fromEntries(players.map(p => [p, 0])),
-                                    status: game.status || 'playing'
+                                    status: game.status || 'playing',
+                                    player1: game.player1 || players[0],
+                                    player2: game.player2 || players[1]
                                 });
-                                console.log('game_loop: Corrected Firebase state');
+                                console.log('game_loop: Corrected Firebase state', { attempt: 3 - attempts });
                                 return; // Wait for next snapshot
                             } catch (err) {
                                 console.warn(`game_loop: Retry ${3 - attempts}/3 for Firebase state correction`, err);
@@ -2146,7 +2238,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                     current_player_idx_ref.value = current_player_idx;
 
                     // Log before UI update
-                    console.log('game_loop: Before update_ui', { current_player_idx, currentPlayer: game.currentPlayer });
+                    console.log('game_loop: Before update_ui', { current_player_idx, currentPlayer: game.currentPlayer, status: game.status });
 
                     // Update UI
                     try {
@@ -2154,21 +2246,20 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                         console.log('game_loop: After update_ui');
                     } catch (err) {
                         console.error('game_loop: update_ui failed', err);
-                        display_feedback('Error al actualizar la interfaz. Intenta de nuevo.', 'red', null, false);
+                        display_feedback('Error al actualizar la interfaz.', 'red', null, false);
                         return;
                     }
 
                     // Check game status
-                    if (game.status === 'finished' || game.status === 'ended') {
-                        console.log('game_loop: Game finished or ended', game.status);
-                        display_feedback(`Juego terminado. La palabra era '${escapeHTML(secret_word)}'.`, 'red', null, true);
-                        unsubscribe();
-                        return;
-                    }
                     if (game.status !== 'playing') {
-                        // Wait for the game to enter 'playing' state (e.g., after Player 2 joins)
-                        console.log('game_loop: Waiting for game to enter playing state, current status:', game.status);
-                        return; // Do NOT unsubscribe or exit, just wait for the next snapshot
+                        console.log('game_loop: Game not in playing state', game.status);
+                        if (game.status === 'finished') {
+                            display_feedback(`Juego terminado. La palabra era '${escapeHTML(secret_word)}'.`, 'red', null, true);
+                            unsubscribe();
+                            return;
+                        }
+                        console.warn('game_loop: Unexpected status, continuing', game.status);
+                        return; // Wait for next snapshot
                     }
 
                     // Handle current player's turn
@@ -2176,16 +2267,23 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                         console.log('game_loop: Current player’s turn', { player: players[current_player_idx] });
                         prompt.innerText = `${escapeHTML(players[current_player_idx])}, ingresa una letra o palabra:`;
                         input.disabled = false;
-                        input.focus();
+                        try {
+                            input.focus();
+                        } catch (e) {
+                            console.warn('game_loop: Failed to focus input', e);
+                        }
                         console.log('game_loop: Waiting for guess');
-                        let guess = null;
-                        while (!guess) {
-                            guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button);
-                            if (!guess) {
-                                display_feedback('Por favor, ingresa una adivinanza válida.', 'orange', null, false);
-                                // Wait for user input again, do not proceed or update Firebase
-                                return; // <-- Add this line to exit the snapshot handler and wait for the next turn
+                        const guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button);
+                        console.log('game_loop: Guess received', { guess });
+                        if (!guess) {
+                            console.log('game_loop: No valid guess received, retrying');
+                            display_feedback('Por favor, ingresa una adivinanza válida.', 'orange', null, false);
+                            try {
+                                input.focus();
+                            } catch (e) {
+                                console.warn('game_loop: Failed to refocus input', e);
                             }
+                            return; // Retry for the same player
                         }
                         const result = await process_guess(
                             players[current_player_idx],
@@ -2229,7 +2327,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                                 await delay(500);
                                 if (attempts === 0) {
                                     console.error('game_loop: Failed to update Firebase', err);
-                                    display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
+                                    display_feedback('Error de sincronización.', 'red', null, false);
                                     return;
                                 }
                             }
@@ -2255,12 +2353,12 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                     }
                 }, (error) => {
                     console.error('game_loop: Firebase snapshot error', error);
-                    display_feedback('Error de sincronización con el servidor. Intenta de nuevo.', 'red', null, false);
+                    display_feedback('Error de sincronización con el servidor.', 'red', null, false);
                     unsubscribe();
                 });
             } catch (err) {
                 console.error('game_loop: Firebase listener setup error', err);
-                display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
+                display_feedback('Error al conectar con el servidor remoto.', 'red', null, false);
                 return;
             }
         } else {
@@ -2270,12 +2368,16 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                 console.log('game_loop: Local mode, current player', { player });
                 prompt.innerText = `${escapeHTML(player)}, ingresa una letra o palabra:`;
                 input.disabled = false;
-                input.focus();
+                try {
+                    input.focus();
+                } catch (e) {
+                    console.warn('game_loop: Failed to focus input', e);
+                }
                 console.log('game_loop: Waiting for guess in local mode');
                 const guess = await get_guess(guessed_letters, secret_word, prompt, input, output, button);
                 console.log('game_loop: Guess received in local mode', { guess });
                 if (!guess) {
-                    console.log('game_loop: No valid guess received, skipping');
+                    console.log('game_loop: No valid guess received, retrying');
                     display_feedback('Por favor, ingresa una adivinanza válida.', 'orange', null, false);
                     continue;
                 }
