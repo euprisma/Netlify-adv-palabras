@@ -396,7 +396,7 @@ function display_feedback(message, color, player = null, append = false) {
     }
 }
 
-async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
+async function get_guess(guessed_letters, secret_word, prompt, input, output, button, players, current_player_idx) {
     console.log('get_guess: Starting, Loaded version 2025-06-25-v9.20', {
         prompt: prompt?.innerText,
         inputExists: !!input?.parentNode,
