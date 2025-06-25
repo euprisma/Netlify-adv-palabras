@@ -943,7 +943,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
                 selected_player1 = format_name(player1Input) || player1Input.charAt(0).toUpperCase() + player1Input.slice(1).toLowerCase();
                 console.log('create_game_ui: Formatted Player 1 name:', selected_player1);
-                if (!selected_sessionId) {
+                if (selected_mode === '2' && selected_gameType === 'remoto' && !selected_sessionId) {
                     console.error('create_game_ui: selected_sessionId is undefined in handlePlayer1Input');
                     output.innerText = 'Error: ID de sesión no definido. Intenta de nuevo.';
                     output.style.color = 'red';
@@ -1380,8 +1380,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         buttonDisplay: button.style.display
                     });
 
-                    // Clean up placeholder keys after Player 2 joins
-                    sessionRef = ref(database, `games/${selected_sessionId}`);
+                    // Clean up placeholder keys after Player 2 joins                    
                     const snapshot = await get(sessionRef);
                     if (snapshot.exists()) {
                         const game = snapshot.val();
