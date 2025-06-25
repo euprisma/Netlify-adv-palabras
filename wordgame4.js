@@ -48,9 +48,9 @@ async function validateSessionState(sessionRef, expectedFields = {
     const state = snapshot.val();
     if (!state) return false;
     for (const [field, type] of Object.entries(expectedFields)) {
-        if (!state.hasOwnProperty(field) || 
-            (type === 'array' && !Array.isArray(state[field])) || 
-            (type === 'object' && (state[field] === null || typeof state[field] !== 'object')) || 
+        if (!state.hasOwnProperty(field) ||
+            (type === 'array' && !Array.isArray(state[field])) ||
+            (type === 'object' && (state[field] === null || typeof state[field] !== 'object')) ||
             (type === 'string' && typeof state[field] !== 'string') ||
             (type === 'boolean' && typeof state[field] !== 'boolean')) {
             console.warn(`validateSessionState: Invalid field ${field}, expected ${type}`, state[field]);
@@ -257,23 +257,25 @@ async function get_secret_word() {
 
 // Define focusInput once globally to avoid duplication
 function focusInput(input) {
-    if (input && input.parentNode && document.body.contains(input)) {
-        try {
-            input.focus();
-            console.log('focusInput: Input focused', {
-                inputId: input.id
-            });
-            return true;
-        } catch (err) {
-            console.error('focusInput: Error focusing input', err);
-            return false;
-        }
+    if (!input || !input.parentNode || !document.body.contains(input)) {
+        console.warn('focusInput: Input not focusable', {
+            inputExists: !!input,
+            isAttached: input?.parentNode,
+            inDocument: input && document.body.contains(input)
+        });
+        return false;
     }
-    console.warn('focusInput: Input not focusable', {
-        inputExists: !!input,
-        isAttached: input?.parentNode
-    });
-    return false;
+    try {
+        input.focus();
+        console.log('focusInput: Input focused', {
+            inputId: input.id,
+            isFocused: document.activeElement === input
+        });
+        return document.activeElement === input;
+    } catch (err) {
+        console.error('focusInput: Error focusing input', err);
+        return false;
+    }
 }
 
 // AI guess function
@@ -400,7 +402,13 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     console.log('get_guess: Starting, Loaded version 2025-06-25-v9.20', {
         prompt: prompt?.innerText,
         inputExists: !!input?.parentNode,
+        inputInDocument: input && document.body.contains(input),
         buttonExists: !!button?.parentNode,
+        buttonInDocument: button && document.body.contains(button),
+        outputExists: !!output?.parentNode,
+        outputInDocument: output && document.body.contains(output),
+        promptExists: !!prompt?.parentNode,
+        promptInDocument: prompt && document.body.contains(prompt),
         inputValue: input?.value,
         inputId: input?.id || 'no-id',
         secret_word
@@ -410,8 +418,19 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         display_feedback('Error: Palabra secreta no disponible.', 'red', null, false);
         return null;
     }
-    if (!prompt || !input || !output || !button) {
-        console.error('get_guess: Missing required DOM elements', { prompt, input, output, button });
+    if (!prompt || !input || !output || !button ||
+        !document.body.contains(prompt) || !document.body.contains(input) ||
+        !document.body.contains(output) || !document.body.contains(button)) {
+        console.error('get_guess: Missing or unattached DOM elements', {
+            prompt: !!prompt,
+            input: !!input,
+            output: !!output,
+            button: !!button,
+            promptAttached: prompt && document.body.contains(prompt),
+            inputAttached: input && document.body.contains(input),
+            outputAttached: output && document.body.contains(output),
+            buttonAttached: button && document.body.contains(button)
+        });
         display_feedback('Error: Elementos de interfaz no disponibles.', 'red', null, false);
         return null;
     }
@@ -427,28 +446,29 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             : `${escapeHTML(players[current_player_idx])}, adivina una letra:`;
         input.value = '';
         input.disabled = false;
-        //button.style.display = 'inline-block'; // Ensure button is visible
         button.innerText = 'Enviar';
+        button.style.display = 'inline-block'; // Ensure button is visible
         console.log('get_guess: UI initialized', {
             prompt: prompt.innerText,
             inputDisabled: input.disabled,
-            buttonDisplay: button.style.display
+            buttonDisplay: button.style.display,
+            inputInDocument: document.body.contains(input)
         });
 
-        // Attempt to focus input
-        try {
-            focusInput(input);
-            console.log('get_guess: Input focused', { focused: document.activeElement === input });
-        } catch (err) {
-            console.warn('get_guess: focusInput failed, retrying', err);
-            setTimeout(() => {
-                try {
-                    input.focus();
-                    console.log('get_guess: Input refocused', { focused: document.activeElement === input });
-                } catch (e) {
-                    console.error('get_guess: Failed to refocus input', e);
-                }
-            }, 100);
+        // Attempt to focus input with retry
+        let focusAttempts = 3;
+        while (focusAttempts--) {
+            if (focusInput(input)) {
+                console.log('get_guess: Input focused', { focused: document.activeElement === input });
+                break;
+            }
+            console.warn('get_guess: focusInput failed, retrying', { attemptsLeft: focusAttempts });
+            await delay(100);
+        }
+        if (focusAttempts <= 0) {
+            console.error('get_guess: Failed to focus input after retries');
+            display_feedback('Error: No se pudo enfocar el campo de entrada.', 'red', null, false);
+            return null;
         }
 
         return new Promise((resolve) => {
@@ -544,7 +564,11 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             }, 100);
         });
     } catch (err) {
-        console.error('get_guess: Error in setup', err);
+        console.error('get_guess: Error in setup', err, {
+            promptText: prompt?.innerText,
+            inputDisabled: input?.disabled,
+            buttonDisplay: button?.style?.display
+        });
         display_feedback('Error al procesar la entrada. Intenta de nuevo.', 'red', null, false);
         return null;
     }
@@ -709,7 +733,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
 
             let selected_mode, selected_player1, selected_player2, selected_difficulty, selected_gameType, selected_sessionId;
             let currentHandler;
-            
+
             function handleModeInput() {
                 const value = input.value.trim();
                 console.log('create_game_ui: Mode input:', value);
@@ -1411,8 +1435,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     [selected_player2]: 0
                                 },
                                 guessedLetters: Array.isArray(sessionState.guessedLetters)
-                                ? (sessionState.guessedLetters.length > 0 ? sessionState.guessedLetters : ['__init__'])
-                                : ['__init__']
+                                    ? (sessionState.guessedLetters.length > 0 ? sessionState.guessedLetters : ['__init__'])
+                                    : ['__init__']
                             };
                             await update(sessionRef, updateData);
                             console.log('handlePlayer2Input: Updated Firebase with player2', {
@@ -1531,10 +1555,36 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             output.innerText = 'Error al crear la interfaz de juego.';
             output.style.color = 'red';
             reject(error);
-        } finally {
+        } if (!container.contains(prompt) || !container.contains(input) || !container.contains(output) || !container.contains(button)) {
+            console.error('create_game_ui: DOM elements not properly attached', {
+                promptAttached: container.contains(prompt),
+                inputAttached: container.contains(input),
+                outputAttached: container.contains(output),
+                buttonAttached: container.contains(button)
+            });
+            output.innerText = 'Error: No se pudieron inicializar los elementos de la interfaz.';
+            output.style.color = 'red';
             isCreatingUI = false;
-            console.log('create_game_ui: UI creation completed');
+            reject(new Error('DOM elements not properly attached'));
+            return;
         }
+
+        console.log('create_game_ui: UI creation completed, all elements attached');
+        isCreatingUI = false;
+        resolve({
+            mode: selected_mode,
+            player1: selected_player1,
+            player2: selected_player2,
+            prompt,
+            input,
+            button,
+            output,
+            container,
+            difficulty: selected_difficulty,
+            gameType: selected_gameType,
+            sessionId: selected_sessionId,
+            players: selected_player2 ? [selected_player1, selected_player2] : [selected_player1]
+        });
     });
 }
 
@@ -1635,7 +1685,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
             guessed_letters,
             word_guessed: false
         };
-    }    
+    }
 
     let retried = 0;
     let timeout_retries = 0;
@@ -2101,7 +2151,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     }
     console.log('play_game: Validated players', players);
     let provided_secret_word;
-    
+
     if (mode === '2' && gameType === 'remoto') {
         // Always use the word from Firebase for remote games
         provided_secret_word = secret_word; // This should be set from Firebase earlier in your code
@@ -2113,7 +2163,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         console.error('play_game: Invalid secret word', provided_secret_word);
         display_feedback('Error: Palabra secreta no disponible. Reinicia el juego.', 'red', null, false);
         return;
-    }    
+    }
     console.log('play_game: Secret word:', provided_secret_word);
     const guessed_letters = new Set();
     const used_wrong_letters = new Set();
@@ -2204,7 +2254,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             return;
         }
     }
-    
+
     try {
         if (loadingMessage && loadingMessage.parentNode) {
             container.removeChild(loadingMessage);
