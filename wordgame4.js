@@ -1639,7 +1639,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
 
       if (guess.length === 1 && !secret_word.includes(guess) && used_wrong_letters.has(guess)) {
         if (retried < max_retries - 1) {
-          display_feedback(`Advertencia: '${escapeHTML(guess)}' ya intentada. Intenta de nuevo.`, 'orange', player, true);
+          display_feedback(`Advertencia: '${escapeHTML(guess)}' ya intentada. Intenta de nuevo.`, 'orange', player, true, 1500);
           retried++;
           console.log('process_guess: Repeated wrong letter', { player, guess, retried });
           if (player === 'IA') {
@@ -2155,7 +2155,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                         display_feedback
                     );
                     await update_ui();
-                    if (result.word_guessed || provided_secret_word.split('').every(l => guessed_letters.has(l))) {
+                    if (result && (result.word_guessed || provided_secret_word.split('').every(l => guessed_letters.has(l)))) {
                         display_feedback(`¡${player} adivinó la palabra!`, 'green', null, true);
                         break;
                     }
