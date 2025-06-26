@@ -596,8 +596,8 @@ function get_guess_feedback(guess, secret_word, player_score) {
 }
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
-    return new Promise((resolve, reject) => {
-        console.log('create_game_ui: Starting, Loaded version 2025-06-26-v9.25', {
+    return new Promise(async (resolve, reject) => {
+        console.log('create_game_ui: Starting, Loaded version 2025-06-26-v9.27', {
             mode, player1, player2, difficulty, gameType, sessionId,
             firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId },
             authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
@@ -676,6 +676,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
 
             // Function to set game prompt with secret word and tries
             function setGamePrompt(word) {
+                console.log('setGamePrompt: Setting prompt', { word });
                 const wordDisplay = word.split('').map(() => '_').join(' ');
                 tries = selected_mode === '3' ? (selected_difficulty === 'facil' ? 7 : selected_difficulty === 'normal' ? 5 : 3) : 5;
                 prompt.innerText = `Palabra: ${wordDisplay}, Intentos: ${tries}`;
@@ -684,10 +685,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 focusInput(input);
             }
 
-            // Handle game setup
+            // Handle game setup with provided parameters
             if (selected_mode && selected_player1 && (selected_mode !== '3' || selected_difficulty) && (selected_mode !== '2' || selected_gameType)) {
                 console.log('create_game_ui: Using provided parameters', { selected_mode, selected_player1, selected_player2, selected_difficulty, selected_gameType, selected_sessionId });
                 try {
+                    console.log('create_game_ui: Line ~691 - Fetching secret word');
                     secretWord = await get_secret_word(selected_mode === '3' ? selected_difficulty : null);
                     if (!secretWord || typeof secretWord !== 'string') {
                         throw new Error('Invalid secret word');
@@ -705,6 +707,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
             } else {
                 // Mode selection UI
+                console.log('create_game_ui: Line ~710 - Setting up mode selection UI');
                 prompt.innerHTML = 'Selecciona el modo de juego:';
                 input.style.display = 'none';
                 button.style.display = 'none';
@@ -766,6 +769,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
 
                 // Handler functions
                 function handleModeInput() {
+                    console.log('create_game_ui: Line ~760 - handleModeInput called');
                     const value = input.value.trim();
                     console.log('create_game_ui: Mode input:', value);
                     if (value === '1' || value === '2' || value === '3') {
@@ -811,7 +815,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
 
                 function handleGameTypeInput(type, buttonContainer) {
-                    console.log('create_game_ui: Game type selected:', type);
+                    console.log('create_game_ui: Line ~800 - handleGameTypeInput called', { type });
                     selected_gameType = type;
                     if (buttonContainer.parentNode) container.removeChild(buttonContainer);
                     if (!input.parentNode) container.appendChild(input);
@@ -839,6 +843,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
 
                 async function handleRemoteRoleInput() {
+                    console.log('create_game_ui: Line ~820 - handleRemoteRoleInput called');
                     const value = input.value.trim().toLowerCase();
                     console.log('create_game_ui: Remote role input:', value);
                     if (value === 'crear') {
@@ -863,7 +868,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         try {
                             secretWord = await get_secret_word();
                             if (!secretWord || typeof secretWord !== 'string') {
-                                console.error('create_game_ui: Invalid secretWord:', secretWord);
+                                console.error('create_game_ui: Invalid secret word:', secretWord);
                                 output.innerText = 'Error: Palabra secreta inválida. Intenta de nuevo.';
                                 output.style.color = 'red';
                                 input.value = '';
@@ -1031,6 +1036,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
 
                 async function handlePlayer1Input() {
+                    console.log('create_game_ui: Line ~900 - handlePlayer1Input called');
                     const player1Input = input.value.trim();
                     console.log('create_game_ui: Player 1 input:', player1Input);
                     if (!player1Input) {
@@ -1051,6 +1057,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         focusInput(input);
                         input.removeEventListener('keypress', currentHandler);
                         button.onclick = async () => {
+                            console.log('create_game_ui: Line ~920 - Difficulty handler called');
                             const difficultyInput = input.value.trim().toLowerCase();
                             console.log('create_game_ui: Difficulty input:', difficultyInput);
                             if (['facil', 'normal', 'dificil'].includes(difficultyInput)) {
@@ -1083,6 +1090,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         };
                         input.addEventListener('keypress', currentHandler);
                     } else if (selected_mode === '2' && selected_gameType === 'remoto') {
+                        console.log('create_game_ui: Line ~940 - Handling remote game for Mode 2');
                         if (!selected_sessionId) {
                             console.error('create_game_ui: selected_sessionId is undefined in handlePlayer1Input');
                             output.innerText = 'Error: ID de sesión no definido. Intenta de nuevo.';
@@ -1224,7 +1232,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             focusInput(input);
                         }
                     } else {
-                        // Mode 1 or Mode 2 (local)
+                        console.log('create_game_ui: Line ~1000 - Handling Mode 1 or Mode 2 local');
                         try {
                             secretWord = await get_secret_word();
                             if (!secretWord || typeof secretWord !== 'string') {
@@ -1244,7 +1252,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 };
                                 input.addEventListener('keypress', currentHandler);
                             } else {
-                                // Mode 1: Set game prompt and proceed
                                 setGamePrompt(secretWord);
                                 proceedToValidation = true;
                             }
@@ -1262,6 +1269,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
 
                 async function handleSessionIdInput() {
+                    console.log('create_game_ui: Line ~1020 - handleSessionIdInput called');
                     const sessionId = input.value.trim().toLowerCase();
                     console.log('create_game_ui: Session ID input:', sessionId);
                     if (!sessionId) {
@@ -1366,6 +1374,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
 
                 async function handlePlayer2Input() {
+                    console.log('create_game_ui: Line ~1080 - handlePlayer2Input called');
                     const player2Input = input.value.trim();
                     console.log('create_game_ui: Player 2 input:', player2Input);
                     if (!player2Input) {
@@ -1590,6 +1599,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
 
                 // Set initial handler
+                console.log('create_game_ui: Line ~1150 - Setting initial handler');
                 currentHandler = (e) => {
                     if (e.key === 'Enter') button.click();
                 };
@@ -1602,6 +1612,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             }
 
             // Validation check before resolving
+            console.log('create_game_ui: Line ~1160 - Checking proceedToValidation');
             if (proceedToValidation) {
                 if (!container || !document.body.contains(container) || !container.contains(prompt) || !container.contains(input) || !container.contains(output) || !container.contains(button)) {
                     console.error('create_game_ui: DOM elements not properly attached', {
