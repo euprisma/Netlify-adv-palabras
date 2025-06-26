@@ -1543,13 +1543,13 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
         if (timeout_retries === max_timeout_retries - 1) {
           feedback = `Última oportunidad para ingresar tu adivinanza.`;
           feedback_color = 'orange';
-          display_feedback(feedback, feedback_color, player, true);
+          display_feedback(feedback, feedback_color, player, true, 1500);
           focusInput(input);
           return null;
         } else if (timeout_retries < max_timeout_retries) {
           feedback = `Ingresa tu adivinanza. Intentos restantes: ${max_timeout_retries - timeout_retries}.`;
           feedback_color = 'orange';
-          display_feedback(feedback, feedback_color, player, true);
+          display_feedback(feedback, feedback_color, player, true, 1500);
           focusInput(input);
           return null;
         } else {
@@ -1562,7 +1562,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
             console.log('process_guess: Timeout penalty applied', { player, penalty, new_score: scores[player] });
           }
           feedback_color = 'red';
-          display_feedback(feedback, feedback_color, player, true);
+          display_feedback(feedback, feedback_color, player, true, 1500);
           return false;
         }
       }
@@ -1784,8 +1784,8 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
       }
 
       if (feedback && feedback_color) {
-        display_feedback(feedback, feedback_color, player, true, 1000);
-        await delay(1000);
+        display_feedback(feedback, feedback_color, player, true, 1500);
+        await delay(1500);
       }
 
       if (restar_intento && !penalizo) {
