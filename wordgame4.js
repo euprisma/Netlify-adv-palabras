@@ -597,7 +597,7 @@ function get_guess_feedback(guess, secret_word, player_score) {
 
 async function create_game_ui(mode = null, player1 = null, player2 = null, difficulty = null, gameType = null, sessionId = null) {
     return new Promise((resolve, reject) => {
-        console.log('create_game_ui: Starting, Loaded version 2025-06-26-v9.24', {
+        console.log('create_game_ui: Starting, Loaded version 2025-06-26-v9.25', {
             mode, player1, player2, difficulty, gameType, sessionId,
             firebaseConfig: { databaseURL: firebaseConfig.databaseURL, projectId: firebaseConfig.projectId },
             authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
@@ -620,8 +620,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         let selected_difficulty = difficulty;
         let selected_gameType = gameType;
         let selected_sessionId = sessionId;
+        let secretWord = null;
+        let tries = null;
+        let proceedToValidation = false;
         let currentHandler;
-        let proceedToValidation = false; // Flag to control flow to validation
 
         try {
             // Initialize DOM elements
@@ -672,13 +674,35 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             container.appendChild(button);
             container.appendChild(output);
 
+            // Function to set game prompt with secret word and tries
+            function setGamePrompt(word) {
+                const wordDisplay = word.split('').map(() => '_').join(' ');
+                tries = selected_mode === '3' ? (selected_difficulty === 'facil' ? 7 : selected_difficulty === 'normal' ? 5 : 3) : 5;
+                prompt.innerText = `Palabra: ${wordDisplay}, Intentos: ${tries}`;
+                input.value = '';
+                button.style.display = 'none';
+                focusInput(input);
+            }
+
             // Handle game setup
             if (selected_mode && selected_player1 && (selected_mode !== '3' || selected_difficulty) && (selected_mode !== '2' || selected_gameType)) {
                 console.log('create_game_ui: Using provided parameters', { selected_mode, selected_player1, selected_player2, selected_difficulty, selected_gameType, selected_sessionId });
-                prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                button.style.display = 'none';
-                focusInput(input);
-                proceedToValidation = true; // Proceed directly to validation
+                try {
+                    secretWord = await get_secret_word(selected_mode === '3' ? selected_difficulty : null);
+                    if (!secretWord || typeof secretWord !== 'string') {
+                        throw new Error('Invalid secret word');
+                    }
+                    console.log('create_game_ui: Secret word fetched for direct parameters', { secretWord });
+                    setGamePrompt(secretWord);
+                    proceedToValidation = true;
+                } catch (error) {
+                    console.error('create_game_ui: Failed to fetch secret word', error);
+                    output.innerText = 'Error al obtener la palabra secreta. Intenta de nuevo.';
+                    output.style.color = 'red';
+                    isCreatingUI = false;
+                    reject(error);
+                    return;
+                }
             } else {
                 // Mode selection UI
                 prompt.innerHTML = 'Selecciona el modo de juego:';
@@ -837,7 +861,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             return;
                         }
                         try {
-                            const secretWord = await get_secret_word();
+                            secretWord = await get_secret_word();
                             if (!secretWord || typeof secretWord !== 'string') {
                                 console.error('create_game_ui: Invalid secretWord:', secretWord);
                                 output.innerText = 'Error: Palabra secreta inválida. Intenta de nuevo.';
@@ -966,6 +990,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             }
                             prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
                             input.value = '';
+                            input.style.display = 'inline-block';
+                            button.style.display = 'inline-block';
                             focusInput(input);
                             input.removeEventListener('keypress', currentHandler);
                             button.onclick = () => handlePlayer1Input();
@@ -986,6 +1012,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         console.log('create_game_ui: Prompting for session ID');
                         prompt.innerText = 'Ingresa el ID de sesión:';
                         input.value = '';
+                        input.style.display = 'inline-block';
+                        button.style.display = 'inline-block';
                         focusInput(input);
                         input.removeEventListener('keypress', currentHandler);
                         button.onclick = handleSessionIdInput;
@@ -1022,17 +1050,27 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         button.style.display = 'inline-block';
                         focusInput(input);
                         input.removeEventListener('keypress', currentHandler);
-                        button.onclick = () => {
+                        button.onclick = async () => {
                             const difficultyInput = input.value.trim().toLowerCase();
                             console.log('create_game_ui: Difficulty input:', difficultyInput);
                             if (['facil', 'normal', 'dificil'].includes(difficultyInput)) {
                                 selected_difficulty = difficultyInput;
                                 input.removeEventListener('keypress', currentHandler);
-                                prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                input.value = '';
-                                button.style.display = 'none';
-                                focusInput(input);
-                                proceedToValidation = true; // Trigger validation and resolve
+                                try {
+                                    secretWord = await get_secret_word(selected_difficulty);
+                                    if (!secretWord || typeof secretWord !== 'string') {
+                                        throw new Error('Invalid secret word');
+                                    }
+                                    console.log('create_game_ui: Secret word fetched for Mode 3', { secretWord, selected_difficulty });
+                                    setGamePrompt(secretWord);
+                                    proceedToValidation = true;
+                                } catch (error) {
+                                    console.error('create_game_ui: Failed to fetch secret word for Mode 3', error);
+                                    output.innerText = 'Error al obtener la palabra secreta. Intenta de nuevo.';
+                                    output.style.color = 'red';
+                                    input.value = '';
+                                    focusInput(input);
+                                }
                             } else {
                                 output.innerText = 'Dificultad inválida. Ingresa facil, normal, o dificil.';
                                 output.style.color = 'red';
@@ -1130,14 +1168,13 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 if (game && game.player2 && game.status === 'playing' && game.secretWord && Array.isArray(game.guessedLetters)) {
                                     console.log('handlePlayer1Input: Player 2 joined', game.player2);
                                     selected_player2 = game.player2;
+                                    secretWord = game.secretWord;
                                     clearTimeout(timeoutId);
                                     input.removeEventListener('keypress', currentHandler);
                                     input.style.display = 'inline-block';
-                                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                    button.style.display = 'none';
-                                    focusInput(input);
+                                    setGamePrompt(secretWord);
                                     unsubscribe();
-                                    proceedToValidation = true; // Trigger validation and resolve
+                                    proceedToValidation = true;
                                 }
                             }, (error) => {
                                 console.error('handlePlayer1Input: Firebase snapshot error', error);
@@ -1187,26 +1224,39 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             focusInput(input);
                         }
                     } else {
-                        // Mode 1 or Mode 2 (local): Proceed to validation
-                        if (selected_mode === '2' && selected_gameType === 'local') {
-                            prompt.innerText = 'Nombre Jugador 2:';
+                        // Mode 1 or Mode 2 (local)
+                        try {
+                            secretWord = await get_secret_word();
+                            if (!secretWord || typeof secretWord !== 'string') {
+                                throw new Error('Invalid secret word');
+                            }
+                            console.log('create_game_ui: Secret word fetched for Mode 1', { secretWord });
+                            if (selected_mode === '2' && selected_gameType === 'local') {
+                                prompt.innerText = 'Nombre Jugador 2:';
+                                input.value = '';
+                                input.style.display = 'inline-block';
+                                button.style.display = 'inline-block';
+                                focusInput(input);
+                                input.removeEventListener('keypress', currentHandler);
+                                button.onclick = handlePlayer2Input;
+                                currentHandler = (e) => {
+                                    if (e.key === 'Enter') button.click();
+                                };
+                                input.addEventListener('keypress', currentHandler);
+                            } else {
+                                // Mode 1: Set game prompt and proceed
+                                setGamePrompt(secretWord);
+                                proceedToValidation = true;
+                            }
+                        } catch (error) {
+                            console.error('create_game_ui: Failed to fetch secret word for Mode 1', error);
+                            output.innerText = 'Error al obtener la palabra secreta. Intenta de nuevo.';
+                            output.style.color = 'red';
                             input.value = '';
-                            input.style.display = 'inline-block';
-                            button.style.display = 'inline-block';
                             focusInput(input);
-                            input.removeEventListener('keypress', currentHandler);
-                            button.onclick = handlePlayer2Input;
-                            currentHandler = (e) => {
-                                if (e.key === 'Enter') button.click();
-                            };
-                            input.addEventListener('keypress', currentHandler);
-                        } else {
-                            // Mode 1: Set guessing prompt and proceed
-                            prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                            input.value = '';
-                            button.style.display = 'none';
-                            focusInput(input);
-                            proceedToValidation = true; // Trigger validation and resolve
+                            isCreatingUI = false;
+                            reject(error);
+                            return;
                         }
                     }
                 }
@@ -1292,6 +1342,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         }
                         selected_sessionId = sessionId;
                         selected_player1 = sessionState.player1 || null;
+                        secretWord = sessionState.secretWord;
                         prompt.innerText = 'Nombre Jugador 2:';
                         input.value = '';
                         input.style.display = 'inline-block';
@@ -1332,11 +1383,26 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     selected_player2 = format_name(player2Input) || player2Input.charAt(0).toUpperCase() + player2Input.slice(1).toLowerCase();
                     console.log('create_game_ui: Formatted Player 2 name:', selected_player2);
                     if (selected_mode === '2' && selected_gameType === 'local') {
-                        prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                        input.value = '';
-                        button.style.display = 'none';
-                        focusInput(input);
-                        proceedToValidation = true; // Trigger validation and resolve
+                        try {
+                            if (!secretWord) {
+                                secretWord = await get_secret_word();
+                                if (!secretWord || typeof secretWord !== 'string') {
+                                    throw new Error('Invalid secret word');
+                                }
+                                console.log('create_game_ui: Secret word fetched for Mode 2 local', { secretWord });
+                            }
+                            setGamePrompt(secretWord);
+                            proceedToValidation = true;
+                        } catch (error) {
+                            console.error('create_game_ui: Failed to fetch secret word for Mode 2 local', error);
+                            output.innerText = 'Error al obtener la palabra secreta. Intenta de nuevo.';
+                            output.style.color = 'red';
+                            input.value = '';
+                            focusInput(input);
+                            isCreatingUI = false;
+                            reject(error);
+                            return;
+                        }
                     } else if (selected_gameType === 'remoto') {
                         if (!selected_sessionId) {
                             console.error('create_game_ui: selected_sessionId is undefined in handlePlayer2Input');
@@ -1481,7 +1547,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             output.innerText = `¡${selected_player2} se ha unido! Comienza ${sessionState.player1}.`;
                             output.style.color = 'green';
                             input.value = '';
-                            input.disabled = true;
+                            input.disabled = false;
                             input.removeEventListener('keypress', currentHandler);
                             button.style.display = 'inline-block';
                             console.log('handlePlayer2Input: UI updated', {
@@ -1503,11 +1569,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     scores: cleanScores,
                                     guessedLetters: cleanGuessedLetters
                                 });
+                                secretWord = game.secretWord;
                             }
-                            prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                            input.disabled = false;
-                            focusInput(input);
-                            proceedToValidation = true; // Trigger validation and resolve
+                            setGamePrompt(secretWord);
+                            proceedToValidation = true;
                         } catch (error) {
                             console.error('create_game_ui: Error updating player 2 in Firebase:', error);
                             output.innerText = error.message.includes('permission_denied')
@@ -1533,7 +1598,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 focusInput(input);
 
                 // Exit early to wait for async input
-                return; // Exit early to wait for async input
+                return;
             }
 
             // Validation check before resolving
@@ -1554,13 +1619,24 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     return;
                 }
 
+                if (!secretWord && (selected_mode === '1' || selected_mode === '3' || (selected_mode === '2' && selected_gameType === 'local'))) {
+                    console.error('create_game_ui: Secret word not set before resolving');
+                    output.innerText = 'Error: Palabra secreta no definida.';
+                    output.style.color = 'red';
+                    isCreatingUI = false;
+                    reject(new Error('Secret word not set'));
+                    return;
+                }
+
                 console.log('create_game_ui: UI creation completed, all elements attached', {
                     mode: selected_mode,
                     player1: selected_player1,
                     player2: selected_player2,
                     difficulty: selected_difficulty,
                     gameType: selected_gameType,
-                    sessionId: selected_sessionId
+                    sessionId: selected_sessionId,
+                    secretWord,
+                    tries
                 });
                 const gameState = {
                     mode: selected_mode,
@@ -1574,6 +1650,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     difficulty: selected_difficulty,
                     gameType: selected_gameType,
                     sessionId: selected_sessionId,
+                    secretWord,
+                    tries,
                     players: selected_player2 ? [selected_player1, selected_player2] : [selected_player1]
                 };
                 isCreatingUI = false;
