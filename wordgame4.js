@@ -341,8 +341,8 @@ function escapeHTML(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function display_feedback(message, color, player = null, append = false) {
-    console.log('display_feedback:', { message, color, player, append });
+function display_feedback(message, color, player = null, append = false, autoClearMs = null) {
+    console.log('display_feedback:', { message, color, player, append, autoClearMs });
     const output = document.querySelector('.game-output');
     if (!output) {
         console.warn('display_feedback: Output element not found');
@@ -359,6 +359,12 @@ function display_feedback(message, color, player = null, append = false) {
         output.scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
         console.error('display_feedback: Error scrolling output', err);
+    }
+    // Auto-clear after specified ms
+    if (autoClearMs) {
+        setTimeout(() => {
+            output.innerHTML = '';
+        }, autoClearMs);
     }
 }
 
@@ -532,7 +538,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
         container.appendChild(button);
         container.appendChild(output);
 
-        if (mode && player1 && (mode !== '3' || difficulty) && (mode !== '2' || gameType)) {
+        if (mode === '2' && gameType === 'remoto' && player1 && player2 && sessionId) {
             console.log('create_game_ui: Using provided parameters', { mode, player1, player2, difficulty, gameType, sessionId });
             prompt.innerText = 'Ingresa una letra o la palabra completa:';
             button.style.display = 'none';
