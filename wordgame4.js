@@ -1784,8 +1784,8 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
       }
 
       if (feedback && feedback_color) {
-        display_feedback(feedback, feedback_color, player, true);
-        await delay(500);
+        display_feedback(feedback, feedback_color, player, true, 1000);
+        await delay(1000);
       }
 
       if (restar_intento && !penalizo) {
