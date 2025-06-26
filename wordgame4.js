@@ -85,7 +85,9 @@ async function fetchSingleWord() {
     try {
         const response = await fetch(WORD_API_URL, {
             headers: { 'X-Api-Key': WORD_API_KEY }
-        });
+                });
+            }
+        }
         if (!response.ok) {
             throw new Error(`Word API error: ${response.status} ${response.statusText}`);
         }
@@ -1088,22 +1090,21 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         button.style.display = 'inline-block';
                         focusInput(input);
                     }
-            } else {
-                    // Local/single player or IA: just resolve!
-                    resolve({
-                        mode: selected_mode,
-                        player1: selected_player1,
-                        prompt,
-                        input,
-                        button,
-                        output,
-                        container,
-                        difficulty: selected_difficulty,
-                        gameType: selected_gameType,
-                        sessionId: selected_sessionId,
-                        players: [selected_player1]
-                    });
-                }
+            } else if (selected_mode === '1') {
+                // Only resolve immediately for single player
+                resolve({
+                    mode: selected_mode,
+                    player1: selected_player1,
+                    prompt,
+                    input,
+                    button,
+                    output,
+                    container,
+                    difficulty: selected_difficulty,
+                    gameType: selected_gameType,
+                    sessionId: selected_sessionId,
+                    players: [selected_player1]
+                });
             }
 
             async function handleSessionIdInput() {
