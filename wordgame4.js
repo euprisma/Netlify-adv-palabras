@@ -618,6 +618,104 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
             }
 
+            // Inside create_game_ui, after selecting mode and gameType...
+
+            if (selected_mode === '2' && selected_gameType === 'local') {
+                // Ask for player 1 name
+                prompt.innerText = 'Nombre Jugador 1:';
+                input.value = '';
+                focusInput(input);
+                button.onclick = handlePlayer1LocalInput;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+
+                async function handlePlayer1LocalInput() {
+                    const player1Input = input.value.trim();
+                    if (!player1Input) {
+                        output.innerText = 'Ingresa un nombre válido para Jugador 1.';
+                        output.style.color = 'red';
+                        input.value = '';
+                        focusInput(input);
+                        return;
+                    }
+                    selected_player1 = format_name(player1Input);
+                    prompt.innerText = 'Nombre Jugador 2:';
+                    input.value = '';
+                    focusInput(input);
+                    button.onclick = handlePlayer2LocalInput;
+                    input.removeEventListener('keypress', currentHandler);
+                    currentHandler = (e) => {
+                        if (e.key === 'Enter') button.click();
+                    };
+                    input.addEventListener('keypress', currentHandler);
+                }
+
+                async function handlePlayer2LocalInput() {
+                    const player2Input = input.value.trim();
+                    if (!player2Input) {
+                        output.innerText = 'Ingresa un nombre válido para Jugador 2.';
+                        output.style.color = 'red';
+                        input.value = '';
+                        focusInput(input);
+                        return;
+                    }
+                    selected_player2 = format_name(player2Input);
+                    resolve({
+                        mode: selected_mode,
+                        player1: selected_player1,
+                        player2: selected_player2,
+                        prompt,
+                        input,
+                        button,
+                        output,
+                        container,
+                        difficulty: selected_difficulty,
+                        gameType: selected_gameType,
+                        sessionId: selected_sessionId,
+                        players: [selected_player1, selected_player2]
+                    });
+                }
+            }
+            else if (selected_mode === '3') {
+                // Ask for player name, then set up IA
+                prompt.innerText = 'Nombre Jugador:';
+                input.value = '';
+                focusInput(input);
+                button.onclick = handlePlayer1IAInput;
+                currentHandler = (e) => {
+                    if (e.key === 'Enter') button.click();
+                };
+                input.addEventListener('keypress', currentHandler);
+
+                async function handlePlayer1IAInput() {
+                    const player1Input = input.value.trim();
+                    if (!player1Input) {
+                        output.innerText = 'Ingresa un nombre válido.';
+                        output.style.color = 'red';
+                        input.value = '';
+                        focusInput(input);
+                        return;
+                    }
+                    selected_player1 = format_name(player1Input);
+                    resolve({
+                        mode: selected_mode,
+                        player1: selected_player1,
+                        player2: 'IA',
+                        prompt,
+                        input,
+                        button,
+                        output,
+                        container,
+                        difficulty: selected_difficulty,
+                        gameType: selected_gameType,
+                        sessionId: selected_sessionId,
+                        players: [selected_player1, 'IA']
+                    });
+                }
+            }
+
             async function handleRemoteRoleInput() {
                 const value = input.value.trim().toLowerCase();
                 console.log('create_game_ui: Remote role input:', value);
@@ -1907,13 +2005,13 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                             if (unsubscribe) unsubscribe();
                             return;
                         }
+                        if (game.status === 'finished' || game.status === 'ended') {
+                            display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, new Set(game.guessedLetters))}.`, 'black', null, false);
+                            if (unsubscribe) unsubscribe();
+                            return;
+                        }
                         if (game.status !== 'playing') {
-                            console.log('game_loop: Game not in playing state', game.status);
-                            if (game.status === 'finished' || game.status === 'ended') {
-                                display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, new Set(game.guessedLetters))}.`, 'black', null, false);
-                                if (unsubscribe) unsubscribe();
-                                return;
-                            }
+                            // Not ready yet, just wait for the next snapshot
                             return;
                         }
                         guessed_letters.clear();
