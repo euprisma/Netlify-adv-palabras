@@ -1544,12 +1544,14 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
           feedback = `Última oportunidad para ingresar tu adivinanza.`;
           feedback_color = 'orange';
           display_feedback(feedback, feedback_color, player, true, 1500);
+          await delay(1500);
           focusInput(input);
           return null;
         } else if (timeout_retries < max_timeout_retries) {
           feedback = `Ingresa tu adivinanza. Intentos restantes: ${max_timeout_retries - timeout_retries}.`;
           feedback_color = 'orange';
           display_feedback(feedback, feedback_color, player, true, 1500);
+          await delay(1500);
           focusInput(input);
           return null;
         } else {
@@ -1563,6 +1565,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
           }
           feedback_color = 'red';
           display_feedback(feedback, feedback_color, player, true, 1500);
+          await delay(1500);
           return false;
         }
       }
