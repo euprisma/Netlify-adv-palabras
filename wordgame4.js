@@ -685,11 +685,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
             }
             else if (selected_mode === '3') {
-                // Ask for player name
+                console.log('create_game_ui: Mode 3 - Prompting for player name');
                 prompt.innerText = 'Nombre Jugador:';
                 input.value = '';
                 focusInput(input);
-                console.log('create_game_ui: Mode 3 - Prompting for player name');
                 button.onclick = handlePlayer1IAInput;
                 currentHandler = (e) => {
                     if (e.key === 'Enter') {
@@ -748,20 +747,27 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             player2: 'IA',
                             difficulty: selected_difficulty
                         });
-                        resolve({
-                            mode: selected_mode,
-                            player1: selected_player1,
-                            player2: 'IA',
-                            prompt,
-                            input,
-                            button,
-                            output,
-                            container,
-                            difficulty: selected_difficulty,
-                            gameType: selected_gameType || 'local',
-                            sessionId: selected_sessionId,
-                            players: [selected_player1, 'IA']
-                        });
+                        try {
+                            resolve({
+                                mode: selected_mode,
+                                player1: selected_player1,
+                                player2: 'IA',
+                                prompt,
+                                input,
+                                button,
+                                output,
+                                container,
+                                difficulty: selected_difficulty,
+                                gameType: 'local', // Explicitly set for mode 3
+                                sessionId: null, // No session ID for mode 3
+                                players: [selected_player1, 'IA']
+                            });
+                            console.log('create_game_ui: Promise resolved for mode 3');
+                        } catch (err) {
+                            console.error('create_game_ui: Error resolving Promise for mode 3', err);
+                            output.innerText = 'Error al configurar el juego. Intenta de nuevo.';
+                            output.style.color = 'red';
+                        }
                     }
                 }
             }
