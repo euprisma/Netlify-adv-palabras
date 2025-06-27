@@ -582,7 +582,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             diffBtn.style.cursor = 'pointer';
                             diffBtn.style.margin = '5px';
                             diffBtn.onclick = () => {
-                                selected_difficulty = diff.toLowerCase();
+                                selected_difficulty = diff.normalize('NFD').replace(/[\u0300-\u036F]/g, '').toLowerCase();
                                 // Remove difficulty buttons
                                 if (diffContainer.parentNode) diffContainer.parentNode.removeChild(diffContainer);
                                 // Step 2: Prompt for player name
