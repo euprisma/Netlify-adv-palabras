@@ -1406,7 +1406,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         container, 
                         difficulty: selected_difficulty, 
                         gameType: selected_gameType, 
-                        sessionId: selected_sessionId 
+                        sessionId: selected_sessionId,
+                        secretWord: sessionState.secretWord // <-- pass the word from Firebase!
                     });
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Firebase:', error);
@@ -1979,7 +1980,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
             game_info = document.createElement('p');
             game_info.className = 'game-info';
-            game_info.innerHTML = `--- Juego ${games_played + 1} de ${games_to_play} ---<br>Palabra secreta: ${provided_secret_word.length} letras.<br>Intentos: ${total_tries}. Puntaje máximo: ${max_score}.` +
+            game_info.innerHTML = `--- Ronda ${games_played + 1} de ${games_to_play} ---<br>Palabra secreta: ${provided_secret_word.length} letras.<br>Intentos: ${total_tries}. Puntaje máximo: ${max_score}.` +
                 (mode === '3' ? `<br>Dificultad: ${difficulty || 'N/A'}` : '') +
                 (mode === '2' && gameType === 'remoto' ? `<br>ID de sesión: ${escapeHTML(sessionId)}` : '');
 
@@ -2271,7 +2272,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
         const repeat_button = document.createElement('button');
         repeat_button.className = 'game-button repeat-button';
-        repeat_button.innerText = 'Repetir Juego';
+        repeat_button.innerText = 'Reiniciar';
         repeat_button.style.padding = '8px 16px';
         repeat_button.style.fontSize = '16px';
         repeat_button.style.cursor = 'pointer';
@@ -2290,7 +2291,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 
         const restart_button = document.createElement('button');
         restart_button.className = 'game-button restart-button';
-        restart_button.innerText = 'Reiniciar Juego';
+        restart_button.innerText = 'Menu';
         restart_button.style.padding = '8px 16px';
         restart_button.style.fontSize = '16px';
         restart_button.style.cursor = 'pointer';
@@ -2308,7 +2309,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         if (mode !== '1' && games_played < games_to_play - 1 && !Object.values(wins).some(w => w === 2)) {
             const next_button = document.createElement('button');
             next_button.className = 'game-button next-button';
-            next_button.innerText = 'Siguiente Juego';
+            next_button.innerText = 'Siguiente Ronda';
             next_button.style.padding = '8px 16px';
             next_button.style.fontSize = '16px';
             next_button.style.cursor = 'pointer';
@@ -2354,12 +2355,12 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             console.log('play_game: Firebase listeners cleaned up');
         }
         // if (mode === '2' && gameType === 'remoto' && sessionId) {
-            try {
-                await remove(ref(database, `games/${sessionId}`));
-                console.log('play_game: Cleaned up Firebase session', sessionId);
-            } catch (err) {
+            // try {
+                // await remove(ref(database, `games/${sessionId}`));
+                // console.log('play_game: Cleaned up Firebase session', sessionId);
+            // } catch (err) {
                 console.warn('play_game: Failed to clean up Firebase session', err);
-            }
+            // }
         // }
     }
 }
@@ -2376,7 +2377,7 @@ async function main() {
             try {
                 await play_game(
                     null,
-                    null,
+                    gameState.secretWord || null, // Use the secretWord if present
                     gameState.mode,
                     players,
                     gameState.output,
