@@ -699,8 +699,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 input.addEventListener('keypress', currentHandler);
 
                 async function handlePlayer1IAInput() {
+                    console.log('create_game_ui: handlePlayer1IAInput called');
                     const player1Input = input.value.trim();
-                    console.log('create_game_ui: handlePlayer1IAInput called with input:', player1Input);
+                    console.log('create_game_ui: Player 1 input:', player1Input);
                     if (!player1Input) {
                         output.innerText = 'Ingresa un nombre válido.';
                         output.style.color = 'red';
@@ -711,63 +712,37 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     }
                     selected_player1 = format_name(player1Input);
                     console.log('create_game_ui: Player 1 name set:', selected_player1);
-
-                    // Prompt for difficulty
-                    prompt.innerText = 'Selecciona dificultad (facil, normal, dificil):';
-                    input.value = '';
-                    focusInput(input);
-                    console.log('create_game_ui: Prompting for difficulty');
-                    button.onclick = handleDifficultyInput;
                     input.removeEventListener('keypress', currentHandler);
-                    currentHandler = (e) => {
-                        if (e.key === 'Enter') {
-                            console.log('create_game_ui: Enter key pressed for difficulty');
-                            button.click();
-                        }
-                    };
-                    input.addEventListener('keypress', currentHandler);
-
-                    async function handleDifficultyInput() {
-                        const difficultyInput = input.value.trim().toLowerCase();
-                        console.log('create_game_ui: Difficulty input:', difficultyInput);
-                        if (!['facil', 'normal', 'dificil'].includes(difficultyInput)) {
-                            output.innerText = 'Dificultad inválida. Ingresa "facil", "normal" o "dificil".';
-                            output.style.color = 'red';
-                            input.value = '';
-                            focusInput(input);
-                            console.log('create_game_ui: Invalid difficulty, prompting again');
-                            return;
-                        }
-                        selected_difficulty = difficultyInput;
-                        console.log('create_game_ui: Difficulty set:', selected_difficulty);
-                        input.removeEventListener('keypress', currentHandler);
-                        console.log('create_game_ui: Resolving game state for mode 3', {
+                    button.onclick = null; // Clear button handler
+                    console.log('create_game_ui: Removed event listeners');
+                    console.log('create_game_ui: Resolving game state for mode 3', {
+                        mode: selected_mode,
+                        player1: selected_player1,
+                        player2: 'IA',
+                        difficulty: 'normal', // Default for testing
+                        gameType: 'local',
+                        sessionId: null
+                    });
+                    try {
+                        resolve({
                             mode: selected_mode,
                             player1: selected_player1,
                             player2: 'IA',
-                            difficulty: selected_difficulty
+                            prompt,
+                            input,
+                            button,
+                            output,
+                            container,
+                            difficulty: 'normal', // Default for testing
+                            gameType: 'local',
+                            sessionId: null,
+                            players: [selected_player1, 'IA']
                         });
-                        try {
-                            resolve({
-                                mode: selected_mode,
-                                player1: selected_player1,
-                                player2: 'IA',
-                                prompt,
-                                input,
-                                button,
-                                output,
-                                container,
-                                difficulty: selected_difficulty,
-                                gameType: 'local', // Explicitly set for mode 3
-                                sessionId: null, // No session ID for mode 3
-                                players: [selected_player1, 'IA']
-                            });
-                            console.log('create_game_ui: Promise resolved for mode 3');
-                        } catch (err) {
-                            console.error('create_game_ui: Error resolving Promise for mode 3', err);
-                            output.innerText = 'Error al configurar el juego. Intenta de nuevo.';
-                            output.style.color = 'red';
-                        }
+                        console.log('create_game_ui: Promise resolved for mode 3');
+                    } catch (err) {
+                        console.error('create_game_ui: Error resolving Promise for mode 3', err);
+                        output.innerText = 'Error al configurar el juego. Intenta de nuevo.';
+                        output.style.color = 'red';
                     }
                 }
             }
