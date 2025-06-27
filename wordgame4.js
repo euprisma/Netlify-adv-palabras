@@ -1475,18 +1475,21 @@ async function start_game(mode, players, output, container, prompt, input, butto
             container.appendChild(loadingMessage);
             console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode, buttonAttached: !!button.parentNode });
 
+            // Start the game: generate the secret word
+            const secret_word = await get_secret_word();
+
+            // Now remove the loading message and show UI
             if (loadingMessage && loadingMessage.parentNode) {
                 container.removeChild(loadingMessage);
                 console.log('play_game: Removed loading message');
             }
-            // Show game UI elements
             prompt.style.display = '';
             input.style.display = '';
             output.style.display = '';
             button.style.display = 'none'; // Only show when needed
 
             // Start the game
-            const secret_word = await get_secret_word();
+            
             await play_game(
                 loadingMessage,
                 secret_word,
