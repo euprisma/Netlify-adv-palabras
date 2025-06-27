@@ -561,6 +561,17 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 if (value === '1' || value === '2' || value === '3') {
                     selected_mode = value;
                     input.removeEventListener('keypress', currentHandler);
+                    
+                    if (selected_mode === '3') {
+                    prompt.innerText = 'Nombre Jugador:';
+                    input.value = '';
+                    focusInput(input);
+                    button.onclick = handlePlayer1IAInput;
+                    currentHandler = (e) => {
+                        if (e.key === 'Enter') button.click();
+                    };
+                    input.addEventListener('keypress', currentHandler);
+
                     if (selected_mode === '2') {
                         if (input.parentNode) container.removeChild(input);
                         if (button.parentNode) container.removeChild(button);
@@ -686,20 +697,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     });
                 }
             }
-            else if (selected_mode === '3') {
-                console.log('create_game_ui: Mode 3 - Prompting for player name');
-                prompt.innerText = 'Nombre Jugador:';
-                input.value = '';
-                focusInput(input);
-                button.onclick = handlePlayer1IAInput;
-                currentHandler = (e) => {
-                    if (e.key === 'Enter') {
-                        console.log('create_game_ui: Enter key pressed for player name');
-                        button.click();
-                    }
-                };
-                input.addEventListener('keypress', currentHandler);
-
+            
                 async function handlePlayer1IAInput() {
                     console.log('create_game_ui: handlePlayer1IAInput called');
                     const player1Input = input.value.trim();
