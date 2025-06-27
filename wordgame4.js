@@ -1476,7 +1476,8 @@ async function start_game(mode, players, output, container, prompt, input, butto
             console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode, buttonAttached: !!button.parentNode });
 
             // Force DOM to update before async operation
-            await delay(0);
+            loadingMessage.offsetHeight; // Force reflow
+            await delay(50);
             // Start the game: generate the secret word
             const secret_word = await get_secret_word();
 
