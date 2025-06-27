@@ -561,16 +561,46 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 if (value === '1' || value === '2' || value === '3') {
                     selected_mode = value;
                     input.removeEventListener('keypress', currentHandler);
-                    
+
                     if (selected_mode === '3') {
-                    prompt.innerText = 'Nombre Jugador:';
-                    input.value = '';
-                    focusInput(input);
-                    button.onclick = handlePlayer1IAInput;
-                    currentHandler = (e) => {
-                        if (e.key === 'Enter') button.click();
-                    };
-                    input.addEventListener('keypress', currentHandler);
+                        prompt.innerText = 'Nombre Jugador:';
+                        input.value = '';
+                        focusInput(input);
+                        button.onclick = handlePlayer1IAInput;
+                        currentHandler = (e) => {
+                            if (e.key === 'Enter') button.click();
+                        };
+                        input.addEventListener('keypress', currentHandler);
+
+                        function handlePlayer1IAInput() {
+                            const player1Input = input.value.trim();
+                            if (!player1Input) {
+                                output.innerText = 'Ingresa un nombre válido.';
+                                output.style.color = 'red';
+                                input.value = '';
+                                focusInput(input);
+                                return;
+                            }
+                            selected_player1 = format_name(player1Input);
+                            input.removeEventListener('keypress', currentHandler);
+                            button.onclick = null;
+                            resolve({
+                                mode: selected_mode,
+                                player1: selected_player1,
+                                player2: 'IA',
+                                prompt,
+                                input,
+                                button,
+                                output,
+                                container,
+                                difficulty: 'normal',
+                                gameType: 'local',
+                                sessionId: null,
+                                players: [selected_player1, 'IA']
+                            });
+                        }
+                        return;
+                    }
 
                     if (selected_mode === '2') {
                         if (input.parentNode) container.removeChild(input);
@@ -629,123 +659,59 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     prompt.innerText = 'Nombre Jugador 1:';
                     input.value = '';
                     focusInput(input);
-                    button.onclick = handlePlayer1Input;
+                    button.onclick = handlePlayer1LocalInput;
                     currentHandler = (e) => {
                         if (e.key === 'Enter') button.click();
                     };
                     input.addEventListener('keypress', currentHandler);
-                }
-            }
 
-            // Inside create_game_ui, after selecting mode and gameType...
-
-            if (selected_mode === '2' && selected_gameType === 'local') {
-                // Ask for player 1 name
-                prompt.innerText = 'Nombre Jugador 1:';
-                input.value = '';
-                focusInput(input);
-                button.onclick = handlePlayer1LocalInput;
-                currentHandler = (e) => {
-                    if (e.key === 'Enter') button.click();
-                };
-                input.addEventListener('keypress', currentHandler);
-
-                async function handlePlayer1LocalInput() {
-                    const player1Input = input.value.trim();
-                    if (!player1Input) {
-                        output.innerText = 'Ingresa un nombre válido para Jugador 1.';
-                        output.style.color = 'red';
+                    function handlePlayer1LocalInput() {
+                        const player1Input = input.value.trim();
+                        if (!player1Input) {
+                            output.innerText = 'Ingresa un nombre válido para Jugador 1.';
+                            output.style.color = 'red';
+                            input.value = '';
+                            focusInput(input);
+                            return;
+                        }
+                        selected_player1 = format_name(player1Input);
+                        prompt.innerText = 'Nombre Jugador 2:';
                         input.value = '';
                         focusInput(input);
-                        return;
+                        button.onclick = handlePlayer2LocalInput;
+                        input.removeEventListener('keypress', currentHandler);
+                        currentHandler = (e) => {
+                            if (e.key === 'Enter') button.click();
+                        };
+                        input.addEventListener('keypress', currentHandler);
                     }
-                    selected_player1 = format_name(player1Input);
-                    prompt.innerText = 'Nombre Jugador 2:';
-                    input.value = '';
-                    focusInput(input);
-                    button.onclick = handlePlayer2LocalInput;
-                    input.removeEventListener('keypress', currentHandler);
-                    currentHandler = (e) => {
-                        if (e.key === 'Enter') button.click();
-                    };
-                    input.addEventListener('keypress', currentHandler);
-                }
 
-                async function handlePlayer2LocalInput() {
-                    const player2Input = input.value.trim();
-                    if (!player2Input) {
-                        output.innerText = 'Ingresa un nombre válido para Jugador 2.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                    selected_player2 = format_name(player2Input);
-                    resolve({
-                        mode: selected_mode,
-                        player1: selected_player1,
-                        player2: selected_player2,
-                        prompt,
-                        input,
-                        button,
-                        output,
-                        container,
-                        difficulty: selected_difficulty,
-                        gameType: selected_gameType,
-                        sessionId: selected_sessionId,
-                        players: [selected_player1, selected_player2]
-                    });
-                }
-            }
-            
-                async function handlePlayer1IAInput() {
-                    console.log('create_game_ui: handlePlayer1IAInput called');
-                    const player1Input = input.value.trim();
-                    console.log('create_game_ui: Player 1 input:', player1Input);
-                    if (!player1Input) {
-                        console.log('create_game_ui: Empty input detected');
-                        output.innerText = 'Ingresa un nombre válido.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        console.log('create_game_ui: Invalid player name, prompting again');
-                        return;
-                    }
-                    console.log('create_game_ui: Calling format_name with:', player1Input);
-                    selected_player1 = format_name(player1Input);
-                    console.log('create_game_ui: Player 1 name set:', selected_player1);
-                    console.log('create_game_ui: Checking resolve function:', typeof resolve);
-                    if (typeof resolve !== 'function') {
-                        console.error('create_game_ui: Resolve function is not defined or not a function');
-                        output.innerText = 'Error interno: resolve no está definido.';
-                        output.style.color = 'red';
-                        return;
-                    }
-                    input.removeEventListener('keypress', currentHandler);
-                    button.onclick = null;
-                    console.log('create_game_ui: Removed event listeners');
-                    const gameState = {
-                        mode: selected_mode,
-                        player1: selected_player1,
-                        player2: 'IA',
-                        prompt,
-                        input,
-                        button,
-                        output,
-                        container,
-                        difficulty: 'normal',
-                        gameType: 'local',
-                        sessionId: null,
-                        players: [selected_player1, 'IA']
-                    };
-                    console.log('create_game_ui: Resolving game state for mode 3', gameState);
-                    try {
-                        resolve(gameState);
-                        console.log('create_game_ui: Promise resolved for mode 3');
-                    } catch (err) {
-                        console.error('create_game_ui: Error resolving Promise for mode 3', err);
-                        output.innerText = 'Error al configurar el juego. Intenta de nuevo.';
-                        output.style.color = 'red';
+                    function handlePlayer2LocalInput() {
+                        const player2Input = input.value.trim();
+                        if (!player2Input) {
+                            output.innerText = 'Ingresa un nombre válido para Jugador 2.';
+                            output.style.color = 'red';
+                            input.value = '';
+                            focusInput(input);
+                            return;
+                        }
+                        selected_player2 = format_name(player2Input);
+                        input.removeEventListener('keypress', currentHandler);
+                        button.onclick = null;
+                        resolve({
+                            mode: selected_mode,
+                            player1: selected_player1,
+                            player2: selected_player2,
+                            prompt,
+                            input,
+                            button,
+                            output,
+                            container,
+                            difficulty: selected_difficulty,
+                            gameType: selected_gameType,
+                            sessionId: selected_sessionId,
+                            players: [selected_player1, selected_player2]
+                        });
                     }
                 }
             }
