@@ -2359,7 +2359,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 // await remove(ref(database, `games/${sessionId}`));
                 // console.log('play_game: Cleaned up Firebase session', sessionId);
             // } catch (err) {
-                console.warn('play_game: Failed to clean up Firebase session', err);
+                // console.warn('play_game: Failed to clean up Firebase session', err);
             // }
         // }
     }
