@@ -2163,7 +2163,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                         display_feedback(`¡${player} se quedó sin intentos!`, 'red', null, true);
                         break;
                     }
-                    if (mode === '2' && gameType === 'local') {
+                    if ((mode === '2' && gameType === 'local') || mode === '3') {
                         current_player_idx = (current_player_idx + 1) % players.length;
                         current_player_idx_ref.value = current_player_idx;
                     }
