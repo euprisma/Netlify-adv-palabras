@@ -412,6 +412,11 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         }
       };
 
+      function cleanup() {
+          input.removeEventListener('keypress', enterHandler);
+      }
+    
+
       function handleGuess(source, guessValue) {
         console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
         const rawGuess = guessValue || '';
@@ -441,12 +446,32 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
 
       try {
         input.addEventListener('keypress', enterHandler);
-      } catch (err) {
-        console.error('get_guess: Error attaching input listener', err);
-        reject(new Error('Failed to attach input listener'));
-        return;
-      }
-      // Note: No finally block needed here since listener is removed in handleGuess
+        } catch (err) {
+            console.error('get_guess: Error attaching input listener', err);
+            cleanup();
+            reject(new Error('Failed to attach input listener'));
+            return;
+        }
+
+        // Add a timeout that cleans up the listener
+        const timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error('Input timeout'));
+        }, 30000);
+
+        // Also cleanup the timeout if resolved
+        const originalResolve = resolve;
+        resolve = (value) => {
+            clearTimeout(timeoutId);
+            cleanup();
+            originalResolve(value);
+        };
+        const originalReject = reject;
+        reject = (err) => {
+            clearTimeout(timeoutId);
+            cleanup();
+            originalReject(err);
+        };
     });
   } catch (err) {
     console.error('get_guess: Error setting input focus', err);
@@ -665,7 +690,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
-                    display_feedback(feedback, feedback_color, player, true, 1500);
+                    
                 }
             }
 
@@ -1435,23 +1460,18 @@ async function start_game(mode, players, output, container, prompt, input, butto
 
         let loadingMessage;
         try {
-            // Clear all elements except container
-            Array.from(container.children).forEach(el => {
-                container.removeChild(el);
-            });
-            // Reattach all core elements
-            container.appendChild(prompt);
-            container.appendChild(input);
-            container.appendChild(output);
-            container.appendChild(button);
-            button.style.display = 'none'; // Hide button but keep it attached
-            prompt.innerText = '';
-            output.innerText = '';
+            // Hide all game UI elements
+            prompt.style.display = 'none';
+            input.style.display = 'none';
+            output.style.display = 'none';
+            button.style.display = 'none';
+
             // Show loading message
             loadingMessage = document.createElement('p');
             loadingMessage.innerText = 'Generando palabra secreta';
             loadingMessage.style.fontSize = '16px';
             loadingMessage.style.color = 'blue';
+            loadingMessage.style.margin = '30px';
             container.appendChild(loadingMessage);
             console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode, buttonAttached: !!button.parentNode });
 
