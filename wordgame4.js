@@ -2038,6 +2038,8 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                 return;
             }
 
+            let gameIsOver = false;
+
             let current_player_idx = current_player_idx_ref.value;
 
             if (mode === '2' && gameType === 'remoto') {
@@ -2063,6 +2065,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                             return;
                         }
                         if (game.status === 'finished' || game.status === 'ended') {
+                            gameIsOver = true;
                             display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, new Set(game.guessedLetters))}.`, 'black', null, false);
                             if (unsubscribe) unsubscribe();
                             return;
@@ -2089,6 +2092,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                             prompt.innerText = 'Ingresa una letra o la palabra completa:';
                             input.disabled = false;
                             focusInput(input);
+                            if (gameIsOver) return;
                             const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
                             if (!guess) {
                                 console.log('game_loop: No valid guess received');
