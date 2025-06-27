@@ -309,8 +309,10 @@ function normalizar(texto) {
 }
 
 function format_name(name) {
+    console.log('format_name: Input:', name);
     if (!name) return '';
     const formatted = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    console.log('format_name: Output:', formatted);
     return escapeHTML(formatted);
 }
 
@@ -703,6 +705,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     const player1Input = input.value.trim();
                     console.log('create_game_ui: Player 1 input:', player1Input);
                     if (!player1Input) {
+                        console.log('create_game_ui: Empty input detected');
                         output.innerText = 'Ingresa un nombre válido.';
                         output.style.color = 'red';
                         input.value = '';
@@ -710,34 +713,36 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         console.log('create_game_ui: Invalid player name, prompting again');
                         return;
                     }
+                    console.log('create_game_ui: Calling format_name with:', player1Input);
                     selected_player1 = format_name(player1Input);
                     console.log('create_game_ui: Player 1 name set:', selected_player1);
+                    console.log('create_game_ui: Checking resolve function:', typeof resolve);
+                    if (typeof resolve !== 'function') {
+                        console.error('create_game_ui: Resolve function is not defined or not a function');
+                        output.innerText = 'Error interno: resolve no está definido.';
+                        output.style.color = 'red';
+                        return;
+                    }
                     input.removeEventListener('keypress', currentHandler);
-                    button.onclick = null; // Clear button handler
+                    button.onclick = null;
                     console.log('create_game_ui: Removed event listeners');
-                    console.log('create_game_ui: Resolving game state for mode 3', {
+                    const gameState = {
                         mode: selected_mode,
                         player1: selected_player1,
                         player2: 'IA',
-                        difficulty: 'normal', // Default for testing
+                        prompt,
+                        input,
+                        button,
+                        output,
+                        container,
+                        difficulty: 'normal',
                         gameType: 'local',
-                        sessionId: null
-                    });
+                        sessionId: null,
+                        players: [selected_player1, 'IA']
+                    };
+                    console.log('create_game_ui: Resolving game state for mode 3', gameState);
                     try {
-                        resolve({
-                            mode: selected_mode,
-                            player1: selected_player1,
-                            player2: 'IA',
-                            prompt,
-                            input,
-                            button,
-                            output,
-                            container,
-                            difficulty: 'normal', // Default for testing
-                            gameType: 'local',
-                            sessionId: null,
-                            players: [selected_player1, 'IA']
-                        });
+                        resolve(gameState);
                         console.log('create_game_ui: Promise resolved for mode 3');
                     } catch (err) {
                         console.error('create_game_ui: Error resolving Promise for mode 3', err);
