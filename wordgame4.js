@@ -563,42 +563,71 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     input.removeEventListener('keypress', currentHandler);
 
                     if (selected_mode === '3') {
-                        prompt.innerText = 'Nombre Jugador:';
-                        input.value = '';
-                        focusInput(input);
-                        button.onclick = handlePlayer1IAInput;
-                        currentHandler = (e) => {
-                            if (e.key === 'Enter') button.click();
-                        };
-                        input.addEventListener('keypress', currentHandler);
+                        // Step 1: Prompt for difficulty
+                        prompt.innerText = 'Selecciona dificultad:';
+                        input.style.display = 'none';
+                        button.style.display = 'none';
 
-                        function handlePlayer1IAInput() {
-                            const player1Input = input.value.trim();
-                            if (!player1Input) {
-                                output.innerText = 'Ingresa un nombre válido.';
-                                output.style.color = 'red';
+                        // Create difficulty buttons
+                        const diffContainer = document.createElement('div');
+                        diffContainer.className = 'button-group';
+                        diffContainer.style.margin = '10px';
+
+                        ['Fácil', 'Normal', 'Difícil'].forEach(diff => {
+                            const diffBtn = document.createElement('button');
+                            diffBtn.className = 'game-button';
+                            diffBtn.innerText = diff;
+                            diffBtn.style.padding = '8px 16px';
+                            diffBtn.style.fontSize = '14px';
+                            diffBtn.style.cursor = 'pointer';
+                            diffBtn.style.margin = '5px';
+                            diffBtn.onclick = () => {
+                                selected_difficulty = diff.toLowerCase();
+                                // Remove difficulty buttons
+                                if (diffContainer.parentNode) diffContainer.parentNode.removeChild(diffContainer);
+                                // Step 2: Prompt for player name
+                                prompt.innerText = 'Nombre Jugador:';
+                                input.style.display = 'inline-block';
+                                button.style.display = 'inline-block';
                                 input.value = '';
                                 focusInput(input);
-                                return;
-                            }
-                            selected_player1 = format_name(player1Input);
-                            input.removeEventListener('keypress', currentHandler);
-                            button.onclick = null;
-                            resolve({
-                                mode: selected_mode,
-                                player1: selected_player1,
-                                player2: 'IA',
-                                prompt,
-                                input,
-                                button,
-                                output,
-                                container,
-                                difficulty: 'normal',
-                                gameType: 'local',
-                                sessionId: null,
-                                players: [selected_player1, 'IA']
-                            });
-                        }
+                                button.onclick = handlePlayer1IAInput;
+                                currentHandler = (e) => {
+                                    if (e.key === 'Enter') button.click();
+                                };
+                                input.addEventListener('keypress', currentHandler);
+
+                                function handlePlayer1IAInput() {
+                                    const player1Input = input.value.trim();
+                                    if (!player1Input) {
+                                        output.innerText = 'Ingresa un nombre válido.';
+                                        output.style.color = 'red';
+                                        input.value = '';
+                                        focusInput(input);
+                                        return;
+                                    }
+                                    selected_player1 = format_name(player1Input);
+                                    input.removeEventListener('keypress', currentHandler);
+                                    button.onclick = null;
+                                    resolve({
+                                        mode: selected_mode,
+                                        player1: selected_player1,
+                                        player2: 'IA',
+                                        prompt,
+                                        input,
+                                        button,
+                                        output,
+                                        container,
+                                        difficulty: selected_difficulty,
+                                        gameType: 'local',
+                                        sessionId: null,
+                                        players: [selected_player1, 'IA']
+                                    });
+                                }
+                            };
+                            diffContainer.appendChild(diffBtn);
+                        });
+                        container.appendChild(diffContainer);
                         return;
                     }
 
