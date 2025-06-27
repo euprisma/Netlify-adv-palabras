@@ -1337,13 +1337,13 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             const updateData = {
                                 player2: selected_player2,
                                 status: 'playing',
-                                currentPlayer: sessionState.player1 || selected_player2,
+                                currentPlayer: sessionState.player1, // <-- always Player 1!
                                 tries: {
-                                    [sessionState.player1 || 'Player1']: sessionState.tries?.[sessionState.player1] || Math.floor(sessionState.secretWord.length / 2),
+                                    [sessionState.player1]: sessionState.tries?.[sessionState.player1] || Math.floor(sessionState.secretWord.length / 2),
                                     [selected_player2]: Math.floor(sessionState.secretWord.length / 2)
                                 },
                                 scores: {
-                                    [sessionState.player1 || 'Player1']: sessionState.scores?.[sessionState.player1] || 0,
+                                    [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
                                     [selected_player2]: 0
                                 },
                                 guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : []
