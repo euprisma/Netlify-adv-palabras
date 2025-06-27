@@ -2342,44 +2342,57 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
 }
 
 async function main() {
-    const gameState = await create_game_ui();
-    if (gameState) {
-        console.log('main: create_game_ui resolved', gameState);
-        const players = [gameState.player1, gameState.player2].filter(Boolean);
-        try {
-            await play_game(
-                null,
-                null,
-                gameState.mode,
-                players,
-                gameState.output,
-                gameState.container,
-                gameState.prompt,
-                gameState.input,
-                gameState.button,
-                gameState.difficulty,
-                0,
-                3,
-                Object.fromEntries(players.map(p => [p, 0])),
-                Object.fromEntries(players.map(p => [p, 0])),
-                delay,
-                display_feedback,
-                gameState.gameType,
-                gameState.sessionId
-            );
-        } catch (error) {
-            console.error('main: Error in play_game:', error);
+    console.log('main: Starting');
+    try {
+        const gameState = await create_game_ui();
+        console.log('main: Game state received', gameState);
+        if (gameState) {
+            console.log('main: create_game_ui resolved with', gameState);
+            const players = [gameState.player1, gameState.player2].filter(Boolean);
+            console.log('main: Players:', players);
+            try {
+                await play_game(
+                    null,
+                    null,
+                    gameState.mode,
+                    players,
+                    gameState.output,
+                    gameState.container,
+                    gameState.prompt,
+                    gameState.input,
+                    gameState.button,
+                    gameState.difficulty,
+                    0,
+                    3,
+                    Object.fromEntries(players.map(p => [p, 0])),
+                    Object.fromEntries(players.map(p => [p, 0])),
+                    delay,
+                    display_feedback,
+                    gameState.gameType,
+                    gameState.sessionId
+                );
+                console.log('main: play_game completed');
+            } catch (error) {
+                console.error('main: Error in play_game:', error);
+                const output = document.querySelector('.game-output');
+                if (output) {
+                    output.innerText = 'Error al iniciar el juego. Intenta de nuevo.';
+                    output.style.color = 'red';
+                }
+            }
+        } else {
+            console.warn('main: create_game_ui returned null');
             const output = document.querySelector('.game-output');
             if (output) {
-                output.innerText = 'Error al iniciar el juego. Intenta de nuevo.';
+                output.innerText = 'Error al configurar el juego. Intenta de nuevo.';
                 output.style.color = 'red';
             }
         }
-    } else {
-        console.warn('main: create_game_ui returned null');
+    } catch (error) {
+        console.error('main: Error in main:', error);
         const output = document.querySelector('.game-output');
         if (output) {
-            output.innerText = 'Error al configurar el juego. Intenta de nuevo.';
+            output.innerText = 'Error crítico al iniciar el juego. Intenta de nuevo.';
             output.style.color = 'red';
         }
     }
