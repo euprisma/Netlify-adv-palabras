@@ -2353,14 +2353,14 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             unsubscribe();
             console.log('play_game: Firebase listeners cleaned up');
         }
-        if (mode === '2' && gameType === 'remoto' && sessionId) {
+        // if (mode === '2' && gameType === 'remoto' && sessionId) {
             try {
                 await remove(ref(database, `games/${sessionId}`));
                 console.log('play_game: Cleaned up Firebase session', sessionId);
             } catch (err) {
                 console.warn('play_game: Failed to clean up Firebase session', err);
             }
-        }
+        // }
     }
 }
 
