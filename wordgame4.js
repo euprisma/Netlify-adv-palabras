@@ -1458,74 +1458,35 @@ async function start_game(mode, players, output, container, prompt, input, butto
 
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        let loadingMessage;
-        try {
-            // Hide all game UI elements
-            prompt.style.display = 'none';
-            input.style.display = 'none';
-            output.style.display = 'none';
-            button.style.display = 'none';
+        // Only fetch the secret word here, no UI logic
+        const secret_word = await get_secret_word();
 
-            // Show loading message
-            loadingMessage = document.createElement('p');
-            loadingMessage.innerText = 'Generando palabra secreta';
-            loadingMessage.style.fontSize = '16px';
-            loadingMessage.style.color = 'blue';
-            loadingMessage.style.margin = '30px';
-            container.appendChild(loadingMessage);
-            console.log('start_game: Showing loading message', { inputAttached: !!input.parentNode, buttonAttached: !!button.parentNode });
-
-            // Force DOM to update before async operation
-            loadingMessage.offsetHeight; // Force reflow
-            await delay(50);
-            // Start the game: generate the secret word
-            const secret_word = await get_secret_word();
-
-            // Now remove the loading message and show UI
-            if (loadingMessage && loadingMessage.parentNode) {
-                container.removeChild(loadingMessage);
-                console.log('play_game: Removed loading message');
-            }
-            prompt.style.display = '';
-            input.style.display = '';
-            output.style.display = '';
-            button.style.display = 'none'; // Only show when needed
-
-            // Start the game
-            
-            await play_game(
-                loadingMessage,
-                secret_word,
-                mode,
-                players,
-                output,
-                container,
-                prompt,
-                input,
-                button,
-                difficulty,
-                games_played,
-                games_to_play,
-                accumulated_scores,
-                accumulated_wins,
-                delay,
-                display_feedback,
-                gameType,
-                sessionId
-            );
-            console.log('start_game: Game completed', { games_played, games_to_play, total_scores: accumulated_scores, wins: accumulated_wins });
-        } catch (err) {
-            console.error('start_game: Error during game setup', err);
-            output.innerText = 'Error al iniciar el juego.';
-            if (loadingMessage && loadingMessage.parentNode) {
-                container.removeChild(loadingMessage);
-            }
-        } finally {
-            isGameActive = false;
-        }
+        await play_game(
+            null, // loadingMessage is now handled inside play_game
+            secret_word,
+            mode,
+            players,
+            output,
+            container,
+            prompt,
+            input,
+            button,
+            difficulty,
+            games_played,
+            games_to_play,
+            accumulated_scores,
+            accumulated_wins,
+            delay,
+            display_feedback,
+            gameType,
+            sessionId
+        );
+        console.log('start_game: Game completed', { games_played, games_to_play, total_scores: accumulated_scores, wins: accumulated_wins });
     } catch (err) {
         console.error('start_game: Outer error', err);
         output.innerText = 'Error crítico al iniciar el juego.';
+    } finally {
+        isGameActive = false;
     }
 }
 
@@ -1895,8 +1856,34 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
             return;
         }
 
+        // Hide all game UI elements
+        prompt.style.display = 'none';
+        input.style.display = 'none';
+        output.style.display = 'none';
+        button.style.display = 'none';
+
+        // Show loading message
+        const loadingMessage = document.createElement('p');
+        loadingMessage.innerText = 'Generando palabra secreta';
+        loadingMessage.style.fontSize = '16px';
+        loadingMessage.style.color = 'blue';
+        loadingMessage.style.margin = '30px';
+        container.appendChild(loadingMessage);
+
+        // Force DOM update before async operation
+        loadingMessage.offsetHeight;
+        await delay(50);
+
         let provided_secret_word = secret_word || await get_secret_word();
         console.log('play_game: Secret word:', provided_secret_word);
+
+        if (loadingMessage && loadingMessage.parentNode) {
+            container.removeChild(loadingMessage);
+        }
+        prompt.style.display = '';
+        input.style.display = '';
+        output.style.display = '';
+        button.style.display = 'none'; // Only show when needed
 
         const guessed_letters = new Set();
         const used_wrong_letters = new Set();
