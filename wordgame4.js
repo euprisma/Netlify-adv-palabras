@@ -665,6 +665,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
+                    display_feedback(feedback, feedback_color, player, true, 1500);
                 }
             }
 
