@@ -2129,7 +2129,8 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     return;
                 }
             } else {
-                while (tries[players[current_player_idx]] > 0 && !provided_secret_word.split('').every(l => guessed_letters.has(l))) {
+                    while (
+                        players.some(p => tries[p] > 0) && !provided_secret_word.split('').every(l => guessed_letters.has(l))) {
                     const player = players[current_player_idx];
                     const result = await process_guess(
                         player,
@@ -2161,7 +2162,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                     }
                     if (tries[player] <= 0) {
                         display_feedback(`¡${player} se quedó sin intentos!`, 'red', null, true);
-                        break;
+                    
                     }
                     if ((mode === '2' && gameType === 'local') || mode === '3') {
                         current_player_idx = (current_player_idx + 1) % players.length;
