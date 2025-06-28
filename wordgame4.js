@@ -2102,7 +2102,7 @@ async function play_game(
                                 return;
                             }
                             guessed_letters.clear();
-                            game.guessedLetters.forEach(l => guessed_letters.add(l));
+                            game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
                             Object.assign(tries, game.tries);
                             Object.assign(scores, game.scores);
                             current_player_idx = players.indexOf(game.currentPlayer);
