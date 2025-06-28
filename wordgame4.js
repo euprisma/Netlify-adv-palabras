@@ -793,6 +793,19 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         focusInput(input);
                         return;
                     }
+                    // Show loading message
+                    prompt.style.display = 'none';
+                    input.style.display = 'none';
+                    button.style.display = 'none';
+                    output.style.display = 'none';
+                    const loadingMessage = document.createElement('p');
+                    loadingMessage.innerText = 'Generando palabra secreta';
+                    loadingMessage.style.fontSize = '16px';
+                    loadingMessage.style.color = 'blue';
+                    loadingMessage.style.margin = '30px';
+                    container.appendChild(loadingMessage);
+                    await new Promise(requestAnimationFrame);
+                    
                     try {
                         const secretWord = await get_secret_word();
                         if (!secretWord || typeof secretWord !== 'string') {
@@ -957,6 +970,15 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         output.style.color = 'red';
                         input.value = '';
                         focusInput(input);
+                    } finally {
+                        // Remove loading message and restore UI for player name input
+                        if (loadingMessage && loadingMessage.parentNode) {
+                            container.removeChild(loadingMessage);
+                        }
+                        prompt.style.display = '';
+                        input.style.display = '';
+                        button.style.display = '';
+                        output.style.display = '';
                     }
                 } else if (value === 'unirse') {
                     console.log('create_game_ui: Prompting for session ID');
