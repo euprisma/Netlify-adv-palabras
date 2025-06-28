@@ -1914,6 +1914,11 @@ async function play_game(
         let scores = {};
         let current_player_idx = 0;
         let total_tries = 0;
+        const max_score = 10; // Initialize max_score here to avoid ReferenceError
+        const used_wrong_letters = new Set();
+        const used_wrong_words = new Set();
+        const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p, false]));
+        const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
 
         if (mode === '2' && gameType === 'remoto') {
             try {
@@ -1955,7 +1960,7 @@ async function play_game(
                             current_player_idx = 0;
                             const updates = {
                                 currentPlayer: players[current_player_idx],
-                                guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters.filter(l => l !== '__init__') : [],
+                                guessedLetters: Array.from(guessed_letters),
                                 tries,
                                 scores
                             };
@@ -1993,15 +1998,8 @@ async function play_game(
         output.style.display = '';
         button.style.display = 'none';
 
-        const used_wrong_letters = new Set();
-        const used_wrong_words = new Set();
-        const max_score = 10;
-        const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p, false]));
-        const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
-
-        let game_info, player_info, progress;
-
         // --- UI Setup ---
+        let game_info, player_info, progress;
         try {
             game_info = document.createElement('p');
             game_info.className = 'game-info';
@@ -2036,7 +2034,8 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                         player_info.innerHTML = `<strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}`;
                     } else {
                         player_info.innerHTML = `Turno de <strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}` +
-                            (other_player ? `<strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player] || 0} | Puntaje: ${scores[other_player] || 0}` : '');
+                            (other_player ? `
+<strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player] || 0} | Puntaje: ${scores[other_player] || 0}` : '');
                     }
                     progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
                     prompt.innerText = mode === '2' && gameType === 'remoto' && player !== players[current_player_idx] ? `Esperando a ${escapeHTML(players[current_player_idx])}...` : 'Ingresa una letra o la palabra completa:';
@@ -2052,7 +2051,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                 }
             }
 
-// --- Game Loop ---
+            // --- Game Loop ---
             async function game_loop(players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, current_player_idx_ref, game_info, games_played, games_to_play, total_scores, difficulty = null) {
                 let isGuessing = false;
                 let gameIsOver = false;
@@ -2149,7 +2148,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                                 );
 
                                 // Update state
-                                penalizo = result.penalizo;
+                                let penalizo = result.penalizo;
                                 tries = result.tries;
                                 scores = result.scores;
                                 guessed_letters = result.guessed_letters;
@@ -2292,7 +2291,7 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                         display_feedback
                     );
 
-                    penalizo = result.penalizo;
+                    let penalizo = result.penalizo;
                     tries = result.tries;
                     scores = result.scores;
                     guessed_letters = result.guessed_letters;
@@ -2405,8 +2404,8 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
             for (const player of players) {
                 final_results += `${escapeHTML(player)}: ${total_scores[player] || 0} puntos, ${wins[player] || 0} victoria${(wins[player] || 0) === 1 ? '' : 's'}\n`;
             }
-            const max_score = Math.max(...Object.values(total_scores));
-            const winners = Object.keys(total_scores).filter(p => total_scores[p] === max_score);
+            const max_total_score = Math.max(...Object.values(total_scores));
+            const winners = Object.keys(total_scores).filter(p => total_scores[p] === max_total_score);
             if (winners.length === 1) {
                 final_results += `\n¡Ganador: ${escapeHTML(winners[0])}!`;
             } else if (winners.length > 1) {
@@ -2456,32 +2455,31 @@ ID de sesión: ${escapeHTML(sessionId)}` : '');
                 };
             });
         } catch (err) {
-            console.error('play_game: Error in game loop', err);
-            display_feedback('Error crítico en el juego. Reinicia.', 'red', null, false);
-        } finally {
-            if (mode === '2' && gameType === 'remoto' && sessionRef) {
-                try {
-                    await remove(sessionRef);
-                    console.log('play_game: Cleaned up Firebase session in finally', sessionId);
-                } catch (err) {
-                    console.warn('play_game: Error cleaning up Firebase session in finally', err);
-                }
-                if (unsubscribe) unsubscribe();
-            }
-            isGameActive = false;
-            console.log('play_game: Game loop completed');
+            console.error('play_game: Error in UI setup', err);
+            display_feedback('Error al configurar la interfaz del juego. Reinicia.', 'red', null, false);
         }
     } catch (err) {
         console.error('play_game: Outer error in game setup', err);
         display_feedback('Error al configurar el juego. Reinicia.', 'red', null, false);
+    } finally {
         if (loadingMsgElem && loadingMsgElem.parentNode) {
             container.removeChild(loadingMsgElem);
         }
+        if (mode === '2' && gameType === 'remoto' && sessionRef) {
+            try {
+                await remove(sessionRef);
+                console.log('play_game: Cleaned up Firebase session in finally', sessionId);
+            } catch (err) {
+                console.warn('play_game: Error cleaning up Firebase session in finally', err);
+            }
+            if (unsubscribe) unsubscribe();
+        }
+        isGameActive = false;
+        console.log('play_game: Game loop completed');
         prompt.style.display = '';
         input.style.display = '';
         output.style.display = '';
         button.style.display = 'inline-block';
-        return;
     }
 }
 
