@@ -1962,7 +1962,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         let current_player_idx = games_played % players.length;
 
         let game_info, player_info, progress;
-        let sessionRef;
+        
 
         if (mode === '2' && gameType === 'remoto') {
             try {
