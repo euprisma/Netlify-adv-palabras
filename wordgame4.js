@@ -1876,9 +1876,49 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         loadingMessage.offsetHeight;
         await delay(50);
 
-        let provided_secret_word = secret_word || await get_secret_word();
-        console.log('play_game: Secret word:', provided_secret_word);
+        let provided_secret_word = secret_word;
+        if (mode === '2' && gameType === 'remoto') {
+            try {
+                sessionRef = ref(database, `games/${sessionId}`);
+                let attempts = 5;
+                let snapshot;
+                while (attempts--) {
+                    snapshot = await get(sessionRef);
+                    if (!snapshot.exists()) {
+                        console.error('play_game: Session not found', sessionId);
+                        display_feedback('Error: Sesión no encontrada. Reinicia el juego.', 'red', null, false);
+                        return;
+                    }
+                    const game = snapshot.val();
+                    if (game.secretWord && game.status === 'playing' && game.initialized && Array.isArray(game.guessedLetters)) {
+                        console.log('play_game: Valid Firebase state retrieved', { 
+                            secretWord: game.secretWord, 
+                            status: game.status, 
+                            guessedLetters: game.guessedLetters, 
+                            currentPlayer: game.currentPlayer 
+                        });
+                        provided_secret_word = game.secretWord;
+                        // ...rest of your assignments...
+                        break;
+                    }
+                    await delay(1000);
+                }
+                if (!snapshot || !snapshot.val().secretWord) {
+                    console.error('play_game: Failed to retrieve valid Firebase state', snapshot?.val());
+                    display_feedback('Error: No se pudo sincronizar el juego. Reinicia el juego.', 'red', null, false);
+                    return;
+                }
+            } catch (err) {
+                console.error('play_game: Firebase initialization error', err);
+                display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
+                return;
+            }
+        } else {
+            provided_secret_word = secret_word || await get_secret_word();
+            console.log('play_game: Secret word:', provided_secret_word);
+        }
 
+        // NOW remove loading message and show UI
         if (loadingMessage && loadingMessage.parentNode) {
             container.removeChild(loadingMessage);
         }
