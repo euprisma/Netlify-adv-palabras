@@ -843,10 +843,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
-                                    guessedLetters: ['__init__'], // Placeholder to ensure array persistence
-                                    tries: { init: null }, // Placeholder to ensure object persistence
-                                    scores: { init: null }, // Placeholder to ensure object persistence
-                                    currentPlayer: 'none', // Avoid null
+                                    guessedLetters: [], // <-- use empty array, not ['__init__']
+                                    tries: { init: null },
+                                    scores: { init: null },
+                                    currentPlayer: 'none',
                                     initialized: true
                                 };
                                 console.log('create_game_ui: Attempting to set initial state', { 
@@ -1356,7 +1356,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     attempts = 5;
                     while (attempts--) {
                         try {
-                            const triesValue = Math.floor(sessionState.secretWord.length / 2);
+                            const triesValue = Math.max(1, Math.floor(sessionState.secretWord.length / 2));
                             const updateData = {
                                 player2: selected_player2,
                                 status: 'playing',
@@ -1369,7 +1369,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
                                     [selected_player2]: 0
                                 },
-                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : []
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters.filter(l => l !== '__init__') : []
                             };
                             await update(sessionRef, updateData);
                             console.log('handlePlayer2Input: Updated Firebase with player2', { 
