@@ -1925,7 +1925,35 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                             currentPlayer: game.currentPlayer 
                         });
                         provided_secret_word = game.secretWord;
-                        // ...rest of your assignments...
+                        console.log('play_game: Secret word:', provided_secret_word);
+                        guessed_letters.clear();
+                        if (Array.isArray(game.guessedLetters)) {
+                            // Filter out placeholder
+                            game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
+                        }
+                        // Clean up placeholder tries and scores
+                        const cleanTries = game.tries && typeof game.tries === 'object' ? Object.fromEntries(
+                            Object.entries(game.tries).filter(([k]) => k !== 'init')
+                        ) : Object.fromEntries(players.map(p => [p, total_tries]));
+                        const cleanScores = game.scores && typeof game.scores === 'object' ? Object.fromEntries(
+                            Object.entries(game.scores).filter(([k]) => k !== 'init')
+                        ) : Object.fromEntries(players.map(p => [p, 0]));
+                        Object.assign(tries, cleanTries);
+                        Object.assign(scores, cleanScores);
+                        current_player_idx = players.indexOf(game.currentPlayer === 'none' ? players[0] : game.currentPlayer);
+                        if (current_player_idx === -1) {
+                            console.warn('play_game: Invalid currentPlayer from Firebase, defaulting to first player', game.currentPlayer);
+                            current_player_idx = 0;
+                            const updates = {
+                                currentPlayer: players[current_player_idx],
+                                guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters.filter(l => l !== '__init__') : [],
+                                tries: cleanTries,
+                                scores: cleanScores
+                            };
+                            await update(sessionRef, updates);
+                        }
+                        console.log('play_game: Set current_player_idx:', current_player_idx);
+                        
                         break;
                     }
                     await delay(1000);
