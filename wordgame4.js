@@ -1866,6 +1866,8 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
     });
     
     let unsubscribe = null;
+    let sessionRef = null; // <-- Add this line!
+
 
     try {
         if (mode === '2' && gameType === 'remoto' && !sessionId) {
