@@ -1873,8 +1873,7 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         container.appendChild(loadingMessage);
 
         // Force DOM update before async operation
-        loadingMessage.offsetHeight;
-        await delay(50);
+        await new Promise(requestAnimationFrame);
 
         let provided_secret_word = secret_word;
         if (mode === '2' && gameType === 'remoto') {
