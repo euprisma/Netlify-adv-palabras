@@ -1232,7 +1232,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         if (!Array.isArray(sessionState.guessedLetters) || !sessionState.tries || !sessionState.scores || sessionState.currentPlayer === undefined) {
                             console.log('create_game_ui: Correcting missing fields for session', sessionId);
                             await update(sessionRef, {
-                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : [],
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters.filter(l => l !== '__init__') : [],
                                 tries: typeof sessionState.tries === 'object' && sessionState.tries !== null ? sessionState.tries : {},
                                 scores: typeof sessionState.scores === 'object' && sessionState.scores !== null ? sessionState.scores : {},
                                 currentPlayer: sessionState.currentPlayer !== undefined ? sessionState.currentPlayer : null
@@ -2117,6 +2117,9 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
                             return;
                         }
                         const game = snapshot.val();
+                        if (!Array.isArray(game.guessedLetters)) {
+                            game.guessedLetters = [];
+                        }
                         if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer || !game.initialized) {
                             console.warn('game_loop: Invalid Firebase state', { 
                                 secretWord: !!game.secretWord, 
