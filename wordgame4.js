@@ -1364,17 +1364,19 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             if (!sessionState.player1 || typeof sessionState.player1 !== 'string' || !sessionState.player1.trim()) {
                                 throw new Error('Player 1 name missing or invalid in session state!');
                             }
+                            const formattedPlayer1 = format_name(sessionState.player1);
+                            const formattedPlayer2 = format_name(selected_player2);
                             const updateData = {
-                                player2: selected_player2,
+                                player2: formattedPlayer2,
                                 status: 'playing',
-                                currentPlayer: sessionState.player1,
+                                currentPlayer: formattedPlayer1,
                                 tries: {
-                                    [sessionState.player1]: triesValue,
-                                    [selected_player2]: triesValue
+                                    [formattedPlayer1]: triesValue,
+                                    [formattedPlayer2]: triesValue
                                 },
                                 scores: {
-                                    [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
-                                    [selected_player2]: 0
+                                    [formattedPlayer1]: sessionState.scores?.[formattedPlayer1] || 0,
+                                    [formattedPlayer2]: 0
                                 },
                                 guessedLetters: []
                             };
@@ -2122,7 +2124,7 @@ async function play_game(
                             current_player_idx = players.indexOf(game.currentPlayer);
                             if (current_player_idx === -1) {
                                 current_player_idx = 0;
-                                await update(sessionRef, { currentPlayer: players[current_player_idx], lastUpdated: Date.now() });
+                                await update(sessionRef, { currentPlayer: players[0], lastUpdated: Date.now() });
                             }
                             current_player_idx_ref.value = current_player_idx;
                             await update_ui();
@@ -2319,13 +2321,10 @@ async function play_game(
             repeat_button.style.cursor = 'pointer';
             repeat_button.style.margin = '5px';
             repeat_button.onclick = () => {
-                output.innerText = '';
-                const reset_scores = Object.fromEntries(players.map(p => [p, 0]));
-                const reset_wins = Object.fromEntries(players.map(p => [p, 0]));
                 if (mode === '2' && gameType === 'remoto') {
                     remove(ref(database, `games/${sessionId}`)).catch(err => {});
                 }
-                start_game(mode, players, output, container, prompt, input, button, difficulty, 0, reset_scores, reset_wins, gameType, sessionId);
+                main(); // Full UI reset
             };
             button_group.appendChild(repeat_button);
 
@@ -2402,7 +2401,7 @@ async function main() {
         console.log('main: Game state received', gameState);
         if (gameState) {
             console.log('main: create_game_ui resolved with', gameState);
-            const players = [gameState.player1, gameState.player2].filter(Boolean);
+            const players = [format_name(gameState.player1), format_name(gameState.player2)].filter(Boolean);
             console.log('main: Players:', players);
             try {
                 await play_game(
