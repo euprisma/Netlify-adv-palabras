@@ -1892,16 +1892,28 @@ async function play_game(loadingMessage, secret_word, mode, players, output, con
         output.style.display = 'none';
         button.style.display = 'none';
 
-        // Show loading message
-        const loadingMessage = document.createElement('p');
-        loadingMessage.innerText = 'Generando palabra secreta';
-        loadingMessage.style.fontSize = '16px';
-        loadingMessage.style.color = 'blue';
-        loadingMessage.style.margin = '30px';
-        container.appendChild(loadingMessage);
+        // Before showing loading message
+        let showLoading = true;
+        if (mode === '2' && gameType === 'remoto') {
+            // Only show loading if secret_word is not provided (i.e., Player 1)
+            showLoading = !secret_word;
+        }
+        if (showLoading) {
+            prompt.style.display = 'none';
+            input.style.display = 'none';
+            output.style.display = 'none';
+            button.style.display = 'none';
+            const loadingMessage = document.createElement('p');
+            loadingMessage.innerText = 'Generando palabra secreta';
+            loadingMessage.style.fontSize = '16px';
+            loadingMessage.style.color = 'blue';
+            loadingMessage.style.margin = '30px';
+            container.appendChild(loadingMessage);
+            await new Promise(requestAnimationFrame);
+        }
 
         // Force DOM update before async operation
-        await new Promise(requestAnimationFrame);
+        // await new Promise(requestAnimationFrame);
 
         let provided_secret_word = secret_word;
         if (mode === '2' && gameType === 'remoto') {
