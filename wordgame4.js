@@ -776,24 +776,13 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 console.log('create_game_ui: Remote role input:', value);
                 if (value === 'crear') {
                     if (!database) {
-                        console.error('create_game_ui: Firebase database not initialized');
-                        output.innerText = 'Error: No se pudo conectar con la base de datos. Verifica la configuración de Firebase.';
+                        output.innerText = 'Error: No se pudo conectar con Firebase.';
                         output.style.color = 'red';
                         input.value = '';
                         focusInput(input);
                         return;
                     }
                     selected_sessionId = Math.random().toString(36).substring(2, 12);
-                    console.log('create_game_ui: Generated session ID:', selected_sessionId);
-                    if (!selected_sessionId) {
-                        console.error('create_game_ui: Failed to generate session ID');
-                        output.innerText = 'Error al generar el ID de sesión. Intenta de nuevo.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
-                    }
-                    // Show loading message
                     prompt.style.display = 'none';
                     input.style.display = 'none';
                     button.style.display = 'none';
@@ -805,154 +794,64 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     loadingMessage.style.margin = '30px';
                     container.appendChild(loadingMessage);
                     await new Promise(requestAnimationFrame);
-                    
+
                     try {
                         const secretWord = await get_secret_word();
-                        if (!secretWord || typeof secretWord !== 'string') {
-                            console.error('create_game_ui: Invalid secretWord:', secretWord);
-                            output.innerText = 'Error: Palabra secreta inválida. Intenta de nuevo.';
-                            output.style.color = 'red';
-                            input.value = '';
-                            focusInput(input);
-                            return;
+                        if (!secretWord || typeof secretWord !== 'string' || secretWord.length < 4) {
+                            throw new Error('Palabra secreta inválida');
                         }
-                        console.log('Initial state setup:', { selected_mode, selected_gameType, secretWord });
-                        if (typeof selected_mode !== 'string' || typeof selected_gameType !== 'string') {
-                            console.error('Invalid mode or gameType:', { selected_mode, selected_gameType });
-                            output.innerText = 'Error: Modo o tipo de juego inválido. Intenta de nuevo.';
-                            output.style.color = 'red';
-                            input.value = '';
-                            focusInput(input);
-                            return;
-                        }
+                        const sessionRef = ref(database, `games/${selected_sessionId}`);
+                        const initialState = {
+                            status: 'waiting',
+                            player1: '',
+                            player2: '',
+                            mode: selected_mode,
+                            gameType: selected_gameType,
+                            secretWord,
+                            guessedLetters: [], // Ensure empty array
+                            tries: { player1: null, player2: null }, // Explicit null for players
+                            scores: { player1: 0, player2: 0 }, // Explicit zero scores
+                            currentPlayer: 'none',
+                            initialized: true,
+                            lastUpdated: Date.now()
+                        };
                         let attempts = 5;
                         let success = false;
-                        const sessionRef = ref(database, `games/${selected_sessionId}`);
                         while (attempts--) {
                             try {
                                 const snapshot = await get(sessionRef);
                                 if (snapshot.exists()) {
-                                    console.warn('create_game_ui: Session ID collision', selected_sessionId);
                                     selected_sessionId = Math.random().toString(36).substring(2, 12);
                                     continue;
                                 }
-                                const initialState = {
-                                    status: 'waiting',
-                                    player1: '',
-                                    player2: '',
-                                    mode: selected_mode,
-                                    gameType: selected_gameType,
-                                    secretWord,
-                                    guessedLetters: [], // <-- use empty array, not ['__init__']
-                                    tries: { init: null },
-                                    scores: { init: null },
-                                    currentPlayer: 'none',
-                                    initialized: true
-                                };
-                                console.log('create_game_ui: Attempting to set initial state', { 
-                                    sessionId: selected_sessionId, 
-                                    initialState, 
-                                    authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
-                                });
                                 await set(sessionRef, initialState);
-                                let validationAttempts = 3;
-                                let createdState;
-                                while (validationAttempts--) {
-                                    await delay(1000); // Reduced delay
-                                    const createdSnapshot = await get(sessionRef);
-                                    createdState = createdSnapshot.val();
-                                    console.log('Raw Firebase response:', JSON.stringify(createdState, null, 2));
-                                    console.log('create_game_ui: Retrieved state after set', { sessionId: selected_sessionId, createdState });
-                                    if (createdState && createdState.secretWord && createdState.initialized) {
-                                        // Fix missing or incorrect fields
-                                        let needsUpdate = false;
-                                        const updates = {};
-                                        if (!Array.isArray(createdState.guessedLetters) || createdState.guessedLetters.length === 0) {
-                                            updates.guessedLetters = ['__init__'];
-                                            needsUpdate = true;
-                                        }
-                                        if (!createdState.tries || typeof createdState.tries !== 'object' || createdState.tries === null) {
-                                            updates.tries = { init: null };
-                                            needsUpdate = true;
-                                        }
-                                        if (!createdState.scores || typeof createdState.scores !== 'object' || createdState.scores === null) {
-                                            updates.scores = { init: null };
-                                            needsUpdate = true;
-                                        }
-                                        if (createdState.currentPlayer === undefined || createdState.currentPlayer === null) {
-                                            updates.currentPlayer = 'none';
-                                            needsUpdate = true;
-                                        }
-                                        if (needsUpdate) {
-                                            console.log('create_game_ui: Correcting missing fields for session', selected_sessionId);
-                                            await update(sessionRef, updates);
-                                            console.log('create_game_ui: Corrected missing fields for session', selected_sessionId);
-                                            await delay(1000);
-                                            const finalSnapshot = await get(sessionRef);
-                                            createdState = finalSnapshot.val();
-                                        }
-                                        if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters)) {
-                                            break;
-                                        }
-                                    }
-                                    console.warn('create_game_ui: Validation attempt failed', {
-                                        attempt: 3 - validationAttempts,
-                                        hasSecretWord: !!createdState?.secretWord,
-                                        hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
-                                        hasTries: createdState?.tries != null,
-                                        hasScores: createdState?.scores != null,
-                                        hasCurrentPlayer: createdState?.currentPlayer != null,
-                                        status: createdState?.status
-                                    });
+                                // Validate the write
+                                await delay(500);
+                                const createdSnapshot = await get(sessionRef);
+                                const createdState = createdSnapshot.val();
+                                if (
+                                    createdState &&
+                                    createdState.secretWord === secretWord &&
+                                    createdState.initialized &&
+                                    Array.isArray(createdState.guessedLetters) &&
+                                    createdState.tries &&
+                                    createdState.scores &&
+                                    createdState.currentPlayer
+                                ) {
+                                    success = true;
+                                    break;
                                 }
-                                if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters)) {
-                                    console.error('create_game_ui: Invalid state after set', { 
-                                        createdState, 
-                                        hasSecretWord: !!createdState?.secretWord,
-                                        hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
-                                        hasTries: createdState?.tries != null,
-                                        hasScores: createdState?.scores != null,
-                                        hasCurrentPlayer: createdState?.currentPlayer != null,
-                                        status: createdState?.status
-                                    });
-                                    try {
-                                        await remove(sessionRef);
-                                        console.log('create_game_ui: Cleaned up invalid session', selected_sessionId);
-                                    } catch (cleanupError) {
-                                        console.warn('create_game_ui: Failed to clean up invalid session', cleanupError);
-                                    }
-                                    throw new Error('Failed to validate session state');
-                                }
-                                console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId, secretWord, createdState });
-                                success = true;
-                                break;
+                                throw new Error('Invalid session state after write');
                             } catch (error) {
                                 console.warn(`create_game_ui: Retry ${5 - attempts}/5 for Firebase set`, error);
-                                if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
-                                    console.error('create_game_ui: Permission denied, check Firebase rules and database URL', {
-                                        databaseURL: firebaseConfig.databaseURL,
-                                        projectId: firebaseConfig.projectId,
-                                        authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
-                                    });
-                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto.';
-                                    output.style.color = 'red';
-                                    input.value = '';
-                                    focusInput(input);
-                                    return;
-                                }
+                                if (attempts === 0) throw error;
                                 await delay(1000);
                             }
                         }
                         if (!success) {
-                            console.error('create_game_ui: Failed to create Firebase session after retries');
-                            output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo o verifica la conexión a Firebase.';
-                            output.style.color = 'red';
-                            input.value = '';
-                            focusInput(input);
-                            return;
+                            throw new Error('No se pudo crear la sesión de juego');
                         }
+                        console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId, secretWord });
                         prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
                         input.value = '';
                         focusInput(input);
@@ -965,13 +864,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     } catch (error) {
                         console.error('create_game_ui: Error creating game session:', error);
                         output.innerText = error.message.includes('permission_denied')
-                            ? 'Error: Permiso denegado. Verifica las reglas de Firebase en el proyecto correcto.'
+                            ? 'Error: Permiso denegado. Verifica las reglas de Firebase.'
                             : 'Error al crear la sesión de juego. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
                         focusInput(input);
                     } finally {
-                        // Remove loading message and restore UI for player name input
                         if (loadingMessage && loadingMessage.parentNode) {
                             container.removeChild(loadingMessage);
                         }
@@ -981,7 +879,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         output.style.display = '';
                     }
                 } else if (value === 'unirse') {
-                    console.log('create_game_ui: Prompting for session ID');
                     prompt.innerText = 'Ingresa el ID de sesión:';
                     input.value = '';
                     focusInput(input);
@@ -992,7 +889,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     };
                     input.addEventListener('keypress', currentHandler);
                 } else {
-                    console.warn('create_game_ui: Invalid remote role input:', value);
                     output.innerText = 'Entrada inválida. Ingresa "crear" o "unirse".';
                     output.style.color = 'red';
                     input.value = '';
@@ -1278,31 +1174,13 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 const player2Input = input.value.trim();
                 console.log('create_game_ui: Player 2 input:', player2Input);
                 if (!player2Input) {
-                    console.warn('create_game_ui: Empty Player 2 name');
                     output.innerText = 'Ingresa un nombre válido para Jugador 2.';
                     output.style.color = 'red';
                     input.value = '';
                     focusInput(input);
                     return;
                 }
-                selected_player2 = format_name(player2Input) || player2Input.charAt(0).toUpperCase() + player2Input.slice(1).toLowerCase();
-                console.log('create_game_ui: Formatted Player 2 name:', selected_player2);
-                if (!selected_sessionId) {
-                    console.error('create_game_ui: selected_sessionId is undefined in handlePlayer2Input');
-                    output.innerText = 'Error: ID de sesión no definido.';
-                    output.style.color = 'red';
-                    input.value = '';
-                    focusInput(input);
-                    return;
-                }
-                if (selected_gameType !== 'remoto') {
-                    console.error('create_game_ui: Invalid gameType for Player 2', selected_gameType);
-                    output.innerText = 'Error: Tipo de juego no válido. Intenta de nuevo.';
-                    output.style.color = 'red';
-                    input.value = '';
-                    focusInput(input);
-                    return;
-                }
+                selected_player2 = format_name(player2Input);
                 try {
                     const sessionRef = ref(database, `games/${selected_sessionId}`);
                     let attempts = 5;
@@ -1310,33 +1188,20 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     while (attempts--) {
                         const snapshot = await get(sessionRef);
                         if (!snapshot.exists()) {
-                            console.warn('create_game_ui: Session not found during Player 2 join', selected_sessionId);
-                            output.innerText = 'Sesión no encontrada. Intenta de nuevo.';
+                            output.innerText = 'Sesión no encontrada. Verifica el ID.';
                             output.style.color = 'red';
                             input.value = '';
                             focusInput(input);
                             return;
                         }
                         sessionState = snapshot.val();
-                        if (!sessionState.secretWord || !sessionState.initialized) {
-                            console.warn('create_game_ui: Invalid session state for Player 2', sessionState);
-                            output.innerText = 'La sesión tiene un estado inválido. Intenta con otro ID.';
-                            output.style.color = 'red';
-                            input.value = '';
-                            focusInput(input);
-                            return;
-                        }
-                        if (sessionState.status !== 'waiting' && sessionState.status !== 'waiting_for_player2') {
-                            console.warn('create_game_ui: Session not in waiting state', { sessionId: selected_sessionId, status: sessionState.status });
-                            output.innerText = 'La sesión no está disponible para unirse.';
-                            output.style.color = 'red';
-                            input.value = '';
-                            focusInput(input);
-                            return;
-                        }
-                        if (sessionState.player2) {
-                            console.warn('create_game_ui: Session already has Player 2', selected_sessionId);
-                            output.innerText = 'La sesión ya tiene un segundo jugador.';
+                        if (
+                            !sessionState.secretWord ||
+                            !sessionState.initialized ||
+                            sessionState.status !== 'waiting_for_player2' ||
+                            sessionState.player2
+                        ) {
+                            output.innerText = 'La sesión no está disponible o ya tiene un segundo jugador.';
                             output.style.color = 'red';
                             input.value = '';
                             focusInput(input);
@@ -1345,7 +1210,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         break;
                     }
                     if (!sessionState) {
-                        console.error('create_game_ui: Failed to retrieve valid session state for Player 2 after retries');
                         output.innerText = 'Error al verificar la sesión. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
@@ -1356,60 +1220,34 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     attempts = 5;
                     while (attempts--) {
                         try {
-                            // Ensure guessedLetters is always an array
-                            if (!Array.isArray(sessionState.guessedLetters)) {
-                                sessionState.guessedLetters = [];
-                            }
-                            const triesValue = Math.max(1, Math.floor(sessionState.secretWord.length / 2));
-                            if (!sessionState.player1 || typeof sessionState.player1 !== 'string' || !sessionState.player1.trim()) {
-                                throw new Error('Player 1 name missing or invalid in session state!');
-                            }
+                            const totalTries = Math.max(1, Math.floor(sessionState.secretWord.length / 2));
                             const updateData = {
                                 player2: selected_player2,
                                 status: 'playing',
                                 currentPlayer: sessionState.player1,
                                 tries: {
-                                    [sessionState.player1]: triesValue,
-                                    [selected_player2]: triesValue
+                                    [sessionState.player1]: totalTries,
+                                    [selected_player2]: totalTries
                                 },
                                 scores: {
                                     [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
                                     [selected_player2]: 0
                                 },
-                                guessedLetters: []
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : [],
+                                lastUpdated: Date.now()
                             };
                             await update(sessionRef, updateData);
-                            console.log('handlePlayer2Input: Updated Firebase with player2', { 
-                                sessionId: selected_sessionId, 
-                                player2: selected_player2, 
-                                state: (await get(sessionRef)).val() 
-                            });
+                            console.log('handlePlayer2Input: Updated Firebase with player2', { sessionId: selected_sessionId, player2: selected_player2 });
                             success = true;
                             break;
                         } catch (error) {
                             console.warn(`handlePlayer2Input: Retry ${5 - attempts}/5 for Firebase update`, error);
-                            if (error.code === 'PERMISSION_DENIED' || error.message.includes('permission_denied')) {
-                                console.error('create_game_ui: Permission denied for player2 update', {
-                                    databaseURL: firebaseConfig.databaseURL,
-                                    projectId: firebaseConfig.projectId,
-                                    authState: auth ? (auth.currentUser ? 'Authenticated' : 'Unauthenticated') : 'Auth undefined'
-                                });
-                                output.innerText = 'Error: Permiso denegado al registrar Jugador 2. Verifica las reglas de Firebase.';
-                                output.style.color = 'red';
-                                input.value = '';
-                                focusInput(input);
-                                return;
-                            }
-                            await delay(1000);
+                            if (attempts === 0) throw error;
+                            await delay(500);
                         }
                     }
                     if (!success) {
-                        console.error('handlePlayer2Input: Failed to update Firebase after retries');
-                        output.innerText = 'Error al registrar el Jugador 2. Intenta de nuevo.';
-                        output.style.color = 'red';
-                        input.value = '';
-                        focusInput(input);
-                        return;
+                        throw new Error('No se pudo registrar el Jugador 2');
                     }
                     output.innerText = `Unido al juego con ID: ${selected_sessionId}`;
                     output.style.color = 'black';
@@ -1418,31 +1256,24 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     prompt.innerText = 'Ingresa una letra o la palabra completa:';
                     button.style.display = 'none';
                     focusInput(input);
-                    console.log('handlePlayer2Input: Resolving with', { 
-                        mode: selected_mode, 
-                        player1: sessionState.player1, 
-                        player2: selected_player2, 
-                        gameType: selected_gameType, 
-                        sessionId: selected_sessionId 
-                    });
-                    resolve({ 
-                        mode: selected_mode, 
-                        player1: sessionState.player1, 
-                        player2: selected_player2, 
-                        prompt, 
-                        input, 
-                        button, 
-                        output, 
-                        container, 
-                        difficulty: selected_difficulty, 
-                        gameType: selected_gameType, 
+                    resolve({
+                        mode: selected_mode,
+                        player1: sessionState.player1,
+                        player2: selected_player2,
+                        prompt,
+                        input,
+                        button,
+                        output,
+                        container,
+                        difficulty: selected_difficulty,
+                        gameType: selected_gameType,
                         sessionId: selected_sessionId,
-                        secretWord: sessionState.secretWord // <-- pass the word from Firebase!
+                        secretWord: sessionState.secretWord
                     });
                 } catch (error) {
-                    console.error('create_game_ui: Error updating player 2 in Firebase:', error);
+                    console.error('handlePlayer2Input: Error:', error);
                     output.innerText = error.message.includes('permission_denied')
-                        ? 'Error: Permiso denegado al registrar Jugador 2. Verifica las reglas de Firebase.'
+                        ? 'Error: Permiso denegado. Verifica las reglas de Firebase.'
                         : 'Error al registrar el Jugador 2. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
@@ -1887,7 +1718,7 @@ async function play_game(
     gameType,
     sessionId
 ) {
-    console.log('play_game: Starting, Loaded version 2025-06-24-v9.21', {
+    console.log('play_game: Starting, Loaded version 2025-06-28-v9.23', {
         mode, players, difficulty, games_played, games_to_play, gameType, sessionId
     });
 
@@ -1908,13 +1739,7 @@ async function play_game(
             return;
         }
 
-        // Hide all game UI elements
-        prompt.style.display = 'none';
-        input.style.display = 'none';
-        output.style.display = 'none';
-        button.style.display = 'none';
-
-        // Show loading message only if needed
+        // Show loading message if needed
         let showLoading = true;
         if (mode === '2' && gameType === 'remoto') {
             showLoading = !secret_word;
@@ -1954,47 +1779,66 @@ async function play_game(
                         game.secretWord &&
                         game.status === 'playing' &&
                         game.initialized &&
-                        Array.isArray(game.guessedLetters)
+                        Array.isArray(game.guessedLetters) &&
+                        game.tries &&
+                        game.scores &&
+                        game.currentPlayer
                     ) {
                         console.log('play_game: Valid Firebase state retrieved', {
                             secretWord: game.secretWord,
                             status: game.status,
                             guessedLetters: game.guessedLetters,
+                            tries: game.tries,
+                            scores: game.scores,
                             currentPlayer: game.currentPlayer
                         });
                         provided_secret_word = game.secretWord;
                         guessed_letters = new Set(game.guessedLetters.filter(l => l !== '__init__'));
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
-                        tries = game.tries && typeof game.tries === 'object'
-                            ? Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'))
-                            : Object.fromEntries(players.map(p => [p, total_tries]));
-                        scores = game.scores && typeof game.scores === 'object'
-                            ? Object.fromEntries(Object.entries(game.scores).filter(([k]) => k !== 'init'))
-                            : Object.fromEntries(players.map(p => [p, 0]));
-                        current_player_idx = players.indexOf(game.currentPlayer === 'none' ? players[0] : game.currentPlayer);
+                        tries = Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'));
+                        scores = Object.fromEntries(Object.entries(game.scores).filter(([k]) => k !== 'init'));
+                        current_player_idx = players.indexOf(game.currentPlayer);
                         if (current_player_idx === -1) {
                             console.warn('play_game: Invalid currentPlayer from Firebase, defaulting to first player', game.currentPlayer);
                             current_player_idx = 0;
-                            const updates = {
+                            await update(sessionRef, {
                                 currentPlayer: players[current_player_idx],
-                                guessedLetters: Array.isArray(game.guessedLetters) ? game.guessedLetters.filter(l => l !== '__init__') : [],
-                                tries,
-                                scores
-                            };
-                            await update(sessionRef, updates);
+                                lastUpdated: Date.now()
+                            });
                         }
+                        // Ensure tries and scores are initialized for all players
+                        players.forEach(p => {
+                            if (!(p in tries)) tries[p] = total_tries;
+                            if (!(p in scores)) scores[p] = 0;
+                        });
                         break;
                     }
-                    await delay(1000);
+                    console.warn('play_game: Invalid session state, retrying', {
+                        hasSecretWord: !!game?.secretWord,
+                        hasInitialized: !!game?.initialized,
+                        guessedLettersType: game?.guessedLetters == null ? 'null/undefined' : typeof game.guessedLetters,
+                        hasTries: !!game?.tries,
+                        hasScores: !!game?.scores,
+                        hasCurrentPlayer: !!game?.currentPlayer,
+                        status: game?.status
+                    });
+                    await delay(500);
                 }
                 if (!snapshot || !snapshot.val().secretWord) {
-                    console.error('play_game: Failed to retrieve valid Firebase state', snapshot?.val());
+                    console.error('play_game: Failed to retrieve valid Firebase state after retries', snapshot?.val());
                     display_feedback('Error: No se pudo sincronizar el juego. Reinicia el juego.', 'red', null, false);
                     return;
                 }
             } catch (err) {
                 console.error('play_game: Firebase initialization error', err);
-                display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
+                display_feedback(
+                    err.message.includes('permission_denied')
+                        ? 'Error: Permiso denegado. Verifica las reglas de Firebase.'
+                        : 'Error al conectar con el servidor remoto. Intenta de nuevo.',
+                    'red',
+                    null,
+                    false
+                );
                 return;
             }
         } else {
@@ -2057,7 +1901,7 @@ async function play_game(
                             (other_player ? `<br><strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player] || 0} | Puntaje: ${scores[other_player] || 0}` : '');
                     }
                     progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
-                    prompt.innerText = mode === '2' && gameType === 'remoto' && player !== players[current_player_idx] ? `Esperando a ${escapeHTML(players[current_player_idx])}...` : 'Ingresa una letra o la palabra completa:';
+                    prompt.innerText = mode === '2' && gameType === 'remoto' && player !== players[current_player_idx] ? ` shopping for ${escapeHTML(players[current_player_idx])}...` : 'Ingresa una letra o la palabra completa:';
                     if (input.parentNode && (mode !== '2' || gameType !== 'remoto' || player === players[current_player_idx])) {
                         input.disabled = false;
                         focusInput(input);
@@ -2071,7 +1915,29 @@ async function play_game(
             }
 
             // --- Game Loop ---
-            async function game_loop(players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, current_player_idx_ref, game_info, games_played, games_to_play, total_scores, difficulty = null) {
+            async function game_loop(
+                players,
+                tries,
+                scores,
+                mode,
+                secret_word_length,
+                guessed_letters,
+                gameType,
+                sessionId,
+                sessionRef,
+                output,
+                container,
+                prompt,
+                input,
+                button,
+                display_feedback,
+                current_player_idx_ref,
+                game_info,
+                games_played,
+                games_to_play,
+                total_scores,
+                difficulty = null
+            ) {
                 let isGuessing = false;
                 let gameIsOver = false;
                 let current_player_idx = current_player_idx_ref.value;
@@ -2079,116 +1945,153 @@ async function play_game(
                 if (mode === '2' && gameType === 'remoto') {
                     try {
                         unsubscribe = onValue(sessionRef, async (snapshot) => {
-                            const game = snapshot.val();
                             if (!snapshot.exists()) {
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            const guessedLettersClean = Array.isArray(game.guessedLetters)
-                                ? game.guessedLetters.filter(l => l !== '__init__')
-                                : [];
-                            guessed_letters.clear();
-                            guessedLettersClean.forEach(l => guessed_letters.add(l));
-                            
+                            const game = snapshot.val();
+                            console.log('game_loop: Firebase snapshot received', {
+                                sessionId,
+                                status: game.status,
+                                currentPlayer: game.currentPlayer,
+                                guessedLetters: game.guessedLetters,
+                                tries: game.tries,
+                                scores: game.scores
+                            });
+
                             if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer || !game.initialized) {
+                                console.error('game_loop: Invalid game state', {
+                                    hasSecretWord: !!game.secretWord,
+                                    hasInitialized: !!game.initialized,
+                                    guessedLettersType: game.guessedLetters == null ? 'null/undefined' : typeof game.guessedLetters,
+                                    hasCurrentPlayer: !!game.currentPlayer
+                                });
                                 display_feedback('Error: Estado del juego inválido. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
+
                             if (game.status === 'finished' || game.status === 'ended') {
                                 gameIsOver = true;
                                 display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, new Set(game.guessedLetters))}.`, 'black', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
+
                             if (game.status !== 'playing') {
+                                console.log('game_loop: Game not in playing state, skipping', { status: game.status });
                                 return;
                             }
-                            // guessed_letters.clear();
-                            // game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
-                            Object.assign(tries, game.tries);
-                            Object.assign(scores, game.scores);
+
+                            guessed_letters.clear();
+                            game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
+                            Object.assign(tries, Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init')));
+                            Object.assign(scores, Object.fromEntries(Object.entries(game.scores).filter(([k]) => k !== 'init')));
                             current_player_idx = players.indexOf(game.currentPlayer);
                             if (current_player_idx === -1) {
+                                console.warn('game_loop: Invalid currentPlayer, defaulting to first player', game.currentPlayer);
                                 current_player_idx = 0;
                                 await update(sessionRef, { currentPlayer: players[current_player_idx], lastUpdated: Date.now() });
                             }
                             current_player_idx_ref.value = current_player_idx;
                             await update_ui();
 
-                            if (players[current_player_idx] === game.currentPlayer) {
-                                if (!isGuessing && !gameIsOver && !input.disabled) {
-                                    isGuessing = true;
-                                    try {
-                                        prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                        input.disabled = false;
-                                        focusInput(input);
-                                        const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
-                                        if (!guess) {
-                                            display_feedback('Entrada inválida. Turno perdido.', 'red', players[current_player_idx], true);
-                                            return;
-                                        }
-                                        const result = await process_guess(
-                                            players[current_player_idx],
-                                            guessed_letters,
-                                            provided_secret_word,
-                                            tries,
-                                            scores,
-                                            lastCorrectWasVowel,
-                                            used_wrong_letters,
-                                            used_wrong_words,
-                                            vowels,
-                                            max_score,
-                                            difficulty,
-                                            mode,
-                                            prompt,
-                                            input,
-                                            output,
-                                            button,
-                                            delay,
-                                            display_feedback
-                                        );
-                                        await update_ui();
+                            if (players[current_player_idx] === game.currentPlayer && !isGuessing && !gameIsOver && !input.disabled) {
+                                isGuessing = true;
+                                try {
+                                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
+                                    input.disabled = false;
+                                    focusInput(input);
+                                    const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
+                                    if (!guess) {
+                                        display_feedback('Entrada inválida. Turno perdido.', 'red', players[current_player_idx], true);
+                                        await update(sessionRef, {
+                                            currentPlayer: players[(current_player_idx + 1) % players.length],
+                                            lastUpdated: Date.now()
+                                        });
+                                        isGuessing = false;
+                                        return;
+                                    }
+                                    const result = await process_guess(
+                                        players[current_player_idx],
+                                        guessed_letters,
+                                        provided_secret_word,
+                                        tries,
+                                        scores,
+                                        lastCorrectWasVowel,
+                                        used_wrong_letters,
+                                        used_wrong_words,
+                                        vowels,
+                                        max_score,
+                                        difficulty,
+                                        mode,
+                                        prompt,
+                                        input,
+                                        output,
+                                        button,
+                                        delay,
+                                        display_feedback
+                                    );
+                                    await update_ui();
 
-                                        let attempts = 3;
-                                        while (attempts--) {
-                                            try {
-                                                const newStatus = result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l)) ? 'finished' : 'playing';
-                                                await update(sessionRef, {
-                                                    guessedLetters: Array.from(guessed_letters),
-                                                    tries,
-                                                    scores,
-                                                    currentPlayer: players[(current_player_idx + 1) % players.length],
-                                                    status: newStatus,
-                                                    lastUpdated: Date.now()
-                                                });
-                                                break;
-                                            } catch (err) {
-                                                await delay(500);
-                                                if (attempts === 0) {
-                                                    display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
-                                                    if (unsubscribe) unsubscribe();
-                                                    return;
-                                                }
+                                    let attempts = 3;
+                                    while (attempts--) {
+                                        try {
+                                            const newStatus = result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l)) ? 'finished' : 'playing';
+                                            await update(sessionRef, {
+                                                guessedLetters: Array.from(guessed_letters),
+                                                tries,
+                                                scores,
+                                                currentPlayer: players[(current_player_idx + 1) % players.length],
+                                                status: newStatus,
+                                                lastUpdated: Date.now()
+                                            });
+                                            console.log('game_loop: Firebase updated', {
+                                                sessionId,
+                                                newStatus,
+                                                currentPlayer: players[(current_player_idx + 1) % players.length],
+                                                guessedLetters: Array.from(guessed_letters),
+                                                tries,
+                                                scores
+                                            });
+                                            break;
+                                        } catch (err) {
+                                            console.warn(`game_loop: Retry ${3 - attempts}/3 for Firebase update`, err);
+                                            await delay(500);
+                                            if (attempts === 0) {
+                                                display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
+                                                if (unsubscribe) unsubscribe();
+                                                return;
                                             }
                                         }
-
-                                        if (result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l))) {
-                                            display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
-                                            if (unsubscribe) unsubscribe();
-                                            return;
-                                        }
-                                    } finally {
-                                        isGuessing = false;
                                     }
+
+                                    if (result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l))) {
+                                        display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
+                                        if (unsubscribe) unsubscribe();
+                                        return;
+                                    }
+                                } catch (err) {
+                                    console.error('game_loop: Error during guess', err);
+                                    display_feedback('Error al procesar la adivinanza. Intenta de nuevo.', 'red', players[current_player_idx], true);
+                                } finally {
+                                    isGuessing = false;
                                 }
                             } else {
                                 prompt.innerText = `Esperando a ${escapeHTML(game.currentPlayer)}...`;
                                 input.disabled = true;
                             }
                         }, (error) => {
-                            display_feedback('Error de sincronización con el servidor. Intenta de nuevo.', 'red', null, false);
+                            console.error('game_loop: Firebase snapshot error', error);
+                            display_feedback(
+                                error.message.includes('permission_denied')
+                                    ? 'Error: Permiso denegado. Verifica las reglas de Firebase.'
+                                    : 'Error de sincronización con el servidor. Intenta de nuevo.',
+                                'red',
+                                null,
+                                false
+                            );
                             if (unsubscribe) unsubscribe();
                         });
 
@@ -2200,13 +2103,23 @@ async function play_game(
                             }
                         });
                     } catch (err) {
-                        display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
+                        console.error('game_loop: Firebase setup error', err);
+                        display_feedback(
+                            err.message.includes('permission_denied')
+                                ? 'Error: Permiso denegado. Verifica las reglas de Firebase.'
+                                : 'Error al conectar con el servidor remoto. Intenta de nuevo.',
+                            'red',
+                            null,
+                            false
+                        );
                         if (unsubscribe) unsubscribe();
                         return;
                     }
                 } else {
                     while (
-                        players.some(p => tries[p] > 0) && !provided_secret_word.split('').every(l => guessed_letters.has(l))) {
+                        players.some(p => tries[p] > 0) &&
+                        !provided_secret_word.split('').every(l => guessed_letters.has(l))
+                    ) {
                         const player = players[current_player_idx];
                         const result = await process_guess(
                             player,
@@ -2248,9 +2161,27 @@ async function play_game(
             }
 
             await game_loop(
-                players, tries, scores, mode, provided_secret_word.length, guessed_letters, gameType, sessionId, sessionRef,
-                output, container, prompt, input, button, display_feedback, { value: current_player_idx },
-                game_info, games_played, games_to_play, total_scores, difficulty
+                players,
+                tries,
+                scores,
+                mode,
+                provided_secret_word.length,
+                guessed_letters,
+                gameType,
+                sessionId,
+                sessionRef,
+                output,
+                container,
+                prompt,
+                input,
+                button,
+                display_feedback,
+                { value: current_player_idx },
+                game_info,
+                games_played,
+                games_to_play,
+                total_scores,
+                difficulty
             );
             await delay(3000);
 
@@ -2267,7 +2198,9 @@ async function play_game(
             try {
                 if (input.parentNode) container.removeChild(input);
                 if (button.parentNode) container.removeChild(button);
-            } catch (err) {}
+            } catch (err) {
+                console.error('play_game: Error removing input/button', err);
+            }
 
             const formatted_word = format_secret_word(provided_secret_word, guessed_letters);
             output.innerHTML += `<br>Juego terminado. Palabra: ${formatted_word}.`;
@@ -2304,7 +2237,9 @@ async function play_game(
                 const reset_scores = Object.fromEntries(players.map(p => [p, 0]));
                 const reset_wins = Object.fromEntries(players.map(p => [p, 0]));
                 if (mode === '2' && gameType === 'remoto') {
-                    remove(ref(database, `games/${sessionId}`)).catch(err => {});
+                    remove(ref(database, `games/${sessionId}`)).catch(err => {
+                        console.error('play_game: Error cleaning up session', err);
+                    });
                 }
                 start_game(mode, players, output, container, prompt, input, button, difficulty, 0, reset_scores, reset_wins, gameType, sessionId);
             };
@@ -2319,7 +2254,9 @@ async function play_game(
             restart_button.style.margin = '5px';
             restart_button.onclick = () => {
                 if (mode === '2' && gameType === 'remoto') {
-                    remove(ref(database, `games/${sessionId}`)).catch(err => {});
+                    remove(ref(database, `games/${sessionId}`)).catch(err => {
+                        console.error('play_game: Error cleaning up session', err);
+                    });
                 }
                 document.body.innerHTML = '';
                 main();
@@ -2338,7 +2275,9 @@ async function play_game(
                     output.innerText = '';
                     if (button_group.parentNode) container.removeChild(button_group);
                     if (mode === '2' && gameType === 'remoto') {
-                        remove(ref(database, `games/${sessionId}`)).catch(err => {});
+                        remove(ref(database, `games/${sessionId}`)).catch(err => {
+                            console.error('play_game: Error cleaning up session', err);
+                        });
                     }
                     start_game(mode, players, output, container, prompt, input, button, difficulty, games_played + 1, total_scores, wins, gameType, sessionId);
                 };
@@ -2372,6 +2311,9 @@ async function play_game(
         if (unsubscribe) {
             unsubscribe();
             console.log('play_game: Firebase listeners cleaned up');
+        }
+        if (loadingMsgElem && loadingMsgElem.parentNode) {
+            container.removeChild(loadingMsgElem);
         }
     }
 }
