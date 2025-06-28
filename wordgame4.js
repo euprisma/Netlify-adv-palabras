@@ -2080,6 +2080,11 @@ async function play_game(
                     try {
                         unsubscribe = onValue(sessionRef, async (snapshot) => {
                             const game = snapshot.val();
+                            console.log('DEBUG: Firebase game state', game);
+                            if (!game.currentPlayer || !players.includes(game.currentPlayer)) {
+                                game.currentPlayer = players[0];
+                                await update(sessionRef, { currentPlayer: players[0], lastUpdated: Date.now() });
+                            }
                             if (!snapshot.exists()) {
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
@@ -2091,7 +2096,7 @@ async function play_game(
                             guessed_letters.clear();
                             guessedLettersClean.forEach(l => guessed_letters.add(l));
                             
-                            if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer || !game.initialized) {
+                            if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.initialized || !game.currentPlayer || !players.includes(game.currentPlayer)) {
                                 display_feedback('Error: Estado del juego inválido. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
