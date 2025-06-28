@@ -2226,6 +2226,7 @@ async function play_game(
                         return;
                     }
                 } else {
+                    current_player_idx_ref.value = current_player_idx;
                     while (
                         players.some(p => tries[p] > 0) && !provided_secret_word.split('').every(l => guessed_letters.has(l))) {
                         const player = players[current_player_idx];
@@ -2325,24 +2326,8 @@ async function play_game(
                     remove(ref(database, `games/${sessionId}`)).catch(err => {});
                     main();
                 } else if (mode === '1' || mode === '3' || (mode === '2' && gameType === 'local')) {
-                    // Restart mode 1 game with same player
-                    output.innerText = '';
-                    if (button_group.parentNode) container.removeChild(button_group);
-                    start_game(
-                        mode,
-                        players,
-                        output,
-                        container,
-                        prompt,
-                        input,
-                        button,
-                        difficulty,
-                        0,
-                        Object.fromEntries(players.map(p => [p, 0])),
-                        Object.fromEntries(players.map(p => [p, 0])),
-                        gameType,
-                        sessionId
-                    );
+                    // For all local modes, fully reset UI and start from menu
+                    main();
                 } else {
                     main();
                 }
