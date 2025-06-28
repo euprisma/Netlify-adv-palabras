@@ -1361,6 +1361,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 sessionState.guessedLetters = [];
                             }
                             const triesValue = Math.max(1, Math.floor(sessionState.secretWord.length / 2));
+                            if (!sessionState.player1 || typeof sessionState.player1 !== 'string' || !sessionState.player1.trim()) {
+                                throw new Error('Player 1 name missing or invalid in session state!');
+                            }
                             const updateData = {
                                 player2: selected_player2,
                                 status: 'playing',
