@@ -1373,9 +1373,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
                                     [selected_player2]: 0
                                 },
-                                guessedLetters: Array.isArray(sessionState.guessedLetters)
-                                    ? sessionState.guessedLetters.filter(l => l !== '__init__')
-                                    : []
+                                guessedLetters: []
                             };
                             await update(sessionRef, updateData);
                             console.log('handlePlayer2Input: Updated Firebase with player2', { 
@@ -2084,9 +2082,12 @@ async function play_game(
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            if (!Array.isArray(game.guessedLetters)) {
-                                game.guessedLetters = [];
-                            }
+                            const guessedLettersClean = Array.isArray(game.guessedLetters)
+                                ? game.guessedLetters.filter(l => l !== '__init__')
+                                : [];
+                            guessed_letters.clear();
+                            guessedLettersClean.forEach(l => guessed_letters.add(l));
+                            
                             if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer || !game.initialized) {
                                 display_feedback('Error: Estado del juego inválido. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
@@ -2101,8 +2102,8 @@ async function play_game(
                             if (game.status !== 'playing') {
                                 return;
                             }
-                            guessed_letters.clear();
-                            game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
+                            // guessed_letters.clear();
+                            // game.guessedLetters.filter(l => l !== '__init__').forEach(l => guessed_letters.add(l));
                             Object.assign(tries, game.tries);
                             Object.assign(scores, game.scores);
                             current_player_idx = players.indexOf(game.currentPlayer);
