@@ -2127,6 +2127,15 @@ async function play_game(
                             current_player_idx_ref.value = current_player_idx;
                             await update_ui();
 
+                            console.log('DEBUG: Turn info', {
+                                current_player_idx,
+                                currentPlayer: game.currentPlayer,
+                                players,
+                                tries,
+                                guessed_letters: Array.from(guessed_letters),
+                                status: game.status
+                            });
+
                             if (players[current_player_idx] === game.currentPlayer) {
                                 if (!isGuessing && !gameIsOver && !input.disabled) {
                                     isGuessing = true;
