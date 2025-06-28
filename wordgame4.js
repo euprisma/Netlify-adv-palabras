@@ -2267,7 +2267,7 @@ async function play_game(
                     }
                 }
             }
-
+            await update_ui(); // <-- Add this line
             await game_loop(
                 players, tries, scores, mode, provided_secret_word.length, guessed_letters, gameType, sessionId, sessionRef,
                 output, container, prompt, input, button, display_feedback, { value: current_player_idx },
@@ -2323,8 +2323,29 @@ async function play_game(
             repeat_button.onclick = () => {
                 if (mode === '2' && gameType === 'remoto') {
                     remove(ref(database, `games/${sessionId}`)).catch(err => {});
+                    main();
+                } else if (mode === '1' || mode === '3' || (mode === '2' && gameType === 'local')) {
+                    // Restart mode 1 game with same player
+                    output.innerText = '';
+                    if (button_group.parentNode) container.removeChild(button_group);
+                    start_game(
+                        mode,
+                        players,
+                        output,
+                        container,
+                        prompt,
+                        input,
+                        button,
+                        difficulty,
+                        0,
+                        Object.fromEntries(players.map(p => [p, 0])),
+                        Object.fromEntries(players.map(p => [p, 0])),
+                        gameType,
+                        sessionId
+                    );
+                } else {
+                    main();
                 }
-                main(); // Full UI reset
             };
             button_group.appendChild(repeat_button);
 
