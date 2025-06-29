@@ -2027,9 +2027,8 @@ async function play_game(
                                 typeof game.currentPlayer !== 'string' ||
                                 !game.initialized
                             ) {
-                                console.error('play_game: Invalid Firebase state', game);
-                                display_feedback('Error: Estado del juego inválido. Reinicia el juego.', 'red', null, false);
-                                if (unsubscribe) unsubscribe();
+                                console.warn('play_game: Waiting for valid Firebase state', game);
+                                // Do NOT unsubscribe or show error, just wait for the next update!
                                 return;
                             }
                             if (game.status === 'finished' || game.status === 'ended') {
