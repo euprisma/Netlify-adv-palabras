@@ -2180,7 +2180,6 @@ async function play_game(
                             }
                             continue;
                         }
-
                         // Only advance turn if not just lost all attempts
                         if ((mode === '2' && gameType === 'local') || mode === '3') {
                             current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
