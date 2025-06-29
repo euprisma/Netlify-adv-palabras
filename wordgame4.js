@@ -2284,6 +2284,19 @@ async function play_game(
                     if (mode === '2' && gameType === 'remoto') {
                         remove(ref(database, `games/${sessionId}`)).catch(err => {});
                     }
+                    // --- RECREATE UI for next round ---
+                    main({
+                        mode,
+                        player1: players[0],
+                        player2: players[1] || null,
+                        difficulty,
+                        gameType,
+                        skipMenu: true,
+                        games_played: games_played + 1,
+                        total_scores,
+                        wins,
+                        sessionId
+                    });
                     start_game(mode, players, output, container, prompt, input, button, difficulty, games_played + 1, total_scores, wins, gameType, sessionId);
                 };
                 button_group.appendChild(next_button);
