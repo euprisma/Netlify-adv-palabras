@@ -1949,7 +1949,7 @@ async function play_game(
         const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p, false]));
         const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
         let game_info, player_info, progress;
-        let current_player_idx_ref = { value: current_player_idx };
+        
 
         // --- UI Setup ---
         try {
@@ -1971,6 +1971,7 @@ async function play_game(
             prompt.innerText = 'Ingresa una letra o la palabra completa:';
             input.value = '';
             focusInput(input);
+            let current_player_idx_ref = { value: current_player_idx };
             await update_ui(current_player_idx_ref);
 
 
