@@ -2218,29 +2218,15 @@ async function play_game(
                     remove(ref(database, `games/${sessionId}`)).catch(err => {});
                     main();
                 } else {
-                    // For all local modes, fully recreate UI and start a new game with same settings
-                    document.body.innerHTML = '';
-                    const gameState = await create_game_ui(mode, players[0], players[1], difficulty, gameType, null); // sessionId=null for local
-                    if (gameState) {
-                        // Reset scores and wins for a true rematch
-                        const reset_scores = Object.fromEntries([gameState.player1, gameState.player2].filter(Boolean).map(p => [p, 0]));
-                        const reset_wins = Object.fromEntries([gameState.player1, gameState.player2].filter(Boolean).map(p => [p, 0]));
-                        start_game(
-                            mode,
-                            [gameState.player1, gameState.player2].filter(Boolean),
-                            gameState.output,
-                            gameState.container,
-                            gameState.prompt,
-                            gameState.input,
-                            gameState.button,
-                            difficulty,
-                            0,
-                            reset_scores,
-                            reset_wins,
-                            gameType,
-                            null // sessionId null for local
-                        );
-                    }
+                    // For all local modes, start a new game with the same players/settings, skipping the menu
+                    main({
+                        mode,
+                        player1: players[0],
+                        player2: players[1] || null,
+                        difficulty,
+                        gameType,
+                        skipMenu: true
+                    });
                 }
             };
             button_group.appendChild(repeat_button);
@@ -2308,9 +2294,63 @@ async function play_game(
     }
 }
 
-async function main() {
-    console.log('main: Starting');
+async function main(config = null) {
+    console.log('main: Starting', config ? '(rematch mode)' : '');
     try {
+        if (config && config.skipMenu) {
+            // Rematch: skip menu, use provided config
+            const players = [config.player1, config.player2].filter(Boolean);
+            // Build a fresh UI
+            document.body.innerHTML = '';
+            const container = document.createElement('div');
+            container.className = 'game-container';
+            document.body.appendChild(container);
+
+            const prompt = document.createElement('p');
+            prompt.className = 'game-prompt';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'game-input';
+            input.id = 'game-input';
+            const button = document.createElement('button');
+            button.className = 'game-button';
+            button.innerText = 'Enviar';
+            const output = document.createElement('span');
+            output.className = 'game-output';
+
+            container.appendChild(prompt);
+            container.appendChild(input);
+            container.appendChild(button);
+            container.appendChild(output);
+
+            // Reset scores and wins for rematch
+            const reset_scores = Object.fromEntries(players.map(p => [p, 0]));
+            const reset_wins = Object.fromEntries(players.map(p => [p, 0]));
+
+            await play_game(
+                null,
+                null, // let play_game fetch a new secret word
+                config.mode,
+                players,
+                output,
+                container,
+                prompt,
+                input,
+                button,
+                config.difficulty,
+                0,
+                config.mode === '1' ? 1 : 3,
+                reset_scores,
+                reset_wins,
+                delay,
+                display_feedback,
+                config.gameType,
+                null // sessionId null for local
+            );
+            return;
+        }
+
+        // Normal flow: show menu and get game state from create_game_ui
         const gameState = await create_game_ui();
         console.log('main: Game state received', gameState);
         if (gameState) {
@@ -2330,7 +2370,7 @@ async function main() {
                     gameState.button,
                     gameState.difficulty,
                     0,
-                    3,
+                    gameState.mode === '1' ? 1 : 3,
                     Object.fromEntries(players.map(p => [p, 0])),
                     Object.fromEntries(players.map(p => [p, 0])),
                     delay,
