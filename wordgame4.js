@@ -2124,6 +2124,7 @@ async function play_game(
                 } else {
                     while (
                         players.some(p => tries[p] > 0) && !provided_secret_word.split('').every(l => guessed_letters.has(l))) {
+                        const current_player_idx = current_player_idx_ref.value; // Always use the ref!
                         const player = players[current_player_idx];
                         const result = await process_guess(
                             player,
@@ -2146,10 +2147,9 @@ async function play_game(
                             display_feedback
                         );
                         await update_ui();
-                        // Add this guard to prevent crash if result is undefined
                         if (!result) {
                             console.error('game_loop: process_guess returned undefined');
-                            break; // or continue, or handle as needed
+                            break;
                         }
                         if (result && (result.word_guessed || provided_secret_word.split('').every(l => guessed_letters.has(l)))) {
                             display_feedback(`¡${player} adivinó la palabra!`, 'green', null, true);
@@ -2162,11 +2162,9 @@ async function play_game(
                             display_feedback(`¡${player} se quedó sin intentos!`, 'red', null, true);
                             // Immediately switch to next player and update UI
                             if ((mode === '2' && gameType === 'local') || mode === '3') {
-                                current_player_idx = (current_player_idx + 1) % players.length;
-                                current_player_idx_ref.value = current_player_idx;
+                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                 await update_ui();
                             }
-                            // Skip the rest of this turn for the player who lost
                             continue;
                         }
                     }
