@@ -1924,6 +1924,12 @@ async function play_game(
                     display_feedback('Error: No se pudo sincronizar el juego. Reinicia el juego.', 'red', null, false);
                     return;
                 }
+                // ADD THIS CHECK:
+                if (!provided_secret_word || typeof provided_secret_word !== 'string') {
+                    console.error('play_game: provided_secret_word is missing or invalid', provided_secret_word);
+                    display_feedback('Error: No se pudo obtener la palabra secreta. Reinicia el juego.', 'red', null, false);
+                    return;
+                }
             } catch (err) {
                 console.error('play_game: Firebase initialization error', err);
                 display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
