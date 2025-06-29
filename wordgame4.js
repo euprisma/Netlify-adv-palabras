@@ -1996,10 +1996,13 @@ async function play_game(
                 }
             }
             // --- Game Loop ---
-            async function game_loop(players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef, output, container, prompt, input, button, display_feedback, current_player_idx_ref, game_info, games_played, games_to_play, total_scores, difficulty = null) {
-                let isGuessing = false;
-                let gameIsOver = false;
-                let current_player_idx = current_player_idx_ref.value;
+                async function game_loop(
+                    players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId, sessionRef,
+                    output, container, prompt, input, button, display_feedback, current_player_idx_ref,
+                    game_info, games_played, games_to_play, total_scores, difficulty = null
+                ) {
+                    let isGuessing = false;
+                    let gameIsOver = false;
                 if (mode === '2' && gameType === 'remoto') {
                     try {
                         unsubscribe = onValue(sessionRef, async (snapshot) => {
@@ -2123,9 +2126,13 @@ async function play_game(
                     }
                 } else {
                     while (
-                        players.some(p => tries[p] > 0) && !provided_secret_word.split('').every(l => guessed_letters.has(l))) {
-                        const current_player_idx = current_player_idx_ref.value; // Always use the ref!
+                        players.some(p => tries[p] > 0) &&
+                        !provided_secret_word.split('').every(l => guessed_letters.has(l))
+                    ) {
+                        // Always use the ref for current player index
+                        const current_player_idx = current_player_idx_ref.value;
                         const player = players[current_player_idx];
+
                         const result = await process_guess(
                             player,
                             guessed_letters,
@@ -2147,6 +2154,7 @@ async function play_game(
                             display_feedback
                         );
                         await update_ui();
+
                         if (!result) {
                             console.error('game_loop: process_guess returned undefined');
                             break;
@@ -2162,10 +2170,16 @@ async function play_game(
                             display_feedback(`¡${player} se quedó sin intentos!`, 'red', null, true);
                             // Immediately switch to next player and update UI
                             if ((mode === '2' && gameType === 'local') || mode === '3') {
+                                // Advance turn to next player
                                 current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                 await update_ui();
                             }
                             continue;
+                        }
+
+                        // Only advance turn if not just lost all attempts
+                        if ((mode === '2' && gameType === 'local') || mode === '3') {
+                            current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                         }
                     }
                 }
