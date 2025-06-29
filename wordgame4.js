@@ -1033,6 +1033,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         button.style.display = 'none';
                         let timeoutId;
                         const unsubscribe = onValue(sessionRef, async (snapshot) => {
+                            console.warn('play_game: Waiting for valid Firebase state', JSON.stringify(game, null, 2));
                             const game = snapshot.val();
                             console.log('handlePlayer1Input: Snapshot received', game);
                             if (!snapshot.exists()) {
@@ -1346,6 +1347,25 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 player2: selected_player2,
                                 state: (await get(sessionRef)).val()
                             });
+                            // Defensive fix: ensure all required fields are present
+                            const sessionSnapshot = await get(sessionRef);
+                            const session = sessionSnapshot.val();
+                            const requiredFields = ['secretWord', 'guessedLetters', 'currentPlayer', 'initialized', 'status', 'player1', 'player2', 'tries', 'scores'];
+                            const missingFields = requiredFields.filter(f => !(f in session));
+                            if (missingFields.length > 0) {
+                                console.warn('Player2: Fixing missing fields in session', missingFields);
+                                await update(sessionRef, {
+                                    secretWord: session.secretWord || sessionState.secretWord,
+                                    guessedLetters: Array.isArray(session.guessedLetters) ? session.guessedLetters : [],
+                                    currentPlayer: session.currentPlayer || sessionState.player1,
+                                    initialized: session.initialized !== undefined ? session.initialized : true,
+                                    status: session.status || 'playing',
+                                    player1: session.player1 || sessionState.player1,
+                                    player2: session.player2 || selected_player2,
+                                    tries: session.tries || updateData.tries,
+                                    scores: session.scores || updateData.scores
+                                });
+                            }
                             success = true;
                             break;
                         } catch (error) {
