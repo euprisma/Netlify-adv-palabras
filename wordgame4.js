@@ -1949,6 +1949,7 @@ async function play_game(
         const lastCorrectWasVowel = Object.fromEntries(players.map(p => [p, false]));
         const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
         let game_info, player_info, progress;
+        let current_player_idx_ref = { value: current_player_idx };
 
         // --- UI Setup ---
         try {
@@ -1970,9 +1971,10 @@ async function play_game(
             prompt.innerText = 'Ingresa una letra o la palabra completa:';
             input.value = '';
             focusInput(input);
-            await update_ui();
+            await update_ui(current_player_idx_ref);
 
-            async function update_ui() {
+
+            async function update_ui(current_player_idx_ref) {
                 const idx = current_player_idx_ref.value;
                 const player = players[idx] || 'Jugador 1';
                 const other_player = players[(idx + 1) % players.length] || null;
@@ -2040,7 +2042,7 @@ async function play_game(
                                 await update(sessionRef, { currentPlayer: players[current_player_idx], lastUpdated: Date.now() });
                             }
                             current_player_idx_ref.value = current_player_idx;
-                            await update_ui();
+                            await update_ui(current_player_idx_ref);
                             if (players[current_player_idx] === game.currentPlayer) {
                                 if (!isGuessing && !gameIsOver && !input.disabled) {
                                     isGuessing = true;
@@ -2073,7 +2075,7 @@ async function play_game(
                                             delay,
                                             display_feedback
                                         );
-                                        await update_ui();
+                                        await update_ui(current_player_idx_ref);
                                         let attempts = 3;
                                         while (attempts--) {
                                             try {
@@ -2154,7 +2156,7 @@ async function play_game(
                             delay,
                             display_feedback
                         );
-                        await update_ui();
+                        await update_ui(current_player_idx_ref);
 
                         if (!result) {
                             console.error('game_loop: process_guess returned undefined');
@@ -2173,7 +2175,7 @@ async function play_game(
                             if ((mode === '2' && gameType === 'local') || mode === '3') {
                                 // Advance turn to next player
                                 current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                await update_ui();
+                                await update_ui(current_player_idx_ref);
                             }
                             continue;
                         }
