@@ -2329,12 +2329,13 @@ async function play_game(
             console.error('play_game: Error in game execution', err);
             display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
         }
-    } finally {
-        if (unsubscribe) {
-            unsubscribe();
-            console.log('play_game: Firebase listeners cleaned up');
-        }
-    }
+     //finally {
+        //if (unsubscribe) {
+            //unsubscribe();
+            //console.log('play_game: Firebase listeners cleaned up');
+        //}
+    } catch (err) {}
+        
 }
 
 async function main(config = null) {
