@@ -1980,7 +1980,7 @@ async function play_game(
                 if (output && output.parentNode) {
                     output.innerHTML = '';
                     output.style.color = 'black';
-                    await delay(500); // Ensure UI updates are visible
+                    
                 }
                 const idx = current_player_idx_ref.value;
                 const player = players[idx] || 'Jugador 1';
