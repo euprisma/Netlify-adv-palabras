@@ -2297,7 +2297,7 @@ async function play_game(
                         wins,
                         sessionId
                     });
-                    start_game(mode, players, output, container, prompt, input, button, difficulty, games_played + 1, total_scores, wins, gameType, sessionId);
+                    
                 };
                 button_group.appendChild(next_button);
             } else if (mode !== '1') {
