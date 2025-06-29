@@ -2160,11 +2160,14 @@ async function play_game(
                         }
                         if (tries[player] <= 0) {
                             display_feedback(`¡${player} se quedó sin intentos!`, 'red', null, true);
-                        }
-                        if ((mode === '2' && gameType === 'local') || mode === '3') {
-                            current_player_idx = (current_player_idx + 1) % players.length;
-                            current_player_idx_ref.value = current_player_idx;
-                            await update_ui(); // <-- Add this line to immediately reflect the new player's turn
+                            // Immediately switch to next player and update UI
+                            if ((mode === '2' && gameType === 'local') || mode === '3') {
+                                current_player_idx = (current_player_idx + 1) % players.length;
+                                current_player_idx_ref.value = current_player_idx;
+                                await update_ui();
+                            }
+                            // Skip the rest of this turn for the player who lost
+                            continue;
                         }
                     }
                 }
