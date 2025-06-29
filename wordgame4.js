@@ -2374,7 +2374,7 @@ async function main(config = null) {
 
             await play_game(
                 null,
-                null, // let play_game fetch a new secret word
+                null,
                 config.mode,
                 players,
                 output,
@@ -2383,14 +2383,14 @@ async function main(config = null) {
                 input,
                 button,
                 config.difficulty,
-                0,
+                typeof config.games_played === 'number' ? config.games_played : 0, // <-- use config.games_played if present
                 config.mode === '1' ? 1 : 3,
-                reset_scores,
-                reset_wins,
+                config.total_scores || Object.fromEntries(players.map(p => [p, 0])),
+                config.wins || Object.fromEntries(players.map(p => [p, 0])),
                 delay,
                 display_feedback,
                 config.gameType,
-                null // sessionId null for local
+                config.sessionId || null
             );
             return;
         }
