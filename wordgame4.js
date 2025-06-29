@@ -2023,7 +2023,12 @@ async function play_game(
                                 : [];
                             guessed_letters.clear();
                             guessedLettersClean.forEach(l => guessed_letters.add(l));
-                            if (!game.secretWord || !Array.isArray(game.guessedLetters) || !game.currentPlayer || !game.initialized) {
+                            if (
+                                !game.secretWord ||
+                                !Array.isArray(game.guessedLetters) ||
+                                typeof game.currentPlayer !== 'string' ||
+                                !game.initialized
+                            ) {
                                 display_feedback('Error: Estado del juego inválido. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
