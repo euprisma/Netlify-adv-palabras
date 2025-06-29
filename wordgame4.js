@@ -2164,6 +2164,7 @@ async function play_game(
                         if ((mode === '2' && gameType === 'local') || mode === '3') {
                             current_player_idx = (current_player_idx + 1) % players.length;
                             current_player_idx_ref.value = current_player_idx;
+                            await update_ui(); // <-- Add this line to immediately reflect the new player's turn
                         }
                     }
                 }
