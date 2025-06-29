@@ -1603,7 +1603,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                 feedback = 'Adivinanza inválida. Pierdes el turno.';
                 feedback_color = 'red';
                 display_feedback(feedback, feedback_color, player, true);
-                break;
+                return { penalizo, tries, scores, guessed_letters, word_guessed: false };
             }
             console.log('process_guess: Processing guess', { player, guess, normalized_guess: normalizar(guess), normalized_secret });
             if (guess.length === 1 && lastCorrectWasVowel[player] && vowels.has(guess)) {
@@ -1621,7 +1621,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     }
                     feedback_color = 'red';
                     display_feedback(feedback, feedback_color, player, true);
-                    break;
+                    return { penalizo, tries, scores, guessed_letters, word_guessed: false };
                 }
                 if (player === 'IA') {
                     guess = await get_ai_guess_wrapper(true);
@@ -1662,7 +1662,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     feedback_color = 'red';
                 }
                 display_feedback(feedback, feedback_color, player, true);
-                break;
+                return { penalizo, tries, scores, guessed_letters, word_guessed: false };
             } else if (guess.length === 1 && secret_word.includes(guess) && guessed_letters.has(guess)) {
                 if (retried < max_retries - 1) {
                     display_feedback(`Advertencia: '${escapeHTML(guess)}' ya adivinada. Intenta de nuevo.`, 'orange', player, true);
@@ -1691,7 +1691,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     feedback_color = 'red';
                 }
                 display_feedback(feedback, feedback_color, player, true);
-                break;
+                return { penalizo, tries, scores, guessed_letters, word_guessed: false };
             } else if (guess.length === secret_word.length && normalizar(guess) !== normalized_secret && used_wrong_words.has(normalizar(guess))) {
                 if (retried < max_retries - 1) {
                     display_feedback(`Advertencia: '${escapeHTML(guess)}' ya intentada. Intenta de nuevo.`, 'orange', player, true);
@@ -1720,7 +1720,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     feedback_color = 'red';
                 }
                 display_feedback(feedback, feedback_color, player, true);
-                break;
+                return { penalizo, tries, scores, guessed_letters, word_guessed: false };
             }
             const score_before = scores[player];
             if (guess.length === secret_word.length) {
