@@ -2218,10 +2218,13 @@ async function play_game(
                     remove(ref(database, `games/${sessionId}`)).catch(err => {});
                     main();
                 } else {
-                    // For all local modes, fully recreate UI and start a new game
+                    // For all local modes, fully recreate UI and start a new game with same settings
                     document.body.innerHTML = '';
-                    const gameState = await create_game_ui(mode, players[0], players[1], difficulty, gameType, sessionId);
+                    const gameState = await create_game_ui(mode, players[0], players[1], difficulty, gameType, null); // sessionId=null for local
                     if (gameState) {
+                        // Reset scores and wins for a true rematch
+                        const reset_scores = Object.fromEntries([gameState.player1, gameState.player2].filter(Boolean).map(p => [p, 0]));
+                        const reset_wins = Object.fromEntries([gameState.player1, gameState.player2].filter(Boolean).map(p => [p, 0]));
                         start_game(
                             mode,
                             [gameState.player1, gameState.player2].filter(Boolean),
@@ -2232,10 +2235,10 @@ async function play_game(
                             gameState.button,
                             difficulty,
                             0,
-                            Object.fromEntries(([gameState.player1, gameState.player2].filter(Boolean)).map(p => [p, 0])),
-                            Object.fromEntries(([gameState.player1, gameState.player2].filter(Boolean)).map(p => [p, 0])),
+                            reset_scores,
+                            reset_wins,
                             gameType,
-                            sessionId
+                            null // sessionId null for local
                         );
                     }
                 }
