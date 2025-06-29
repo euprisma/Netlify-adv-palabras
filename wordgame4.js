@@ -2146,6 +2146,11 @@ async function play_game(
                             display_feedback
                         );
                         await update_ui();
+                        // Add this guard to prevent crash if result is undefined
+                        if (!result) {
+                            console.error('game_loop: process_guess returned undefined');
+                            break; // or continue, or handle as needed
+                        }
                         if (result && (result.word_guessed || provided_secret_word.split('').every(l => guessed_letters.has(l)))) {
                             display_feedback(`¡${player} adivinó la palabra!`, 'green', null, true);
                             break;
