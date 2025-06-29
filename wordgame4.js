@@ -2311,6 +2311,13 @@ async function main(config = null) {
             container.className = 'game-container';
             document.body.appendChild(container);
 
+             // --- ADD THIS BLOCK ---
+            const title = document.createElement('h1');
+            title.className = 'game-title';
+            title.innerText = 'Juego de Adivinar Palabras';
+            container.appendChild(title);
+            // --- END ADD ---
+
             const prompt = document.createElement('p');
             prompt.className = 'game-prompt';
             const input = document.createElement('input');
