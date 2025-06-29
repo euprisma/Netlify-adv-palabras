@@ -1882,19 +1882,17 @@ async function play_game(
                         return;
                     }
                     const game = snapshot.val();
+                    // Always assign the secret word if present
+                    if (game.secretWord) {
+                        provided_secret_word = game.secretWord;
+                    }
+                    // Wait until the game is ready to play
                     if (
                         game.secretWord &&
                         game.status === 'playing' &&
                         game.initialized &&
                         Array.isArray(game.guessedLetters)
                     ) {
-                        console.log('play_game: Valid Firebase state retrieved', {
-                            secretWord: game.secretWord,
-                            status: game.status,
-                            guessedLetters: game.guessedLetters,
-                            currentPlayer: game.currentPlayer
-                        });
-                        provided_secret_word = game.secretWord;
                         guessed_letters = new Set(game.guessedLetters.filter(l => l !== '__init__'));
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
                         tries = game.tries && typeof game.tries === 'object'
@@ -1919,12 +1917,6 @@ async function play_game(
                     }
                     await delay(1000);
                 }
-                if (!snapshot || !snapshot.val().secretWord) {
-                    console.error('play_game: Failed to retrieve valid Firebase state', snapshot?.val());
-                    display_feedback('Error: No se pudo sincronizar el juego. Reinicia el juego.', 'red', null, false);
-                    return;
-                }
-                // ADD THIS CHECK:
                 if (!provided_secret_word || typeof provided_secret_word !== 'string') {
                     console.error('play_game: provided_secret_word is missing or invalid', provided_secret_word);
                     display_feedback('Error: No se pudo obtener la palabra secreta. Reinicia el juego.', 'red', null, false);
