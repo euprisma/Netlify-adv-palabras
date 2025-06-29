@@ -2029,6 +2029,7 @@ async function play_game(
                                 typeof game.currentPlayer !== 'string' ||
                                 !game.initialized
                             ) {
+                                console.error('play_game: Invalid Firebase state', game);
                                 display_feedback('Error: Estado del juego inválido. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
@@ -2412,7 +2413,7 @@ async function main(config = null) {
             try {
                 await play_game(
                     null,
-                    gameState.secretWord || null, // Use the secretWord if present
+                    (gameState.mode === '2' && gameState.gameType === 'remoto') ? null : (gameState.secretWord || null),
                     gameState.mode,
                     players,
                     gameState.output,
