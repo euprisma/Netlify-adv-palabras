@@ -2173,6 +2173,9 @@ async function play_game(
             players.forEach(p => {
                 total_scores[p] = (total_scores[p] || 0) + (scores[p] || 0);
             });
+            // Clear previous messages (like "se quedó sin intentos")
+            output.innerHTML = '';
+
             const button_group = document.createElement('div');
             button_group.className = 'button-group';
             button_group.style.display = 'inline-block';
@@ -2209,14 +2212,33 @@ async function play_game(
             repeat_button.style.fontSize = '16px';
             repeat_button.style.cursor = 'pointer';
             repeat_button.style.margin = '5px';
-            repeat_button.onclick = () => {
+            repeat_button.onclick = async () => {
                 output.innerText = '';
-                const reset_scores = Object.fromEntries(players.map(p => [p, 0]));
-                const reset_wins = Object.fromEntries(players.map(p => [p, 0]));
                 if (mode === '2' && gameType === 'remoto') {
                     remove(ref(database, `games/${sessionId}`)).catch(err => {});
+                    main();
+                } else {
+                    // For all local modes, fully recreate UI and start a new game
+                    document.body.innerHTML = '';
+                    const gameState = await create_game_ui(mode, players[0], players[1], difficulty, gameType, sessionId);
+                    if (gameState) {
+                        start_game(
+                            mode,
+                            [gameState.player1, gameState.player2].filter(Boolean),
+                            gameState.output,
+                            gameState.container,
+                            gameState.prompt,
+                            gameState.input,
+                            gameState.button,
+                            difficulty,
+                            0,
+                            Object.fromEntries(([gameState.player1, gameState.player2].filter(Boolean)).map(p => [p, 0])),
+                            Object.fromEntries(([gameState.player1, gameState.player2].filter(Boolean)).map(p => [p, 0])),
+                            gameType,
+                            sessionId
+                        );
+                    }
                 }
-                start_game(mode, players, output, container, prompt, input, button, difficulty, 0, reset_scores, reset_wins, gameType, sessionId);
             };
             button_group.appendChild(repeat_button);
             const restart_button = document.createElement('button');
