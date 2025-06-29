@@ -1975,13 +1975,7 @@ async function play_game(
             await update_ui(current_player_idx_ref);
 
 
-            async function update_ui(current_player_idx_ref) {
-                // Clear feedback/output before updating UI for the next turn
-                if (output && output.parentNode) {
-                    output.innerHTML = '';
-                    output.style.color = 'black';
-                    
-                }
+            async function update_ui(current_player_idx_ref) {                
                 const idx = current_player_idx_ref.value;
                 const player = players[idx] || 'Jugador 1';
                 const other_player = players[(idx + 1) % players.length] || null;
