@@ -1973,8 +1973,9 @@ async function play_game(
             await update_ui();
 
             async function update_ui() {
-                const player = players[current_player_idx] || 'Jugador 1';
-                const other_player = players[(current_player_idx + 1) % players.length] || null;
+                const idx = current_player_idx_ref.value;
+                const player = players[idx] || 'Jugador 1';
+                const other_player = players[(idx + 1) % players.length] || null;
                 try {
                     if (mode === '1') {
                         player_info.innerHTML = `<strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}`;
