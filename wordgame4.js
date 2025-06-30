@@ -1360,6 +1360,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             const missingFields = requiredFields.filter(f => !(f in session));
                             if (missingFields.length > 0) {
                                 console.warn('Player2: Fixing missing fields in session', missingFields);
+                                const triesValue = Math.max(1, Math.floor(sessionState.secretWord.length / 2));
                                 await update(sessionRef, {
                                     secretWord: session.secretWord || sessionState.secretWord,
                                     guessedLetters: Array.isArray(session.guessedLetters) ? session.guessedLetters : [],
@@ -1368,8 +1369,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     status: session.status || 'playing',
                                     player1: session.player1 || sessionState.player1,
                                     player2: session.player2 || selected_player2,
-                                    tries: session.tries || updateData.tries,
-                                    scores: session.scores || updateData.scores
+                                    tries: session.tries || {
+                                        [sessionState.player1]: triesValue,
+                                        [selected_player2]: triesValue
+                                    },
+                                    scores: session.scores || {
+                                        [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
+                                        [selected_player2]: 0
+                                    }
                                 });
                             }
                             const sessionSnapshot2 = await get(sessionRef);
