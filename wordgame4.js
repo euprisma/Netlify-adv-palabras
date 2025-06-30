@@ -1034,7 +1034,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         let timeoutId;
                         const unsubscribe = onValue(sessionRef, async (snapshot) => {
                             const game = snapshot.val();
-                            const guessedLetters = Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [];
+                            const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
                             console.warn('play_game: Waiting for valid Firebase state', JSON.stringify(game, null, 2));                            
                             console.log('handlePlayer1Input: Snapshot received', game);
                             if (!snapshot.exists()) {
