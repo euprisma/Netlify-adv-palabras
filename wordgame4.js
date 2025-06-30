@@ -1326,9 +1326,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 throw new Error('Player 1 name missing or invalid in session state!');
                             }
                             await runTransaction(sessionRef, (currentData) => {
-                                if (!currentData) return; // Session missing
-                                // Only allow join if player2 is not already set
-                                if (currentData.player2) return; // Prevent double join
+                                if (!currentData) return;
+                                if (currentData.player2) return;
                                 const triesValue = Math.max(1, Math.floor(currentData.secretWord.length / 2));
                                 return {
                                     ...currentData,
@@ -1343,7 +1342,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         [currentData.player1]: currentData.scores?.[currentData.player1] || 0,
                                         [selected_player2]: 0
                                     },
-                                    guessedLetters: Array.isArray(currentData.guessedLetters) ? currentData.guessedLetters.filter(l => l !== '__init__') : [],
+                                    guessedLetters: Array.isArray(currentData.guessedLetters)
+                                        ? currentData.guessedLetters.filter(l => l !== '__init__')
+                                        : [],
                                     initialized: true,
                                     secretWord: currentData.secretWord
                                 };
@@ -2049,6 +2050,11 @@ async function play_game(
                             if (!snapshot.exists()) {
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
+                                return;
+                            }
+                            // --- ENSURE guessedLetters IS ALWAYS AN ARRAY ---
+                            if (!Array.isArray(game.guessedLetters)) {
+                                await update(sessionRef, { guessedLetters: [] });
                                 return;
                             }
                             const guessedLettersClean = Array.isArray(game.guessedLetters)
