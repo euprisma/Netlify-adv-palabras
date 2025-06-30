@@ -1362,6 +1362,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             if (missingFields.length > 0) {
                                 console.warn('Player2: Fixing missing fields in session', missingFields);
                                 const triesValue = Math.max(1, Math.floor(sessionState.secretWord.length / 2));
+                                // Always update guessedLetters, and force Firebase to save it by including lastUpdated
                                 await update(sessionRef, {
                                     secretWord: session.secretWord || sessionState.secretWord,
                                     guessedLetters: Array.isArray(session.guessedLetters) ? session.guessedLetters : [],
@@ -1377,7 +1378,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     scores: session.scores || {
                                         [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
                                         [selected_player2]: 0
-                                    }
+                                    },
+                                    lastUpdated: Date.now() // <-- force Firebase to persist the update
                                 });
                             }
                             const sessionSnapshot2 = await get(sessionRef);
