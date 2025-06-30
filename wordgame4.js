@@ -851,7 +851,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                             const finalSnapshot = await get(sessionRef);
                                             createdState = finalSnapshot.val();
                                         }
-                                        if (createdState && createdState.secretWord && createdState.initialized && Array.isArray(createdState.guessedLetters)) {
+                                        if (createdState && createdState.secretWord && createdState.initialized) {
                                             break;
                                         }
                                     }
