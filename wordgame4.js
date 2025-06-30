@@ -1,6 +1,6 @@
 // Transcrypt'ed from Python, 2025-06-16, updated 2025-10-14 for Firebase v10.14.0
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js';
-import { getDatabase, ref, set, update, onValue, get, remove } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js';
+import { getDatabase, ref, set, update, onValue, get, remove, runTransaction } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js';
 
 // Global variables for Firebase
@@ -1033,8 +1033,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         button.style.display = 'none';
                         let timeoutId;
                         const unsubscribe = onValue(sessionRef, async (snapshot) => {
-                            console.warn('play_game: Waiting for valid Firebase state', JSON.stringify(game, null, 2));
                             const game = snapshot.val();
+                            console.warn('play_game: Waiting for valid Firebase state', JSON.stringify(game, null, 2));                            
                             console.log('handlePlayer1Input: Snapshot received', game);
                             if (!snapshot.exists()) {
                                 console.warn('handlePlayer1Input: Game session deleted');
@@ -1325,23 +1325,29 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             if (!sessionState.player1 || typeof sessionState.player1 !== 'string' || !sessionState.player1.trim()) {
                                 throw new Error('Player 1 name missing or invalid in session state!');
                             }
-                            const updateData = {
-                                player2: selected_player2,
-                                status: 'playing',
-                                currentPlayer: sessionState.player1,
-                                tries: {
-                                    [sessionState.player1]: triesValue,
-                                    [selected_player2]: triesValue
-                                },
-                                scores: {
-                                    [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
-                                    [selected_player2]: 0
-                                },
-                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters.filter(l => l !== '__init__') : [],
-                                initialized: true, // <-- ensure this is set!
-                                secretWord: sessionState.secretWord // <-- ensure this is set!
-                            };
-                            await update(sessionRef, updateData);
+                            await runTransaction(sessionRef, (currentData) => {
+                                if (!currentData) return; // Session missing
+                                // Only allow join if player2 is not already set
+                                if (currentData.player2) return; // Prevent double join
+                                const triesValue = Math.max(1, Math.floor(currentData.secretWord.length / 2));
+                                return {
+                                    ...currentData,
+                                    player2: selected_player2,
+                                    status: 'playing',
+                                    currentPlayer: currentData.player1,
+                                    tries: {
+                                        [currentData.player1]: triesValue,
+                                        [selected_player2]: triesValue
+                                    },
+                                    scores: {
+                                        [currentData.player1]: currentData.scores?.[currentData.player1] || 0,
+                                        [selected_player2]: 0
+                                    },
+                                    guessedLetters: Array.isArray(currentData.guessedLetters) ? currentData.guessedLetters.filter(l => l !== '__init__') : [],
+                                    initialized: true,
+                                    secretWord: currentData.secretWord
+                                };
+                            });
                             console.log('handlePlayer2Input: Updated Firebase with player2', {
                                 sessionId: selected_sessionId,
                                 player2: selected_player2,
@@ -1366,6 +1372,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     scores: session.scores || updateData.scores
                                 });
                             }
+                            const sessionSnapshot2 = await get(sessionRef);
+                            console.log('Player2: Session after patch', sessionSnapshot2.val());
                             success = true;
                             break;
                         } catch (error) {
