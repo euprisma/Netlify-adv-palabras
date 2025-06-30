@@ -1050,7 +1050,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 unsubscribe();
                                 return;
                             }
-                            if (game && game.player2 && game.status === 'playing' && game.secretWord && Array.isArray(game.guessedLetters)) {
+                            if (game && game.player2 && game.status === 'playing' && game.secretWord) {
+                                const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
                                 console.log('handlePlayer1Input: Player 2 joined', game.player2);
                                 selected_player2 = game.player2;
                                 clearTimeout(timeoutId);
