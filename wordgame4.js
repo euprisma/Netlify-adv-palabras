@@ -1366,7 +1366,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     guessedLetters: Array.isArray(session.guessedLetters) ? session.guessedLetters : [],
                                     currentPlayer: session.currentPlayer || sessionState.player1,
                                     initialized: session.initialized !== undefined ? session.initialized : true,
-                                    status: session.status || 'playing',
+                                    status: 'playing',
                                     player1: session.player1 || sessionState.player1,
                                     player2: session.player2 || selected_player2,
                                     tries: session.tries || {
