@@ -1931,10 +1931,10 @@ async function play_game(
                     if (
                         game.secretWord &&
                         game.status === 'playing' &&
-                        game.initialized &&
-                        Array.isArray(game.guessedLetters)
+                        game.initialized
                     ) {
-                        guessed_letters = new Set(game.guessedLetters);
+                        const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                        guessed_letters = new Set(guessedLetters);
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
                         tries = game.tries && typeof game.tries === 'object'
                             ? Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'))
