@@ -1358,7 +1358,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             const sessionSnapshot = await get(sessionRef);
                             const session = sessionSnapshot.val();
                             const requiredFields = ['secretWord', 'guessedLetters', 'currentPlayer', 'initialized', 'status', 'player1', 'player2', 'tries', 'scores'];
-                            const missingFields = requiredFields.filter(f => !(f in session));
+                            const missingFields = requiredFields.filter(f => !(f in session) || (f === 'guessedLetters' && !Array.isArray(session.guessedLetters)));
                             if (missingFields.length > 0) {
                                 console.warn('Player2: Fixing missing fields in session', missingFields);
                                 const triesValue = Math.max(1, Math.floor(sessionState.secretWord.length / 2));
