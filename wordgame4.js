@@ -827,8 +827,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         // Fix missing or incorrect fields
                                         let needsUpdate = false;
                                         const updates = {};
-                                        if (!Array.isArray(createdState.guessedLetters) || createdState.guessedLetters.length === 0) {
-                                            updates.guessedLetters = ['__init__'];
+                                        if (!Array.isArray(createdState.guessedLetters)) {
+                                            updates.guessedLetters = [];
                                             needsUpdate = true;
                                         }
                                         if (!createdState.tries || typeof createdState.tries !== 'object' || createdState.tries === null) {
@@ -1931,7 +1931,7 @@ async function play_game(
                         game.initialized &&
                         Array.isArray(game.guessedLetters)
                     ) {
-                        guessed_letters = new Set(game.guessedLetters.filter(l => l !== '__init__'));
+                        guessed_letters = new Set(game.guessedLetters);
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
                         tries = game.tries && typeof game.tries === 'object'
                             ? Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'))
