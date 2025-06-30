@@ -1916,69 +1916,106 @@ async function play_game(
         if (mode === '2' && gameType === 'remoto') {
             try {
                 sessionRef = ref(database, `games/${sessionId}`);
-                let attempts = 5;
-                let snapshot;
-                while (attempts--) {
-                    snapshot = await get(sessionRef);
-                    if (!snapshot.exists()) {
-                        console.error('play_game: Session not found', sessionId);
-                        display_feedback('Error: Sesión no encontrada. Reinicia el juego.', 'red', null, false);
-                        return;
-                    }
-                    const game = snapshot.val();
-                    // Validate critical fields
-                    if (
-                        game.secretWord &&
-                        game.status === 'playing' &&
-                        game.initialized &&
-                        Array.isArray(game.guessedLetters) &&
-                        game.currentPlayer &&
-                        game.tries && typeof game.tries === 'object' &&
-                        game.scores && typeof game.scores === 'object'
-                    ) {
-                        provided_secret_word = game.secretWord;
-                        guessed_letters = new Set(game.guessedLetters.filter(l => typeof l === 'string'));
-                        total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
-                        tries = Object.fromEntries(
-                            Object.entries(game.tries).filter(([k]) => k !== 'init' && players.includes(k))
-                        );
-                        scores = Object.fromEntries(
-                            Object.entries(game.scores).filter(([k]) => k !== 'init' && players.includes(k))
-                        );
-                        current_player_idx = players.indexOf(game.currentPlayer);
-                        if (current_player_idx === -1) {
-                            console.warn('play_game: Invalid currentPlayer, defaulting to first player', game.currentPlayer);
-                            current_player_idx = 0;
-                            await update(sessionRef, {
-                                currentPlayer: players[current_player_idx],
-                                lastUpdated: Date.now()
-                            });
-                        }
-                        break;
-                    } else {
-                        console.warn('play_game: Invalid session state, retrying', {
-                            hasSecretWord: !!game.secretWord,
-                            status: game.status,
-                            initialized: !!game.initialized,
-                            guessedLetters: game.guessedLetters,
-                            currentPlayer: game.currentPlayer,
-                            tries: game.tries,
-                            scores: game.scores
-                        });
-                        await delay(1000);
-                    }
+            let attempts = 5;
+            let snapshot;
+            let game;
+            while (attempts--) {
+                snapshot = await get(sessionRef);
+                if (!snapshot.exists()) {
+                    console.error('play_game: Session not found', sessionId);
+                    display_feedback('Error: Sesión no encontrada. Reinicia el juego.', 'red', null, false);
+                    return;
                 }
-                if (!provided_secret_word || typeof provided_secret_word !== 'string') {
-                    console.error('play_game: provided_secret_word is missing or invalid', provided_secret_word);
+                game = snapshot.val();
+                // Ensure critical fields exist, initialize if missing
+                if (!game.guessedLetters || !Array.isArray(game.guessedLetters)) {
+                    console.warn('play_game: guessedLetters is invalid, initializing as empty array', game.guessedLetters);
+                    game.guessedLetters = [];
+                    await update(sessionRef, { guessedLetters: [], lastUpdated: Date.now() });
+                }
+                if (!game.tries || typeof game.tries !== 'object') {
+                    console.warn('play_game: tries is invalid, initializing', game.tries);
+                    game.tries = Object.fromEntries(players.map(p => [p, Math.max(1, Math.floor((game.secretWord || '').length / 2))]));
+                    await update(sessionRef, { tries: game.tries, lastUpdated: Date.now() });
+                }
+                if (!game.scores || typeof game.scores !== 'object') {
+                    console.warn('play_game: scores is invalid, initializing', game.scores);
+                    game.scores = Object.fromEntries(players.map(p => [p, 0]));
+                    await update(sessionRef, { scores: game.scores, lastUpdated: Date.now() });
+                }
+                // Validate critical fields
+                if (
+                    game.secretWord &&
+                    typeof game.secretWord === 'string' &&
+                    game.status === 'playing' &&
+                    game.initialized &&
+                    Array.isArray(game.guessedLetters) &&
+                    game.currentPlayer &&
+                    players.includes(game.currentPlayer) &&
+                    game.tries && typeof game.tries === 'object' &&
+                    game.scores && typeof game.scores === 'object'
+                ) {
+                    provided_secret_word = game.secretWord;
+                    guessed_letters = new Set(game.guessedLetters.filter(l => typeof l === 'string'));
+                    total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
+                    tries = Object.fromEntries(
+                        Object.entries(game.tries).filter(([k]) => k !== 'init' && players.includes(k))
+                    );
+                    scores = Object.fromEntries(
+                        Object.entries(game.scores).filter(([k]) => k !== 'init' && players.includes(k))
+                    );
+                    current_player_idx = players.indexOf(game.currentPlayer);
+                    if (current_player_idx === -1) {
+                        console.warn('play_game: Invalid currentPlayer, defaulting to first player', game.currentPlayer);
+                        current_player_idx = 0;
+                        await update(sessionRef, {
+                            currentPlayer: players[current_player_idx],
+                            lastUpdated: Date.now()
+                        });
+                    }
+                    break;
+                } else {
+                    console.warn('play_game: Invalid session state, retrying', {
+                        hasSecretWord: !!game.secretWord,
+                        secretWordType: typeof game.secretWord,
+                        status: game.status,
+                        initialized: !!game.initialized,
+                        guessedLetters: game.guessedLetters,
+                        currentPlayer: game.currentPlayer,
+                        currentPlayerValid: players.includes(game.currentPlayer),
+                        tries: game.tries,
+                        scores: game.scores
+                    });
+                    await delay(1000);
+                }
+            }
+            if (!provided_secret_word || typeof provided_secret_word !== 'string') {
+                console.error('play_game: provided_secret_word is missing or invalid', provided_secret_word);
+                // Attempt to recover by fetching a new secret word
+                try {
+                    provided_secret_word = await get_secret_word();
+                    console.log('play_game: Recovered secret word', provided_secret_word);
+                    await update(sessionRef, {
+                        secretWord: provided_secret_word,
+                        guessedLetters: [],
+                        tries: Object.fromEntries(players.map(p => [p, Math.max(1, Math.floor(provided_secret_word.length / 2))])),
+                        scores: Object.fromEntries(players.map(p => [p, 0])),
+                        currentPlayer: players[0],
+                        status: 'playing',
+                        initialized: true,
+                        lastUpdated: Date.now()
+                    });
+                    guessed_letters = new Set();
+                    total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
+                    tries = Object.fromEntries(players.map(p => [p, total_tries]));
+                    scores = Object.fromEntries(players.map(p => [p, 0]));
+                    current_player_idx = 0;
+                } catch (err) {
+                    console.error('play_game: Failed to recover secret word', err);
                     display_feedback('Error: No se pudo obtener la palabra secreta. Reinicia el juego.', 'red', null, false);
                     return;
                 }
-            } catch (err) {
-                console.error('play_game: Firebase initialization error', err);
-                display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
-                return;
-            }
-        } else {
+            } else {
             provided_secret_word = secret_word || await get_secret_word();
             total_tries = Math.max(1, mode === '1' ? provided_secret_word.length - 2 : Math.floor(provided_secret_word.length / 2));
             guessed_letters = new Set();
