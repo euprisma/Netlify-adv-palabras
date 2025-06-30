@@ -866,7 +866,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         status: createdState?.status
                                     });
                                 }
-                                if (!createdState || !createdState.secretWord || !createdState.initialized || !Array.isArray(createdState.guessedLetters)) {
+                                    if (!createdState || !createdState.secretWord || !createdState.initialized) {
                                     console.error('create_game_ui: Invalid state after set', {
                                         createdState,
                                         hasSecretWord: !!createdState?.secretWord,
@@ -2059,9 +2059,7 @@ async function play_game(
                                 await update(sessionRef, { guessedLetters: [] });
                                 return;
                             }
-                            const guessedLettersClean = Array.isArray(game.guessedLetters)
-                                ? game.guessedLetters.filter(l => l !== '__init__')
-                                : [];
+                            const guessedLetters = Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [];
                             guessed_letters.clear();
                             guessedLettersClean.forEach(l => guessed_letters.add(l));
                             if (
