@@ -2462,7 +2462,7 @@ async function play_game(
             console.log('play_game: Firebase listeners cleaned up');
         }
     }
-}
+} // <-- Add this closing brace to properly end play_game
 
 async function main(config = null) {
     console.log('main: Starting', config ? '(rematch mode)' : '');
