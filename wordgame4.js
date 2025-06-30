@@ -867,23 +867,23 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     });
                                 }
                                 if (!createdState || !createdState.secretWord || !createdState.initialized) {
-                                    console.error('create_game_ui: Invalid state after set', {
-                                        createdState,
-                                        hasSecretWord: !!createdState?.secretWord,
-                                        hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
-                                        hasTries: createdState?.tries != null,
-                                        hasScores: createdState?.scores != null,
-                                        hasCurrentPlayer: createdState?.currentPlayer != null,
-                                        status: createdState?.status
-                                    });
-                                    try {
-                                        await remove(sessionRef);
-                                        console.log('create_game_ui: Cleaned up invalid session', selected_sessionId);
-                                    } catch (cleanupError) {
-                                        console.warn('create_game_ui: Failed to clean up invalid session', cleanupError);
-                                    }
-                                    throw new Error('Failed to validate session state');
+                                    //console.error('create_game_ui: Invalid state after set', {
+                                        //createdState,
+                                        //hasSecretWord: !!createdState?.secretWord,
+                                        //hasInitialized: !!createdState?.initialized,
+                                        //guessedLettersType: createdState?.guessedLetters == null ? 'null/undefined' : typeof createdState.guessedLetters,
+                                        //hasTries: createdState?.tries != null,
+                                        //hasScores: createdState?.scores != null,
+                                        //hasCurrentPlayer: createdState?.currentPlayer != null,
+                                        //status: createdState?.status
+                                    //});
+                                    //try {
+                                        //await remove(sessionRef);
+                                        //console.log('create_game_ui: Cleaned up invalid session', selected_sessionId);
+                                    //} catch (cleanupError) {
+                                        //console.warn('create_game_ui: Failed to clean up invalid session', cleanupError);
+                                    //}
+                                    //throw new Error('Failed to validate session state');
                                 }
                                 console.log('create_game_ui: Firebase session created', { sessionId: selected_sessionId, secretWord, createdState });
                                 success = true;
@@ -1034,6 +1034,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         let timeoutId;
                         const unsubscribe = onValue(sessionRef, async (snapshot) => {
                             const game = snapshot.val();
+                            const guessedLetters = Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [];
                             console.warn('play_game: Waiting for valid Firebase state', JSON.stringify(game, null, 2));                            
                             console.log('handlePlayer1Input: Snapshot received', game);
                             if (!snapshot.exists()) {
@@ -1920,6 +1921,7 @@ async function play_game(
                         return;
                     }
                     const game = snapshot.val();
+                    const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
                     // Always assign the secret word if present
                     if (game.secretWord) {
                         provided_secret_word = game.secretWord;
