@@ -866,7 +866,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         status: createdState?.status
                                     });
                                 }
-                                    if (!createdState || !createdState.secretWord || !createdState.initialized) {
+                                if (!createdState || !createdState.secretWord || !createdState.initialized) {
                                     console.error('create_game_ui: Invalid state after set', {
                                         createdState,
                                         hasSecretWord: !!createdState?.secretWord,
