@@ -1384,17 +1384,18 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     lastUpdated: Date.now() // <-- force Firebase to persist the update
                                 });
                             }
-                            // Add verification
+                            // In handlePlayer2Input, after the transaction
                             const finalSnapshot = await get(sessionRef);
                             const finalState = finalSnapshot.val();
-                            console.log('handlePlayer2Input: Post-transaction state', finalState);
-                            if (finalState.status !== 'playing' || !finalState.tries[selected_player2] || finalState.tries[selected_player2] <= 0) {
-                                console.error('Invalid state after Player 2 join', finalState);
+                            console.log('Post-transaction state:', finalState);
+                            if (finalState.status !== 'playing' || !finalState.tries[finalState.player1] || !finalState.tries[finalState.player2]) {
+                                console.error('Invalid state detected:', finalState);
+                                // Correct the state if needed
                                 await update(sessionRef, {
                                     status: 'playing',
                                     tries: {
                                         [finalState.player1]: Math.max(1, Math.floor(finalState.secretWord.length / 2)),
-                                        [selected_player2]: Math.max(1, Math.floor(finalState.secretWord.length / 2))
+                                        [finalState.player2]: Math.max(1, Math.floor(finalState.secretWord.length / 2))
                                     },
                                     lastUpdated: Date.now()
                                 });
@@ -2072,20 +2073,26 @@ async function play_game(
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            if (!game.secretWord || !game.initialized || game.status === 'waiting') {
-                                console.log('play_game: Waiting for valid state', game);
-                                return; // Don’t process until fully initialized
+                            // Wait for a fully initialized game
+                            if (!game.secretWord || !game.initialized || game.status === 'waiting_for_player2') {
+                                console.log('Waiting for valid state:', game);
+                                return;
                             }
+                            // Check for game over conditions
                             if (game.status === 'finished' || game.status === 'ended') {
                                 gameIsOver = true;
                                 display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, new Set(game.guessedLetters))}.`, 'black', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
+                            // Ensure we only proceed if status is 'playing'
                             if (game.status !== 'playing') {
-                                console.log('play_game: Unexpected status', game.status);
+                                console.log('Unexpected status:', game.status);
                                 return;
                             }
+                            // Proceed with game logic (e.g., display prompt, accept guesses)
+                            console.log('Game is playing:', game);
+                            
                             Object.assign(tries, game.tries);
                             Object.assign(scores, game.scores);
                             current_player_idx = players.indexOf(game.currentPlayer);
