@@ -2067,32 +2067,14 @@ async function play_game(
                     try {
                         unsubscribe = onValue(sessionRef, async (snapshot) => {
                             const game = snapshot.val();
-                            console.log('play_game: Listener triggered', {
-                                sessionId,
-                                status: game?.status,
-                                currentPlayer: game?.currentPlayer,
-                                guessedLetters: game?.guessedLetters,
-                                tries: game?.tries,
-                                scores: game?.scores,
-                                secretWord: game?.secretWord ? 'present' : 'missing'
-                            });
-                            if (!snapshot.exists()) {
+                            if (!snapshot.exists() || !game) {
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
-                            guessed_letters.clear();
-                            guessedLetters.forEach(l => guessed_letters.add(l));
-                            if (
-                                !game.secretWord ||
-                                !Array.isArray(game.guessedLetters) ||
-                                typeof game.currentPlayer !== 'string' ||
-                                !game.initialized
-                            ) {
-                                console.warn('play_game: Waiting for valid Firebase state', game);
-                                // Do NOT unsubscribe or show error, just wait for the next update!
-                                return;
+                            if (!game.secretWord || !game.initialized || game.status === 'waiting') {
+                                console.log('play_game: Waiting for valid state', game);
+                                return; // Don’t process until fully initialized
                             }
                             if (game.status === 'finished' || game.status === 'ended') {
                                 gameIsOver = true;
@@ -2101,6 +2083,7 @@ async function play_game(
                                 return;
                             }
                             if (game.status !== 'playing') {
+                                console.log('play_game: Unexpected status', game.status);
                                 return;
                             }
                             Object.assign(tries, game.tries);
@@ -2181,6 +2164,7 @@ async function play_game(
                                 input.disabled = true;
                             }
                         }, (error) => {
+                            console.error('play_game: Listener error', error);
                             display_feedback('Error de sincronización con el servidor. Intenta de nuevo.', 'red', null, false);
                             if (unsubscribe) unsubscribe();
                         });
