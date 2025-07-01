@@ -1961,6 +1961,15 @@ async function play_game(
                             };
                             await update(sessionRef, updates);
                         }
+
+                        // --- ADD THIS BLOCK HERE ---
+                        players.forEach(p => {
+                            if (!tries[p] || tries[p] <= 0) {
+                                tries[p] = total_tries;
+                            }
+                        });
+                        // --- END ADD ---
+                        
                         break;
                     }
                     await delay(1000);
@@ -2064,12 +2073,15 @@ async function play_game(
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
+                            const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                            guessed_letters = new Set(guessedLetters);
+
                             // Validate and fix missing fields
-                            if (!Array.isArray(game.guessedLetters)) {
-                                console.log('Fixing missing guessedLetters in state');
-                                await update(sessionRef, { guessedLetters: [] });
-                                return; // Wait for next update
-                            }
+                            //if (!Array.isArray(game.guessedLetters)) {
+                                //console.log('Fixing missing guessedLetters in state');
+                                //await update(sessionRef, { guessedLetters: [] });
+                                //return; // Wait for next update
+                            //}
                             if (!game.secretWord || !game.initialized || game.status === 'waiting_for_player2') {
                                 console.log('Waiting for valid state:', game);
                                 return;
