@@ -2066,9 +2066,9 @@ async function play_game(
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            const guessedLetters = Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [];
+                            const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
                             guessed_letters.clear();
-                            guessedLettersClean.forEach(l => guessed_letters.add(l));
+                            guessedLetters.forEach(l => guessed_letters.add(l));
                             if (
                                 !game.secretWord ||
                                 !Array.isArray(game.guessedLetters) ||
