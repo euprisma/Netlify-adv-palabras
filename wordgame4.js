@@ -1931,7 +1931,9 @@ async function play_game(
                         return;
                     }
                     const game = snapshot.val();
-                    const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                    let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                    guessedLetters = guessedLetters.filter(l => l !== '_empty_');
+                    guessed_letters = new Set(guessedLetters);
                     // Always assign the secret word if present
                     if (game.secretWord) {
                         provided_secret_word = game.secretWord;
