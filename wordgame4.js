@@ -1384,6 +1384,21 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     lastUpdated: Date.now() // <-- force Firebase to persist the update
                                 });
                             }
+                            // Add verification
+                            const finalSnapshot = await get(sessionRef);
+                            const finalState = finalSnapshot.val();
+                            console.log('handlePlayer2Input: Post-transaction state', finalState);
+                            if (finalState.status !== 'playing' || !finalState.tries[selected_player2] || finalState.tries[selected_player2] <= 0) {
+                                console.error('Invalid state after Player 2 join', finalState);
+                                await update(sessionRef, {
+                                    status: 'playing',
+                                    tries: {
+                                        [finalState.player1]: Math.max(1, Math.floor(finalState.secretWord.length / 2)),
+                                        [selected_player2]: Math.max(1, Math.floor(finalState.secretWord.length / 2))
+                                    },
+                                    lastUpdated: Date.now()
+                                });
+                            }
                             const sessionSnapshot2 = await get(sessionRef);
                             console.log('Player2: Session after patch', sessionSnapshot2.val());
                             success = true;
