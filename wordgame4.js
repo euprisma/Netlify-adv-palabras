@@ -1035,6 +1035,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         const unsubscribe = onValue(sessionRef, async (snapshot) => {
                             const game = snapshot.val();
                             const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                            guessed_letters.clear();
+                            guessedLetters.forEach(l => guessed_letters.add(l));
                             console.warn('play_game: Waiting for valid Firebase state', JSON.stringify(game, null, 2));                            
                             console.log('handlePlayer1Input: Snapshot received', game);
                             if (!snapshot.exists()) {
@@ -1052,6 +1054,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             }
                             if (game && game.player2 && game.status === 'playing' && game.secretWord) {
                                 const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                                guessed_letters.clear();
+                                guessedLetters.forEach(l => guessed_letters.add(l));
                                 console.log('handlePlayer1Input: Player 2 joined', game.player2);
                                 selected_player2 = game.player2;
                                 clearTimeout(timeoutId);
@@ -1946,6 +1950,12 @@ async function play_game(
                             Object.entries(game.scores).filter(([k]) => k !== 'init' && players.includes(k))
                         );
                         current_player_idx = players.indexOf(game.currentPlayer);
+                        // --- ADD THIS BLOCK ---
+                        players.forEach(p => {
+                            if (!tries[p] || tries[p] <= 0) {
+                                tries[p] = total_tries;
+                            }
+                        });
                         if (current_player_idx === -1) {
                             console.warn('play_game: Invalid currentPlayer, defaulting to first player', game.currentPlayer);
                             current_player_idx = 0;
@@ -2074,8 +2084,7 @@ async function play_game(
                             const game = snapshot.val();
                             // Robust state validation
                             if (
-                                !game.secretWord ||
-                                !Array.isArray(game.guessedLetters) ||
+                                !game.secretWord ||                                
                                 !game.currentPlayer ||
                                 !game.initialized ||
                                 !['waiting', 'waiting_for_player2', 'playing', 'finished', 'ended'].includes(game.status)
@@ -2090,6 +2099,9 @@ async function play_game(
                                 return;
                             }
                             provided_secret_word = game.secretWord;
+                            const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                            guessed_letters.clear();
+                            guessedLetters.forEach(l => guessed_letters.add(l));
                             guessed_letters.clear();
                             game.guessedLetters.forEach(l => guessed_letters.add(l));
                             Object.assign(tries, Object.fromEntries(
