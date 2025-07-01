@@ -809,6 +809,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     currentPlayer: 'none',
                                     initialized: true
                                 };
+                                console.log('Initial state created with guessedLetters:', initialState.guessedLetters);
                                 console.log('create_game_ui: Attempting to set initial state', {
                                     sessionId: selected_sessionId,
                                     initialState,
@@ -1344,13 +1345,18 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         [currentData.player1]: currentData.scores?.[currentData.player1] || 0,
                                         [selected_player2]: 0
                                     },
-                                    guessedLetters: Array.isArray(currentData.guessedLetters)
-                                        ? currentData.guessedLetters.filter(l => l !== '__init__')
-                                        : [],
+                                    guessedLetters: Array.isArray(currentData.guessedLetters) ? currentData.guessedLetters.filter(l => l !== '__init__') : [],
                                     initialized: true,
                                     secretWord: currentData.secretWord
                                 };
                             });
+                            // Add post-transaction validation
+                            const finalSnapshot = await get(sessionRef);
+                            const finalState = finalSnapshot.val();
+                            if (!Array.isArray(finalState.guessedLetters)) {
+                                await update(sessionRef, { guessedLetters: [] });
+                                console.log('Fixed missing guessedLetters in post-transaction state');
+                            }
                             console.log('handlePlayer2Input: Updated Firebase with player2', {
                                 sessionId: selected_sessionId,
                                 player2: selected_player2,
@@ -1384,22 +1390,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     lastUpdated: Date.now() // <-- force Firebase to persist the update
                                 });
                             }
-                            // In handlePlayer2Input, after the transaction
-                            const finalSnapshot = await get(sessionRef);
-                            const finalState = finalSnapshot.val();
-                            console.log('Post-transaction state:', finalState);
-                            if (finalState.status !== 'playing' || !finalState.tries[finalState.player1] || !finalState.tries[finalState.player2]) {
-                                console.error('Invalid state detected:', finalState);
-                                // Correct the state if needed
-                                await update(sessionRef, {
-                                    status: 'playing',
-                                    tries: {
-                                        [finalState.player1]: Math.max(1, Math.floor(finalState.secretWord.length / 2)),
-                                        [finalState.player2]: Math.max(1, Math.floor(finalState.secretWord.length / 2))
-                                    },
-                                    lastUpdated: Date.now()
-                                });
-                            }
+                            
                             const sessionSnapshot2 = await get(sessionRef);
                             console.log('Player2: Session after patch', sessionSnapshot2.val());
                             success = true;
@@ -2073,25 +2064,27 @@ async function play_game(
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            // Wait for a fully initialized game
+                            // Validate and fix missing fields
+                            if (!Array.isArray(game.guessedLetters)) {
+                                console.log('Fixing missing guessedLetters in state');
+                                await update(sessionRef, { guessedLetters: [] });
+                                return; // Wait for next update
+                            }
                             if (!game.secretWord || !game.initialized || game.status === 'waiting_for_player2') {
                                 console.log('Waiting for valid state:', game);
                                 return;
                             }
-                            // Check for game over conditions
                             if (game.status === 'finished' || game.status === 'ended') {
                                 gameIsOver = true;
                                 display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, new Set(game.guessedLetters))}.`, 'black', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            // Ensure we only proceed if status is 'playing'
                             if (game.status !== 'playing') {
                                 console.log('Unexpected status:', game.status);
                                 return;
                             }
-                            // Proceed with game logic (e.g., display prompt, accept guesses)
-                            console.log('Game is playing:', game);
+                            console.log('Game is playing with guessedLetters:', game.guessedLetters);
 
                             Object.assign(tries, game.tries);
                             Object.assign(scores, game.scores);
@@ -2140,13 +2133,14 @@ async function play_game(
                                             try {
                                                 const newStatus = result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l)) ? 'finished' : 'playing';
                                                 await update(sessionRef, {
-                                                    guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : [],
+                                                    guessedLetters: Array.isArray(game.guessedLetters) ? Array.from(guessed_letters) : [],
                                                     tries,
                                                     scores,
                                                     currentPlayer: players[(current_player_idx + 1) % players.length],
                                                     status: newStatus,
                                                     lastUpdated: Date.now()
                                                 });
+                                                console.log('Updated state with guessedLetters:', Array.from(guessed_letters));
                                                 break;
                                             } catch (err) {
                                                 await delay(500);
@@ -2171,8 +2165,8 @@ async function play_game(
                                 input.disabled = true;
                             }
                         }, (error) => {
-                            console.error('play_game: Listener error', error);
-                            display_feedback('Error de sincronización con el servidor. Intenta de nuevo.', 'red', null, false);
+                            console.error('Listener error:', error);
+                            display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
                             if (unsubscribe) unsubscribe();
                         });
                         const connectedRef = ref(database, '.info/connected');
