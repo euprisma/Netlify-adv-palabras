@@ -2092,7 +2092,7 @@ async function play_game(
                             }
                             // Proceed with game logic (e.g., display prompt, accept guesses)
                             console.log('Game is playing:', game);
-                            
+
                             Object.assign(tries, game.tries);
                             Object.assign(scores, game.scores);
                             current_player_idx = players.indexOf(game.currentPlayer);
@@ -2140,7 +2140,7 @@ async function play_game(
                                             try {
                                                 const newStatus = result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l)) ? 'finished' : 'playing';
                                                 await update(sessionRef, {
-                                                    guessedLetters: Array.from(guessed_letters),
+                                                    guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : [],
                                                     tries,
                                                     scores,
                                                     currentPlayer: players[(current_player_idx + 1) % players.length],
