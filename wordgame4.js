@@ -2149,6 +2149,14 @@ async function play_game(
                                         let attempts = 3;
                                         while (attempts--) {
                                             try {
+                                                if (
+                                                    guessed_letters.size > 0 &&
+                                                    provided_secret_word &&
+                                                    provided_secret_word.split('').every(l => guessed_letters.has(l))
+                                                ) {
+                                                    guessed_letters.clear();
+                                                    await update(sessionRef, { guessedLetters: ['_empty_'] });
+                                                }
                                                 const newStatus = result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l)) ? 'finished' : 'playing';
                                                 await update(sessionRef, {
                                                     guessedLetters: guessed_letters.size === 0 ? ['_empty_'] : Array.from(guessed_letters),
