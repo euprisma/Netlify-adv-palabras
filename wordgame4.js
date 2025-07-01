@@ -803,7 +803,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
-                                    guessedLetters: [], // <-- use empty array, not ['__init__']
+                                    guessedLetters: ['_empty_'],
                                     tries: { init: null },
                                     scores: { init: null },
                                     currentPlayer: 'none',
@@ -1373,7 +1373,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 // Always update guessedLetters, and force Firebase to save it by including lastUpdated
                                 await update(sessionRef, {
                                     secretWord: session.secretWord || sessionState.secretWord,
-                                    guessedLetters: Array.isArray(session.guessedLetters) ? session.guessedLetters : [],
+                                    guessedLetters: Array.isArray(session.guessedLetters) && session.guessedLetters.length > 0
+                                    ? session.guessedLetters
+                                    : ['_empty_'],
                                     currentPlayer: session.currentPlayer || sessionState.player1,
                                     initialized: session.initialized !== undefined ? session.initialized : true,
                                     status: 'playing',
@@ -1940,7 +1942,8 @@ async function play_game(
                         game.status === 'playing' &&
                         game.initialized
                     ) {
-                        const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                        let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                        if (guessedLetters.length === 1 && guessedLetters[0] === '_empty_') guessedLetters = [];
                         guessed_letters = new Set(guessedLetters);
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
                         tries = game.tries && typeof game.tries === 'object'
@@ -2073,7 +2076,8 @@ async function play_game(
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
-                            const guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                            let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
+                            if (guessedLetters.length === 1 && guessedLetters[0] === '_empty_') guessedLetters = [];
                             guessed_letters = new Set(guessedLetters);
 
                             // Validate and fix missing fields
@@ -2145,7 +2149,7 @@ async function play_game(
                                             try {
                                                 const newStatus = result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l)) ? 'finished' : 'playing';
                                                 await update(sessionRef, {
-                                                    guessedLetters: Array.isArray(game.guessedLetters) ? Array.from(guessed_letters) : [],
+                                                    guessedLetters: guessed_letters.size === 0 ? ['_empty_'] : Array.from(guessed_letters),
                                                     tries,
                                                     scores,
                                                     currentPlayer: players[(current_player_idx + 1) % players.length],
@@ -2165,7 +2169,7 @@ async function play_game(
                                         }
                                         // Inside the onValue listener, before the win/lose check
                                         console.log('DEBUG: tries:', JSON.stringify(tries), 'guessed_letters:', Array.from(guessed_letters), 'provided_secret_word:', provided_secret_word);
-                                        
+
                                         if (result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l))) {
                                             display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
                                             if (unsubscribe) unsubscribe();
