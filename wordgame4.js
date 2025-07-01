@@ -2052,14 +2052,18 @@ async function play_game(
                     try {
                         unsubscribe = onValue(sessionRef, async (snapshot) => {
                             const game = snapshot.val();
+                            console.log('play_game: Listener triggered', {
+                                sessionId,
+                                status: game?.status,
+                                currentPlayer: game?.currentPlayer,
+                                guessedLetters: game?.guessedLetters,
+                                tries: game?.tries,
+                                scores: game?.scores,
+                                secretWord: game?.secretWord ? 'present' : 'missing'
+                            });
                             if (!snapshot.exists()) {
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
-                                return;
-                            }
-                            // --- ENSURE guessedLetters IS ALWAYS AN ARRAY ---
-                            if (!Array.isArray(game.guessedLetters)) {
-                                await update(sessionRef, { guessedLetters: [] });
                                 return;
                             }
                             const guessedLetters = Array.isArray(createdState.guessedLetters) ? createdState.guessedLetters : [];
