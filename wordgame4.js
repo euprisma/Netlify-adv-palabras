@@ -1969,7 +1969,7 @@ async function play_game(
                             }
                         });
                         // --- END ADD ---
-                        
+
                         break;
                     }
                     await delay(1000);
@@ -2163,6 +2163,9 @@ async function play_game(
                                                 }
                                             }
                                         }
+                                        // Inside the onValue listener, before the win/lose check
+                                        console.log('DEBUG: tries:', JSON.stringify(tries), 'guessed_letters:', Array.from(guessed_letters), 'provided_secret_word:', provided_secret_word);
+                                        
                                         if (result.word_guessed || tries[players[current_player_idx]] <= 0 || provided_secret_word.split('').every(l => guessed_letters.has(l))) {
                                             display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
                                             if (unsubscribe) unsubscribe();
