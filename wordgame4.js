@@ -1943,7 +1943,7 @@ async function play_game(
                         game.initialized
                     ) {
                         let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
-                        if (guessedLetters.length === 1 && guessedLetters[0] === '_empty_') guessedLetters = [];
+                        guessedLetters = guessedLetters.filter(l => l !== '_empty_');
                         guessed_letters = new Set(guessedLetters);
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
                         tries = game.tries && typeof game.tries === 'object'
@@ -2077,7 +2077,7 @@ async function play_game(
                                 return;
                             }
                             let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
-                            if (guessedLetters.length === 1 && guessedLetters[0] === '_empty_') guessedLetters = [];
+                            guessedLetters = guessedLetters.filter(l => l !== '_empty_');
                             guessed_letters = new Set(guessedLetters);
 
                             // Validate and fix missing fields
