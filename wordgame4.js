@@ -2084,7 +2084,7 @@ async function play_game(
             focusInput(input);
             let current_player_idx_ref = { value: current_player_idx };
 
-            async function update_ui(current_player_idx_ref) {
+            async function update_ui(current_player_idx_ref, currentPlayer) {
                 const idx = current_player_idx_ref.value;
                 const player = players[idx] || 'Jugador 1';
                 const other_player = players[(idx + 1) % players.length] || null;
@@ -2111,7 +2111,7 @@ async function play_game(
                     display_feedback('Error al actualizar la interfaz del juego.', 'red', null, false);
                 }
             }
-            await update_ui(current_player_idx_ref);
+            await update_ui(current_player_idx_ref, players[current_player_idx]);
 
             // --- Game Loop ---
             async function game_loop(
@@ -2169,7 +2169,7 @@ async function play_game(
                                 await update(sessionRef, { currentPlayer: players[current_player_idx], lastUpdated: Date.now() });
                             }
                             current_player_idx_ref.value = current_player_idx;
-                            await update_ui(current_player_idx_ref);
+                            await update_ui(current_player_idx_ref, game.currentPlayer);
 
                             // Use localPlayer to determine if this client should process the turn
                             console.log('REMOTE GAME LOOP: localPlayer:', localPlayer, 'game.currentPlayer:', game.currentPlayer);
@@ -2211,7 +2211,7 @@ async function play_game(
                                             delay,
                                             display_feedback
                                         );
-                                        await update_ui(current_player_idx_ref);
+                                        await update_ui(current_player_idx_ref, game.currentPlayer);
                                         let attempts = 3;
                                         while (attempts--) {
                                             try {
@@ -2317,7 +2317,7 @@ async function play_game(
                             delay,
                             display_feedback
                         );
-                        await update_ui(current_player_idx_ref);
+                        await update_ui(current_player_idx_ref, game.currentPlayer);
 
                         if (!result) {
                             console.error('game_loop: process_guess returned undefined');
@@ -2334,13 +2334,13 @@ async function play_game(
                             display_feedback(`¡${player} se quedó sin intentos!`, 'red', null, true);
                             if ((mode === '2' && gameType === 'local') || mode === '3') {
                                 current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                await update_ui(current_player_idx_ref);
+                                await update_ui(current_player_idx_ref, game.currentPlayer);
                             }
                             continue;
                         }
                         if ((mode === '2' && gameType === 'local') || mode === '3') {
                             current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                            await update_ui(current_player_idx_ref);
+                            await update_ui(current_player_idx_ref, game.currentPlayer);
                         }
                     }
                 }
