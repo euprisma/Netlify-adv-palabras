@@ -803,7 +803,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     mode: selected_mode,
                                     gameType: selected_gameType,
                                     secretWord,
-                                    guessedLetters: ['_empty_'],
+                                    guessedLetters: [],
                                     tries: { init: null },
                                     scores: { init: null },
                                     currentPlayer: 'none',
@@ -1205,7 +1205,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         if (!Array.isArray(sessionState.guessedLetters) || !sessionState.tries || !sessionState.scores || sessionState.currentPlayer === undefined) {
                             console.log('create_game_ui: Correcting missing fields for session', sessionId);
                             await update(sessionRef, {
-                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters.filter(l => l !== '__init__') : [],
+                                guessedLetters: Array.from(guessed_letters), // No _empty_ fallback!
                                 tries: typeof sessionState.tries === 'object' && sessionState.tries !== null ? sessionState.tries : {},
                                 scores: typeof sessionState.scores === 'object' && sessionState.scores !== null ? sessionState.scores : {},
                                 currentPlayer: sessionState.currentPlayer !== undefined ? sessionState.currentPlayer : null
@@ -1371,7 +1371,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     player2: selected_player2,
                                     status: 'playing',
                                     currentPlayer: finalState.player1,
-                                    guessedLetters: ['_empty_'],
+                                    guessedLetters: [],
                                     tries: {
                                         [finalState.player1]: Math.max(1, Math.floor(finalState.secretWord.length / 2)),
                                         [selected_player2]: Math.max(1, Math.floor(finalState.secretWord.length / 2))
@@ -1398,7 +1398,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     secretWord: session.secretWord || sessionState.secretWord,
                                     guessedLetters: Array.isArray(session.guessedLetters) && session.guessedLetters.length > 0
                                     ? session.guessedLetters
-                                    : ['_empty_'],
+                                    : [],
                                     currentPlayer: session.currentPlayer || sessionState.player1,
                                     initialized: session.initialized !== undefined ? session.initialized : true,
                                     status: 'playing',
@@ -1976,7 +1976,7 @@ async function play_game(
                     }
                     const game = snapshot.val();
                     let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
-                    guessedLetters = guessedLetters.filter(l => l !== '_empty_');
+                    //guessedLetters = guessedLetters.filter(l => l !== '_empty_');
                     guessed_letters = new Set(guessedLetters);
                     // Always assign the secret word if present
                     if (game.secretWord) {
@@ -1989,7 +1989,7 @@ async function play_game(
                         game.initialized
                     ) {
                         let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
-                        guessedLetters = guessedLetters.filter(l => l !== '_empty_');
+                        //guessedLetters = guessedLetters.filter(l => l !== '_empty_');
                         guessed_letters = new Set(guessedLetters);
                         // Defensive: If all letters are present at join (should never happen at game start), clear them
                         if (
@@ -1998,7 +1998,7 @@ async function play_game(
                             provided_secret_word.split('').every(l => guessed_letters.has(l))
                         ) {
                             guessed_letters.clear();
-                            await update(sessionRef, { guessedLetters: ['_empty_'] });
+                            await update(sessionRef, { guessedLetters: [] });
                         }
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
                         tries = game.tries && typeof game.tries === 'object'
@@ -2128,7 +2128,7 @@ async function play_game(
                                 return;
                             }
                             let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
-                            guessedLetters = guessedLetters.filter(l => l !== '_empty_');
+                            //guessedLetters = guessedLetters.filter(l => l !== '_empty_');
                             guessed_letters = new Set(guessedLetters);
 
                             if (!game.secretWord || !game.initialized || game.status === 'waiting_for_player2') {
@@ -2205,7 +2205,7 @@ async function play_game(
                                                 });
                                                 const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
                                                 await update(sessionRef, {
-                                                    guessedLetters: guessed_letters.size === 0 ? ['_empty_'] : Array.from(guessed_letters),
+                                                    guessedLetters: guessed_letters.size === 0 ? [] : Array.from(guessed_letters),
                                                     tries,
                                                     scores,
                                                     currentPlayer: players[(current_player_idx + 1) % players.length],
