@@ -1447,6 +1447,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         guessedLetters: Array.isArray(finalState.guessedLetters) ? finalState.guessedLetters : ['_empty_'],
                         tries: finalState.tries || {},
                         scores: finalState.scores || {},
+                        status: finalState.status,
+                        secretWord: finalState.secretWord, // (optional, but useful for debugging)
                         currentPlayer: finalState.currentPlayer // <-- ADD THIS LINE
                     });                   
                     resolve({
@@ -1466,7 +1468,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         guessedLetters: Array.isArray(finalState.guessedLetters) ? finalState.guessedLetters : ['_empty_'],
                         tries: finalState.tries || {},
                         scores: finalState.scores || {},
-                        currentPlayer: finalState.currentPlayer // <-- ADD THIS LINE
+                        currentPlayer: finalState.currentPlayer,
+                        initialized: finalState.initialized,
+                        status: finalState.status,
+                        secretWord: finalState.secretWord // (optional, but useful for debugging)
                     });
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Firebase:', error);
