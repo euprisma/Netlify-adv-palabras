@@ -2097,7 +2097,10 @@ async function play_game(
                     }
                     progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
                     prompt.innerText = mode === '2' && gameType === 'remoto' && player !== localPlayer ? `Esperando a ${escapeHTML(player)}...` : 'Ingresa una letra o la palabra completa:';
-                    if (input.parentNode && (mode !== '2' || gameType !== 'remoto' || player === localPlayer)) {
+                    if (
+                        input.parentNode &&
+                        (mode !== '2' || gameType !== 'remoto' || currentPlayer === localPlayer)
+                    ) {
                         input.disabled = false;
                         focusInput(input);
                     } else if (input.parentNode) {
@@ -2169,17 +2172,20 @@ async function play_game(
                             await update_ui(current_player_idx_ref);
 
                             // Use localPlayer to determine if this client should process the turn
+                            console.log('REMOTE GAME LOOP: localPlayer:', localPlayer, 'game.currentPlayer:', game.currentPlayer);
                             if (
                                 game.currentPlayer &&
                                 localPlayer &&
                                 game.currentPlayer.trim().toLowerCase() === localPlayer.trim().toLowerCase()
-                                ) { 
+                                ) {
+                                console.log('REMOTE GAME LOOP: This client is the current player and should guess.'); 
                                 if (!isGuessing && !gameIsOver && !input.disabled) {
                                     isGuessing = true;
                                     try {
                                         prompt.innerText = 'Ingresa una letra o la palabra completa:';
                                         input.disabled = false;
                                         focusInput(input);
+                                        console.log('REMOTE GAME LOOP: Calling get_guess for', localPlayer);
                                         const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
                                         if (!guess) {
                                             display_feedback('Entrada inválida. Turno perdido.', 'red', localPlayer, true);
@@ -2253,6 +2259,7 @@ async function play_game(
                                     }
                                 }
                             } else {
+                                console.log('REMOTE GAME LOOP: Not this client\'s turn. Waiting for', game.currentPlayer);
                                 prompt.innerText = `Esperando a ${escapeHTML(game.currentPlayer)}...`;
                                 input.disabled = true;
                             }
