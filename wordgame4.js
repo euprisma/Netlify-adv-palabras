@@ -2157,6 +2157,13 @@ async function play_game(
                                             try {
                                                 const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
                                                 const wordFullyGuessed = provided_secret_word.split('').every(l => guessed_letters.has(l));
+                                                console.log('DEBUG: Before win/lose check', {
+                                                    tries: JSON.stringify(tries),
+                                                    guessed_letters: Array.from(guessed_letters),
+                                                    provided_secret_word,
+                                                    allPlayersOutOfTries,
+                                                    wordFullyGuessed
+                                                });
                                                 const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
                                                 await update(sessionRef, {
                                                     guessedLetters: guessed_letters.size === 0 ? ['_empty_'] : Array.from(guessed_letters),
