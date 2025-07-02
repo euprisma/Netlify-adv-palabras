@@ -2468,13 +2468,13 @@ async function play_game(
     } catch (err) {
         console.error('play_game: Outer error', err);
         display_feedback('Error crítico en el juego.', 'red', null, false);
-    } finally {
-        if (unsubscribe) {
-            console.log('REMOTE GAME LOOP: Unsubscribing');
-            unsubscribe();
-            console.log('play_game: Firebase listeners cleaned up');
-        }
-    }
+    } //finally {
+        //if (unsubscribe) {
+            //console.log('REMOTE GAME LOOP: Unsubscribing');
+            //unsubscribe();
+            //console.log('play_game: Firebase listeners cleaned up');
+        //}
+    //}
 }
 
 async function main(config = null) {
