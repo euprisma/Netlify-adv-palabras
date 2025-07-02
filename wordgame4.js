@@ -2465,7 +2465,8 @@ async function main(config = null) {
                 delay,
                 display_feedback,
                 config.gameType,
-                config.sessionId || null
+                config.sessionId || null,
+                config.localPlayer // <-- ADD THIS!
             );
             return;
         }
@@ -2496,7 +2497,8 @@ async function main(config = null) {
                     delay,
                     display_feedback,
                     gameState.gameType,
-                    gameState.sessionId
+                    gameState.sessionId,
+                    gameState.localPlayer // <-- ADD THIS!
                 );
                 console.log('main: play_game completed');
             } catch (error) {
