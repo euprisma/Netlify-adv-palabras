@@ -1439,7 +1439,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         player1: sessionState.player1,
                         player2: selected_player2,
                         gameType: selected_gameType,
-                        sessionId: selected_sessionId
+                        sessionId: selected_sessionId,
+                        guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['_empty_'],
+                        tries: sessionState.tries || {},
+                        scores: sessionState.scores || {}
                     });
                     resolve({
                         mode: selected_mode,
@@ -1455,7 +1458,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         sessionId: selected_sessionId,
                         localPlayer: selected_player2,
                         players: [sessionState.player1, selected_player2],
-                        guessedLetters: (Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['_empty_']),
+                        guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['_empty_'],
                         tries: sessionState.tries || {},
                         scores: sessionState.scores || {}
                     });
