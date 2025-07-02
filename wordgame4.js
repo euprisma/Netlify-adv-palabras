@@ -1339,7 +1339,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             }
                             const transactionResult = await runTransaction(sessionRef, (currentData) => {
                                 if (!currentData) return;
-                                if (typeof currentData.player2 === 'string' && currentData.player2.trim()) return;
+                                if (typeof currentData.player2 === 'string' && currentData.player2.trim().length > 0) return;
                                 const triesValue = Math.max(1, Math.floor(currentData.secretWord.length / 2));
                                 return {
                                     ...currentData,
