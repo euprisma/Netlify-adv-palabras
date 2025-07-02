@@ -1919,6 +1919,19 @@ async function play_game(
     sessionId,
     localPlayer // Add this parameter
 ) {
+    if (output && output.innerHTML) output.innerHTML = '';
+    console.log('play_game: called with', {
+        mode,
+        players,
+        tries: typeof tries !== 'undefined' ? tries : '(not set yet)',
+        guessed_letters: typeof guessed_letters !== 'undefined' ? guessed_letters : '(not set yet)',
+        secret_word,
+        games_played,
+        games_to_play,
+        gameType,
+        sessionId,
+        localPlayer
+    });
     console.log('play_game: Starting, Loaded version 2025-06-24-v9.21', {
         mode, players, difficulty, games_played, games_to_play, gameType, sessionId, localPlayer
     });
