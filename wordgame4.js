@@ -1957,12 +1957,16 @@ async function play_game(
                             ? Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'))
                             : Object.fromEntries(players.map(p => [p, total_tries]));
                         // Defensive reset for tries
+                        let triesChanged = false;
                         players.forEach(p => {
                             if (!tries[p] || tries[p] <= 0) {
                                 console.warn(`Resetting tries for ${p} to ${total_tries}`);
                                 tries[p] = total_tries;
+                                triesChanged = true;
                             }
                         });
+                        if (triesChanged && sessionRef) {
+                            await update(sessionRef, { tries });
                         scores = game.scores && typeof game.scores === 'object'
                             ? Object.fromEntries(Object.entries(game.scores).filter(([k]) => k !== 'init'))
                             : Object.fromEntries(players.map(p => [p, 0]));
