@@ -2125,6 +2125,7 @@ async function play_game(
                             console.log('REMOTE GAME LOOP: Firebase snapshot received', game);
                             if (!snapshot.exists() || !game) {
                                 console.log('REMOTE GAME LOOP: Session missing or deleted', game);
+                                console.log('REMOTE GAME LOOP: localPlayer:', localPlayer, 'game.currentPlayer:', game.currentPlayer);
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) {
                                     console.log('REMOTE GAME LOOP: Unsubscribing');
@@ -2168,7 +2169,11 @@ async function play_game(
                             await update_ui(current_player_idx_ref);
 
                             // Use localPlayer to determine if this client should process the turn
-                            if (game.currentPlayer === localPlayer) {
+                            if (
+                                game.currentPlayer &&
+                                localPlayer &&
+                                game.currentPlayer.trim().toLowerCase() === localPlayer.trim().toLowerCase()
+                                ) { 
                                 if (!isGuessing && !gameIsOver && !input.disabled) {
                                     isGuessing = true;
                                     try {
