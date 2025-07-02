@@ -1337,7 +1337,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             if (!sessionState.player1 || typeof sessionState.player1 !== 'string' || !sessionState.player1.trim()) {
                                 throw new Error('Player 1 name missing or invalid in session state!');
                             }
-                            await runTransaction(sessionRef, (currentData) => {
+                            const transactionResult = await runTransaction(sessionRef, (currentData) => {
                                 if (!currentData) return;
                                 if (typeof currentData.player2 === 'string' && currentData.player2.trim()) return;
                                 const triesValue = Math.max(1, Math.floor(currentData.secretWord.length / 2));
@@ -1359,18 +1359,32 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     secretWord: currentData.secretWord
                                 };
                             });
+                            console.log('handlePlayer2Input: Transaction result', transactionResult);
                             // Add post-transaction validation
                             const finalSnapshot = await get(sessionRef);
                             const finalState = finalSnapshot.val();
-                            if (!Array.isArray(finalState.guessedLetters) || finalState.guessedLetters.length !== 1 || finalState.guessedLetters[0] !== '_empty_') {
-                                await update(sessionRef, { guessedLetters: ['_empty_'] });
-                                console.log('Fixed guessedLetters after player2 join');
-                            }
-                            console.log('handlePlayer2Input: Updated Firebase with player2', {
-                                sessionId: selected_sessionId,
-                                player2: selected_player2,
-                                state: (await get(sessionRef)).val()
-                            });
+                            if (
+                                finalState.player2 !== selected_player2 ||
+                                finalState.status !== 'playing'
+                            ) {
+                                await update(sessionRef, {
+                                    player2: selected_player2,
+                                    status: 'playing',
+                                    currentPlayer: finalState.player1,
+                                    guessedLetters: ['_empty_'],
+                                    tries: {
+                                        [finalState.player1]: Math.max(1, Math.floor(finalState.secretWord.length / 2)),
+                                        [selected_player2]: Math.max(1, Math.floor(finalState.secretWord.length / 2))
+                                    },
+                                    scores: {
+                                        [finalState.player1]: finalState.scores?.[finalState.player1] || 0,
+                                        [selected_player2]: 0
+                                    },
+                                    initialized: true,
+                                    secretWord: finalState.secretWord
+                                });
+                                console.log('handlePlayer2Input: Forced session patch after failed transaction');
+                            }                            
                             // Defensive fix: ensure all required fields are present
                             const sessionSnapshot = await get(sessionRef);
                             const session = sessionSnapshot.val();
