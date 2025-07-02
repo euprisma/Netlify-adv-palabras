@@ -1450,8 +1450,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         difficulty: selected_difficulty,
                         gameType: selected_gameType,
                         sessionId: selected_sessionId,
-                        localPlayer: selected_player2, // Add this
-                        players: [sessionState.player1, selected_player2]
+                        localPlayer: selected_player2,
+                        players: [sessionState.player1, selected_player2],
+                        guessedLetters: (Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['_empty_'])
                     });
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Firebase:', error);
