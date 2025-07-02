@@ -1072,8 +1072,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     difficulty: selected_difficulty,
                                     gameType: selected_gameType,
                                     sessionId: selected_sessionId,
-                                    localPlayer: selected_player1, // Add this
-                                    players: [selected_player1, selected_player2]
+                                    localPlayer: selected_player1,
+                                    players: [selected_player1, selected_player2],
+                                    guessedLetters: (Array.isArray(game.guessedLetters) ? game.guessedLetters : ['_empty_']),
+                                    tries: game.tries || {},
+                                    scores: game.scores || {}
                                 });
                             }
                         }, (error) => {
@@ -1452,7 +1455,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         sessionId: selected_sessionId,
                         localPlayer: selected_player2,
                         players: [sessionState.player1, selected_player2],
-                        guessedLetters: (Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['_empty_'])
+                        guessedLetters: (Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['_empty_']),
+                        tries: sessionState.tries || {},
+                        scores: sessionState.scores || {}
                     });
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Firebase:', error);
