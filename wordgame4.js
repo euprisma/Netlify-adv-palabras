@@ -2145,7 +2145,7 @@ async function play_game(
                                 gameIsOver = true;
                                 display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, guessed_letters)}.`, 'black', null, false);
                                 if (unsubscribe) {
-                                    console.log('REMOTE GAME LOOP: Unsubscribing');
+                                    console.log('REMOTE GAME LOOP: Unsubscribing at', new Date().toISOString(), 'game finished:', reason);
                                     unsubscribe();
                                 return;
                                 }
@@ -2238,7 +2238,7 @@ async function play_game(
                                         if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
                                             display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
                                             if (unsubscribe) {
-                                                console.log('REMOTE GAME LOOP: Unsubscribing');
+                                                console.log('REMOTE GAME LOOP: Unsubscribing at', new Date().toISOString(), 'win/lose check:', reason);
                                                 unsubscribe();
                                             return;
                                             }
