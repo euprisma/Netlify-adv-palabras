@@ -1347,7 +1347,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         [currentData.player1]: currentData.scores?.[currentData.player1] || 0,
                                         [selected_player2]: 0
                                     },
-                                    guessedLetters: Array.isArray(currentData.guessedLetters) ? currentData.guessedLetters.filter(l => l !== '__init__') : [],
+                                    guessedLetters: ['_empty_'],
                                     initialized: true,
                                     secretWord: currentData.secretWord
                                 };
@@ -1355,9 +1355,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             // Add post-transaction validation
                             const finalSnapshot = await get(sessionRef);
                             const finalState = finalSnapshot.val();
-                            if (!Array.isArray(finalState.guessedLetters)) {
-                                await update(sessionRef, { guessedLetters: [] });
-                                console.log('Fixed missing guessedLetters in post-transaction state');
+                            if (!Array.isArray(finalState.guessedLetters) || finalState.guessedLetters.length !== 1 || finalState.guessedLetters[0] !== '_empty_') {
+                                await update(sessionRef, { guessedLetters: ['_empty_'] });
+                                console.log('Fixed guessedLetters after player2 join');
                             }
                             console.log('handlePlayer2Input: Updated Firebase with player2', {
                                 sessionId: selected_sessionId,
