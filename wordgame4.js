@@ -1952,6 +1952,15 @@ async function play_game(
                         let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
                         guessedLetters = guessedLetters.filter(l => l !== '_empty_');
                         guessed_letters = new Set(guessedLetters);
+                        // Defensive: If all letters are present at join (should never happen at game start), clear them
+                        if (
+                            guessed_letters.size > 0 &&
+                            provided_secret_word &&
+                            provided_secret_word.split('').every(l => guessed_letters.has(l))
+                        ) {
+                            guessed_letters.clear();
+                            await update(sessionRef, { guessedLetters: ['_empty_'] });
+                        }
                         total_tries = Math.max(1, Math.floor(provided_secret_word.length / 2));
                         tries = game.tries && typeof game.tries === 'object'
                             ? Object.fromEntries(Object.entries(game.tries).filter(([k]) => k !== 'init'))
