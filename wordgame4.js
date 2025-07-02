@@ -1967,6 +1967,7 @@ async function play_game(
                         });
                         if (triesChanged && sessionRef) {
                             await update(sessionRef, { tries });
+                        }
                         scores = game.scores && typeof game.scores === 'object'
                             ? Object.fromEntries(Object.entries(game.scores).filter(([k]) => k !== 'init'))
                             : Object.fromEntries(players.map(p => [p, 0]));
