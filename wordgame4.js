@@ -1444,6 +1444,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         tries: sessionState.tries || {},
                         scores: sessionState.scores || {}
                     });
+                    const finalSnapshot = await get(sessionRef);
+                    const finalState = finalSnapshot.val();
                     resolve({
                         mode: selected_mode,
                         player1: sessionState.player1,
@@ -1457,10 +1459,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         gameType: selected_gameType,
                         sessionId: selected_sessionId,
                         localPlayer: selected_player2,
-                        players: [selected_player1, selected_player2],
-                        guessedLetters: (Array.isArray(game.guessedLetters) ? game.guessedLetters : ['_empty_']),
-                        tries: game.tries || {},
-                        scores: game.scores || {}
+                        players: [finalState.player1, finalState.player2],
+                        guessedLetters: Array.isArray(finalState.guessedLetters) ? finalState.guessedLetters : ['_empty_'],
+                        tries: finalState.tries || {},
+                        scores: finalState.scores || {}
                     });
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Firebase:', error);
