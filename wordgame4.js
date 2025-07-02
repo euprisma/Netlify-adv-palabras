@@ -1074,9 +1074,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     sessionId: selected_sessionId,
                                     localPlayer: selected_player1,
                                     players: [selected_player1, selected_player2],
-                                    guessedLetters: (Array.isArray(game.guessedLetters) ? game.guessedLetters : ['_empty_']),
-                                    tries: game.tries || {},
-                                    scores: game.scores || {}
+                                    guessedLetters: Array.isArray(latestState.guessedLetters) ? latestState.guessedLetters : ['_empty_'],
+                                    tries: latestState.tries || {},
+                                    scores: latestState.scores || {}
                                 });
                             }
                         }, (error) => {
@@ -1444,9 +1444,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         sessionId: selected_sessionId,
                         localPlayer: selected_player2,
                         players: [finalState.player1, finalState.player2],
-                        guessedLetters: Array.isArray(finalState.guessedLetters) ? finalState.guessedLetters : ['_empty_'],
-                        tries: finalState.tries || {},
-                        scores: finalState.scores || {},
+                        guessedLetters: Array.isArray(latestState.guessedLetters) ? latestState.guessedLetters : ['_empty_'],
+                        tries: latestState.tries || {},
+                        scores: latestState.scores || {},
                         status: finalState.status,
                         secretWord: finalState.secretWord, // (optional, but useful for debugging)
                         currentPlayer: finalState.currentPlayer // <-- ADD THIS LINE
@@ -1465,9 +1465,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         sessionId: selected_sessionId,
                         localPlayer: selected_player2,
                         players: [finalState.player1, finalState.player2],
-                        guessedLetters: Array.isArray(finalState.guessedLetters) ? finalState.guessedLetters : ['_empty_'],
-                        tries: finalState.tries || {},
-                        scores: finalState.scores || {},
+                        guessedLetters: Array.isArray(latestState.guessedLetters) ? latestState.guessedLetters : ['_empty_'],
+                        tries: latestState.tries || {},
+                        scores: latestState.scores || {},
                         currentPlayer: finalState.currentPlayer,
                         initialized: finalState.initialized,
                         status: finalState.status,
