@@ -1434,18 +1434,18 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     prompt.innerText = 'Ingresa una letra o la palabra completa:';
                     button.style.display = 'none';
                     focusInput(input);
+                    const finalSnapshot = await get(sessionRef);
+                    const finalState = finalSnapshot.val();
                     console.log('handlePlayer2Input: Resolving with', {
                         mode: selected_mode,
                         player1: sessionState.player1,
                         player2: selected_player2,
                         gameType: selected_gameType,
                         sessionId: selected_sessionId,
-                        guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : ['_empty_'],
-                        tries: sessionState.tries || {},
-                        scores: sessionState.scores || {}
-                    });
-                    const finalSnapshot = await get(sessionRef);
-                    const finalState = finalSnapshot.val();
+                        guessedLetters: Array.isArray(finalState.guessedLetters) ? finalState.guessedLetters : ['_empty_'],
+                        tries: finalState.tries || {},
+                        scores: finalState.scores || {}
+                    });                    
                     resolve({
                         mode: selected_mode,
                         player1: sessionState.player1,
