@@ -1205,7 +1205,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         if (!Array.isArray(sessionState.guessedLetters) || !sessionState.tries || !sessionState.scores || sessionState.currentPlayer === undefined) {
                             console.log('create_game_ui: Correcting missing fields for session', sessionId);
                             await update(sessionRef, {
-                                guessedLetters: Array.from(guessed_letters), // No _empty_ fallback!
+                                guessedLetters: Array.isArray(sessionState.guessedLetters) ? sessionState.guessedLetters : [],
                                 tries: typeof sessionState.tries === 'object' && sessionState.tries !== null ? sessionState.tries : {},
                                 scores: typeof sessionState.scores === 'object' && sessionState.scores !== null ? sessionState.scores : {},
                                 currentPlayer: sessionState.currentPlayer !== undefined ? sessionState.currentPlayer : null
