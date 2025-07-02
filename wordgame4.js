@@ -2122,7 +2122,9 @@ async function play_game(
                     try {
                         unsubscribe = onValue(sessionRef, async (snapshot) => {
                             const game = snapshot.val();
+                            console.log('REMOTE GAME LOOP: Firebase snapshot received', game);
                             if (!snapshot.exists() || !game) {
+                                console.log('REMOTE GAME LOOP: Session missing or deleted', game);
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
@@ -2136,12 +2138,14 @@ async function play_game(
                                 return;
                             }
                             if (game.status === 'finished' || game.status === 'ended') {
+                                console.log('REMOTE GAME LOOP: Game already finished', game);
                                 gameIsOver = true;
                                 display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, guessed_letters)}.`, 'black', null, false);
                                 if (unsubscribe) unsubscribe();
                                 return;
                             }
                             if (game.status !== 'playing') {
+                                console.log('REMOTE GAME LOOP: Game not in playing state', game.status);
                                 console.log('Unexpected status:', game.status);
                                 return;
                             }
