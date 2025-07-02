@@ -2126,8 +2126,11 @@ async function play_game(
                             if (!snapshot.exists() || !game) {
                                 console.log('REMOTE GAME LOOP: Session missing or deleted', game);
                                 display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
-                                if (unsubscribe) unsubscribe();
+                                if (unsubscribe) {
+                                    console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
+                                    unsubscribe();
                                 return;
+                                }
                             }
                             let guessedLetters = Array.isArray(game.guessedLetters) ? game.guessedLetters : [];
                             //guessedLetters = guessedLetters.filter(l => l !== '_empty_');
@@ -2141,8 +2144,11 @@ async function play_game(
                                 console.log('REMOTE GAME LOOP: Game already finished', game);
                                 gameIsOver = true;
                                 display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, guessed_letters)}.`, 'black', null, false);
-                                if (unsubscribe) unsubscribe();
+                                if (unsubscribe) {
+                                    console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
+                                    unsubscribe();
                                 return;
+                                }
                             }
                             if (game.status !== 'playing') {
                                 console.log('REMOTE GAME LOOP: Game not in playing state', game.status);
@@ -2221,15 +2227,21 @@ async function play_game(
                                                 await delay(500);
                                                 if (attempts === 0) {
                                                     display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
-                                                    if (unsubscribe) unsubscribe();
+                                                    if (unsubscribe) {
+                                                        console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
+                                                        unsubscribe();
                                                     return;
+                                                    }
                                                 }
                                             }
                                         }
                                         if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
                                             display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
-                                            if (unsubscribe) unsubscribe();
+                                            if (unsubscribe) {
+                                                console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
+                                                unsubscribe();
                                             return;
+                                            }
                                         }
                                     } finally {
                                         isGuessing = false;
@@ -2242,19 +2254,28 @@ async function play_game(
                         }, (error) => {
                             console.error('Listener error:', error);
                             display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
-                            if (unsubscribe) unsubscribe();
+                            if (unsubscribe) {
+                                console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
+                                unsubscribe();
+                            }
                         });
                         const connectedRef = ref(database, '.info/connected');
                         onValue(connectedRef, (snapshot) => {
                             if (!snapshot.val()) {
                                 display_feedback('Conexión perdida. Intenta reconectar o reiniciar el juego.', 'red', null, true);
-                                if (unsubscribe) unsubscribe();
+                                if (unsubscribe) {
+                                    console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
+                                    unsubscribe();
+                                }
                             }
                         });
                     } catch (err) {
                         display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
-                        if (unsubscribe) unsubscribe();
+                        if (unsubscribe) {
+                            console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
+                            unsubscribe();
                         return;
+                        }
                     }
                 } else {
                     while (
@@ -2449,6 +2470,7 @@ async function play_game(
         display_feedback('Error crítico en el juego.', 'red', null, false);
     } finally {
         if (unsubscribe) {
+            console.log('REMOTE GAME LOOP: Unsubscribing due to', reason);
             unsubscribe();
             console.log('play_game: Firebase listeners cleaned up');
         }
