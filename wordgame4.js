@@ -1683,7 +1683,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             }
 
             // Initial prompt for mode selection
-            prompt.innerText = 'Ingresa el modo de juego ("1" para un jugador, "2" para dos jugadores):';
+            prompt.innerText = 'Ingresa el modo de juego ("1" para un jugador, "2" para dos jugadores, "3" para jugador contra IA):';
             input.value = selected_mode || '';
             focusInput(input);
             button.onclick = () => handleModeInput();
