@@ -431,7 +431,9 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             // Add a timeout that cleans up the listener
             const timeoutId = setTimeout(() => {
                 cleanup();
-                reject(new Error('Input timeout'));
+                output.innerText = 'Tiempo de espera agotado. Turno perdido.';
+                output.style.color = 'red';
+                resolve(null); // Resolve with null instead of rejecting
             }, 30000);
             // Also cleanup the timeout if resolved
             const originalResolve = resolve;
@@ -2193,9 +2195,16 @@ async function play_game(
                                             focusInput(input);
                                             console.log('REMOTE GAME LOOP: Calling get_guess for', localPlayer);
                                             const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
-                                            if (!guess) {
-                                                display_feedback('Entrada inválida. Turno perdido.', 'red', localPlayer, true);
-                                                return;
+                                            if (guess === null) {
+                                                output.innerText = 'Tiempo de espera agotado. Turno perdido.';
+                                                output.style.color = 'red';
+                                                tries[localPlayer] = Math.max(0, tries[localPlayer] - 1); // Optional penalty
+                                                await update(sessionRef, {
+                                                    tries,
+                                                    currentPlayer: players[(current_player_idx + 1) % players.length],
+                                                    lastUpdated: Date.now()
+                                                });
+                                                return; // Continue the loop
                                             }
                                             const result = await process_guess(
                                                 localPlayer,
