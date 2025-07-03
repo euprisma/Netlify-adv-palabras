@@ -1212,38 +1212,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
             }
 
-            async function handlePlayer2Input(event, database, ref, update, runTransaction) {
-                // Prevent default button behavior
-                event.preventDefault();
-    
-                // Get sessionId and player name from input fields
-                const sessionIdInput = document.getElementById('session-id-input'); // Adjust ID as per your HTML
-                const player2Input = document.getElementById('player2-input'); // Adjust ID as per your HTML
-                const sessionId = sessionIdInput ? sessionIdInput.value.trim() : '';
-                const selected_player2 = player2Input ? player2Input.value.trim() : '';
-
+            async function handlePlayer2Input(sessionId, selected_player2, database, ref, update, runTransaction) {
                 console.log('handlePlayer2Input: Starting for player', selected_player2, 'sessionId', sessionId);
-
-                // Validate inputs
-                if (!sessionId) {
-                    console.error('handlePlayer2Input: Session ID is empty or missing');
-                    document.getElementById('output').innerText = 'Error: Por favor, ingresa un ID de sesión válido.';
-                    document.getElementById('output').style.color = 'red';
-                    return;
-                }
-                if (!selected_player2) {
-                    console.error('handlePlayer2Input: Player 2 name is empty or missing');
-                    document.getElementById('output').innerText = 'Error: Por favor, ingresa un nombre para el Jugador 2.';
-                    document.getElementById('output').style.color = 'red';
-                    return;
-                }
-                if (!ref || typeof ref !== 'function') {
-                    console.error('handlePlayer2Input: Firebase ref is not a function');
-                    document.getElementById('output').innerText = 'Error: Problema con la configuración de Firebase. Contacta al soporte.';
-                    document.getElementById('output').style.color = 'red';
-                    return;
-                }
-
                 const sessionRef = ref(database, `games/${sessionId}`);
                 const formatted_player2 = format_name(selected_player2);
                 console.log('handlePlayer2Input: Formatted Player 2 name:', formatted_player2);
@@ -1253,7 +1223,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 while (attempts--) {
                     try {
                         transactionResult = await runTransaction(sessionRef, (currentData) => {
-                            console.log('handlePlayer2Input: Transaction currentData', currentData);
                             if (!currentData) {
                                 console.warn('handlePlayer2Input: Session does not exist', sessionId);
                                 return undefined; // Abort transaction
@@ -1276,7 +1245,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     [currentData.player1]: currentData.scores?.[currentData.player1] || 0,
                                     [formatted_player2]: 0
                                 },
-                                guessedLetters: currentData.guessedLetters || [],
+                                guessedLetters: [],
                                 initialized: true,
                                 lastUpdated: Date.now()
                             };
@@ -1285,13 +1254,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         if (transactionResult.committed) {
                             break;
                         }
-                        console.warn('handlePlayer2Input: Transaction failed, retrying', { attemptsLeft: attempts, snapshot: transactionResult.snapshot.val() });
+                        console.warn('handlePlayer2Input: Transaction failed, retrying', { attemptsLeft: attempts });
                         await delay(500);
                     } catch (err) {
                         console.error('handlePlayer2Input: Transaction error', err);
                         if (attempts === 0) {
-                            document.getElementById('output').innerText = 'Error: No se pudo unir a la sesión. Intenta de nuevo.';
-                            document.getElementById('output').style.color = 'red';
                             throw err;
                         }
                         await delay(500);
@@ -1312,7 +1279,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             [transactionResult.snapshot.val()?.player1 || '']: 0,
                             [formatted_player2]: 0
                         },
-                        guessedLetters: transactionResult.snapshot.val()?.guessedLetters || [],
+                        guessedLetters: [],
                         initialized: true,
                         lastUpdated: Date.now()
                     };
@@ -1323,8 +1290,6 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 const snapshot = await get(sessionRef);
                 console.log('handlePlayer2Input: Snapshot received', snapshot.val());
                 if (!snapshot.exists()) {
-                    document.getElementById('output').innerText = 'Error: Sesión no encontrada después de unirse.';
-                    document.getElementById('output').style.color = 'red';
                     throw new Error('Sesión no encontrada después de unirse.');
                 }
                 const game = snapshot.val();
