@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = 'https://bbjryfwufpdyyfbrmdvv.supabase.co'
-const supabaseKey = process.env.SUPABASE_KEY
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJianJ5Znd1ZnBkeXlmYnJtZHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NTQzNjcsImV4cCI6MjA2NzEzMDM2N30.cASkkXdQx9SvoPnLqGbHsj-pnqLxvlozYQRcyuc0-Bs'
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Anonymous sign-in
