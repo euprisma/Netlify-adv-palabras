@@ -1354,7 +1354,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         [currentData.player1]: currentData.scores?.[currentData.player1] || 0,
                                         [selected_player2]: 0
                                     },
-                                    guessedLetters: ['_empty_'],
+                                    guessedLetters: [],
                                     initialized: true,
                                     secretWord: currentData.secretWord
                                 };
