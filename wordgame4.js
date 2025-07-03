@@ -2109,7 +2109,7 @@ async function play_game(
                         console.log('REMOTE GAME LOOP: Setting up Firebase listener for session', sessionId);
                         unsubscribe = onValue(sessionRef, async (snapshot) => {
                             try {
-                                console.log('REMOTE GAME LOOP: Listener start', snapshot.val());
+                                console.log('Listener triggered with state:', snapshot.val()); // <--- ADD HERE
                                 const game = snapshot.val();
                                 console.log('REMOTE GAME LOOP: Firebase snapshot received', game);
                                 if (!snapshot.exists() || !game) {
@@ -2127,7 +2127,7 @@ async function play_game(
                                     return;
                                 }
                                 if (game.status === 'finished' || game.status === 'ended') {
-                                    console.log('REMOTE GAME LOOP: Exiting listener early', { reason: 'Game already finished', game });
+                                    console.log('Game ending with state:', game); // <--- ADD HERE
                                     gameIsOver = true;
                                     display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secretWord, guessed_letters)}.`, 'black', null, false);
                                     return;
