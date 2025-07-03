@@ -1,10 +1,10 @@
 // Transcrypt'ed from Python, 2025-06-16, updated 2025-10-14 for Firebase v10.14.0
 
-import { createClient } from '@supabase/supabase-js'
+//import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = 'https://bbjryfwufpdyyfbrmdvv.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJianJ5Znd1ZnBkeXlmYnJtZHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NTQzNjcsImV4cCI6MjA2NzEzMDM2N30.cASkkXdQx9SvoPnLqGbHsj-pnqLxvlozYQRcyuc0-Bs'
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // Anonymous sign-in
 await supabase.auth.signInAnonymously();
