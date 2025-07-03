@@ -7,7 +7,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // Anonymous sign-in
-await supabase.auth.signInAnonymously();
+//await supabase.auth.signInAnonymously();
 
 async function createSession(sessionId, player1, mode, gameType, secretWord) {
     if (!sessionId || !player1 || !secretWord || typeof secretWord !== 'string') {
