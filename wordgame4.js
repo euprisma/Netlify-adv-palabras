@@ -2139,7 +2139,7 @@ async function play_game(
                             console.error('game_loop: process_guess returned undefined');
                             break;
                         }
-                        if (result && (result.word_guessed || normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l))) {
+                        if (result && (result.word_guessed || normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l)))) {
                             display_feedback(`¡${player} adivinó la palabra!`, 'green', null, true);
                             break;
                         }
