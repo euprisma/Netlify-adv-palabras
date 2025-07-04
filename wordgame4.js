@@ -21,13 +21,12 @@ async function initSupabase() {
     }
 }
 
-async function createSession(sessionId, player1, mode, gameType, secretWord) {
-    if (!sessionId || !player1 || !secretWord || typeof secretWord !== 'string') {
-        console.error('createSession: Invalid input', { sessionId, player1, secretWord });
+async function createSession(sessionId, player1, mode, gameType, secretWord, totalTries) {
+    if (!sessionId || !player1 || !secretWord || typeof secretWord !== 'string' || !totalTries) {
+        console.error('createSession: Invalid input', { sessionId, player1, secretWord, totalTries });
         throw new Error('Invalid session parameters');
     }
-    const totalTries = Math.max(1, Math.floor(secretWord.length / 2));
-    let attempts = 3;
+    let attempts = 5;
     let result = null;
     while (attempts--) {
         try {
@@ -43,10 +42,10 @@ async function createSession(sessionId, player1, mode, gameType, secretWord) {
                     tries: { [player1]: totalTries },
                     scores: { [player1]: 0 },
                     current_player: player1,
-                    initialized: false,
+                    initialized: true,
                     mode,
                     game_type: gameType,
-                    last_updated: new Date()
+                    last_updated: new Date().toISOString()
                 })
                 .select()
                 .single();
@@ -62,7 +61,7 @@ async function createSession(sessionId, player1, mode, gameType, secretWord) {
             result = data;
             break;
         } catch (error) {
-            console.warn(`createSession: Retry ${3 - attempts}/3`, { sessionId, error });
+            console.warn(`createSession: Retry ${5 - attempts}/5`, { sessionId, error });
             if (attempts === 0) {
                 console.error('createSession: Failed to create session', { sessionId, error });
                 throw error;
@@ -72,68 +71,6 @@ async function createSession(sessionId, player1, mode, gameType, secretWord) {
     }
     if (!result) throw new Error('Failed to create session');
     console.log('createSession: Session created', { sessionId });
-    return result;
-}
-
-function generateSessionId() {
-    return 'sess_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
-}
-
-// Define updateSession
-async function updateSession(sessionId, updates) {
-    if (!sessionId || typeof sessionId !== 'string') {
-        console.error('updateSession: Invalid sessionId', sessionId);
-        throw new Error('Invalid session ID');
-    }
-    // Ensure guessed_letters is an array
-    const sanitizedUpdates = {
-        ...updates,
-        guessed_letters: Array.isArray(updates.guessed_letters)
-            ? updates.guessed_letters
-            : updates.guessed_letters instanceof Set
-            ? Array.from(updates.guessed_letters)
-            : [],
-        last_updated: new Date()
-    };
-    // Validate other fields if present
-    if (updates.tries && typeof updates.tries !== 'object') {
-        console.warn('updateSession: Invalid tries, resetting to empty object', updates.tries);
-        sanitizedUpdates.tries = {};
-    }
-    if (updates.scores && typeof updates.scores !== 'object') {
-        console.warn('updateSession: Invalid scores, resetting to empty object', updates.scores);
-        sanitizedUpdates.scores = {};
-    }
-    let attempts = 3;
-    let result = null;
-    while (attempts--) {
-        try {
-            const { data, error } = await supabase
-                .from('games')
-                .update(sanitizedUpdates)
-                .eq('session_id', sessionId)
-                .select()
-                .single();
-            if (error) {
-                if (error.code === 'PGRST116') {
-                    console.error('updateSession: Session not found', sessionId);
-                    throw new Error('Session not found');
-                }
-                throw error;
-            }
-            result = data;
-            break;
-        } catch (error) {
-            console.warn(`updateSession: Retry ${3 - attempts}/3`, error);
-            if (attempts === 0) {
-                console.error('updateSession: Failed to update session', error);
-                throw error;
-            }
-            await delay(1000);
-        }
-    }
-    if (!result) throw new Error('Failed to update session after retries');
-    console.log('updateSession: Session updated', { sessionId, guessed_letters: result.guessed_letters });
     return result;
 }
 
@@ -155,7 +92,6 @@ async function getSession(sessionId) {
             if (error) {
                 if (error.code === 'PGRST116' || error.status === 406) {
                     console.warn('getSession: Session not found or inaccessible', { sessionId, error });
-                    // Clean up potential stale session
                     try {
                         await supabase.from('games').delete().eq('session_id', sessionId);
                         await supabase.from('game_players').delete().eq('session_id', sessionId);
@@ -887,6 +823,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
             }
 
+            function generateSessionId() {
+                return 'sess_' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 10) : Math.random().toString(36).substr(2, 9) + Date.now().toString(36));
+            }
+
             async function handleRemoteRoleInput() {
                 const value = input.value.trim().toLowerCase();
                 console.log('create_game_ui: Remote role input:', value);
@@ -912,7 +852,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     loadingMessage.style.color = 'blue';
                     loadingMessage.style.margin = '30px';
                     container.appendChild(loadingMessage);
-                    await new Promise(requestAnimationFrame);
+                    await new Promise(resolve => requestAnimationFrame(resolve));
 
                     try {
                         const secretWord = await get_secret_word();
@@ -945,15 +885,16 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     continue;
                                 }
                                 // Create session
-                                await createSession(selected_sessionId, 'Player1', selected_mode, selected_gameType, secretWord);
+                                const totalTries = Math.max(1, Math.floor(secretWord.length / 2));
+                                await createSession(selected_sessionId, 'Player1', selected_mode, selected_gameType, secretWord, totalTries);
                                 console.log('create_game_ui: Supabase session created', { sessionId: selected_sessionId, secretWord });
                                 success = true;
                                 break;
                             } catch (error) {
                                 console.warn(`create_game_ui: Retry ${5 - attempts}/5 for Supabase insert`, error);
-                                if (error.code === '42501' || error.status === 406) {
-                                    console.error('create_game_ui: Permission denied or invalid request', { error });
-                                    output.innerText = 'Error: Permiso denegado o solicitud inválida. Verifica la configuración de Supabase.';
+                                if (error.status === 406) {
+                                    console.error('create_game_ui: Invalid request, check Supabase key or schema', { error });
+                                    output.innerText = 'Error: Solicitud inválida. Verifica la clave de Supabase o la configuración.';
                                     output.style.color = 'red';
                                     input.value = '';
                                     focusInput(input);
@@ -982,8 +923,8 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         input.addEventListener('keypress', currentHandler);
                     } catch (error) {
                         console.error('create_game_ui: Error creating game session:', error);
-                        output.innerText = error.code === '42501' || error.status === 406
-                            ? 'Error: Permiso denegado o solicitud inválida. Verifica la configuración de Supabase.'
+                        output.innerText = error.status === 406
+                            ? 'Error: Solicitud inválida. Verifica la clave de Supabase o la configuración.'
                             : 'Error al crear la sesión de juego. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
