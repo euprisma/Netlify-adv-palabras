@@ -1504,9 +1504,9 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         return;
                     }
                     let success = false;
-                    attempts = 5;
-                    while (attempts--) {
                     let finalState = null;
+                    attempts = 5;
+                    while (attempts--) {                    
                         try {
                             if (!Array.isArray(sessionState.guessed_letters)) {
                                 sessionState.guessed_letters = [];
