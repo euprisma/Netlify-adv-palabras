@@ -2304,12 +2304,26 @@ async function play_game(
                 let isGuessing = false;
                 if (mode === '2' && gameType === 'remoto') {
                     try {
-                        console.log('REMOTE GAME LOOP: Starting, Loaded version 2025-07-04-v10.5', {
+                        console.log('REMOTE GAME LOOP: Starting, Loaded version 2025-07-04-v10.6', {
                             sessionId,
                             localPlayer,
                             currentPlayer: players[current_player_idx_ref.value],
-                            inputId: input?.id
+                            inputId: input?.id,
+                            inputInDOM: !!document.getElementById('game-input')
                         });
+                        // Fetch initial game state
+                        const { data: gameData, error: gameError } = await supabase
+                            .from('games')
+                            .select('*')
+                            .eq('session_id', sessionId)
+                            .single();
+                        if (gameError || !gameData) {
+                            console.error('REMOTE GAME LOOP: Failed to fetch initial game state', gameError);
+                            display_feedback('Error al cargar el estado del juego. Intenta de nuevo.', 'red', null, false);
+                            return channel;
+                        }
+                        console.log('REMOTE GAME LOOP: Initial game state', gameData);
+
                         if (channel) {
                             console.log('REMOTE GAME LOOP: Removing existing channel', sessionId);
                             supabase.removeChannel(channel);
@@ -2367,7 +2381,9 @@ async function play_game(
                                             localPlayer,
                                             currentPlayer: game.current_player,
                                             isGuessing,
-                                            gameIsOver
+                                            gameIsOver,
+                                            inputId: input?.id,
+                                            inputInDOM: !!document.getElementById('game-input')
                                         });
                                         if (
                                             game.current_player &&
@@ -2386,7 +2402,7 @@ async function play_game(
                                                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
                                                 input.disabled = false;
                                                 input.focus();
-                                                console.log('REMOTE GAME LOOP: Calling get_guess', { inputId: input.id });
+                                                console.log('REMOTE GAME LOOP: Calling get_guess', { inputId: input.id, inputOuterHTML: input.outerHTML });
                                                 const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
                                                 console.log('REMOTE GAME LOOP: Guess received', { guess });
                                                 if (!guess) {
@@ -2484,6 +2500,7 @@ async function play_game(
                     } catch (err) {
                         console.error('REMOTE GAME LOOP: Setup error', err);
                         display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
+                        return channel;
                     }
                 } else {
                     while (
