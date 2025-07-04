@@ -1525,7 +1525,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     [selected_player2]: triesValue
                                 },
                                 scores: {
-                                    [sessionState.player1]: sessionState.scores?.[sessionState.player1] || 0,
+                                    [sessionState.player1]: 0,
                                     [selected_player2]: 0
                                 },
                                 guessed_letters: [],
@@ -2177,6 +2177,8 @@ async function play_game(
                                 .from('games')
                                 .update({ current_player: players[current_player_idx], last_updated: new Date() })
                                 .eq('session_id', sessionId);
+                        console.log('play_game: tries at start', tries);
+                        console.log('play_game: guessed_letters at start', Array.from(guessed_letters));
                         }
                         break;
                     }
@@ -2202,6 +2204,9 @@ async function play_game(
             tries = Object.fromEntries(players.map(p => [p, total_tries]));
             scores = Object.fromEntries(players.map(p => [p, 0]));
             current_player_idx = games_played % players.length;
+            // Place debug logs here:
+            console.log('play_game: tries at start', tries);
+            console.log('play_game: guessed_letters at start', Array.from(guessed_letters));
         }
 
         // Remove loading message and show UI
