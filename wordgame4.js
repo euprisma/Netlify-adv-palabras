@@ -535,17 +535,25 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         input.value = '';
         focusInput(input);
         return new Promise((resolve, reject) => {
+            // Remove any previous handler
+            if (input._guessHandler) {
+                input.removeEventListener('keydown', input._guessHandler);
+            }
             const enterHandler = (e) => {
+                console.log('get_guess: keydown event', e.key, input.value);
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     console.log('get_guess: Enter pressed', { inputValue: input.value, inputId: input.id });
                     const result = handleGuess('enter', input.value);
                     if (result.valid) {
-                        input.removeEventListener('keydown', enterHandler); // Remove listener before resolving
+                        input.removeEventListener('keydown', enterHandler);
+                        input._guessHandler = null;
                         resolve(result.guess);
                     }
                 }
             };
+            input._guessHandler = enterHandler;
+            input.addEventListener('keydown', enterHandler);
             function cleanup() {
                 input.removeEventListener('keydown', enterHandler);
             }
