@@ -1517,7 +1517,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             // Use updateSession to update player2 and related fields
                             await updateSession(selected_sessionId, {
                                 player2: selected_player2,
-                                status: 'playing',
+                                status: 'playing', // <-- ensure this is set!
                                 current_player: sessionState.player1,
                                 tries: {
                                     [sessionState.player1]: triesValue,
@@ -1579,23 +1579,23 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     focusInput(input);
                     console.log('handlePlayer2Input: Resolving with', {
                         mode: selected_mode,
-                        player1: sessionState.player1,
+                        player1: finalState.player1,
                         player2: selected_player2,
                         gameType: selected_gameType,
                         sessionId: selected_sessionId,
                         localPlayer: selected_player2,
-                        players: [sessionState.player1, selected_player2],
-                        guessedLetters: Array.isArray(sessionState.guessed_letters) ? sessionState.guessed_letters : [],
-                        tries: sessionState.tries || {},
-                        scores: sessionState.scores || {},
-                        currentPlayer: sessionState.current_player,
-                        initialized: sessionState.initialized,
-                        status: sessionState.status,
-                        secretWord: sessionState.secret_word
+                        players: [finalState.player1, selected_player2],
+                        guessedLetters: Array.isArray(finalState.guessed_letters) ? finalState.guessed_letters : [],
+                        tries: finalState.tries || {},
+                        scores: finalState.scores || {},
+                        currentPlayer: finalState.current_player,
+                        initialized: finalState.initialized,
+                        status: finalState.status,
+                        secretWord: finalState.secret_word
                     });
                     resolve({
                         mode: selected_mode,
-                        player1: sessionState.player1,
+                        player1: finalState.player1,
                         player2: selected_player2,
                         prompt,
                         input,
@@ -1606,15 +1606,15 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         gameType: selected_gameType,
                         sessionId: selected_sessionId,
                         localPlayer: selected_player2,
-                        players: [sessionState.player1, selected_player2],
-                        guessedLetters: Array.isArray(sessionState.guessed_letters) ? sessionState.guessed_letters : [],
-                        tries: sessionState.tries || {},
-                        scores: sessionState.scores || {},
-                        currentPlayer: sessionState.current_player,
-                        initialized: sessionState.initialized,
-                        status: sessionState.status,
-                        secretWord: sessionState.secret_word,
-                        cleanup: () => { } // Empty cleanup for player 2
+                        players: [finalState.player1, selected_player2],
+                        guessedLetters: Array.isArray(finalState.guessed_letters) ? finalState.guessed_letters : [],
+                        tries: finalState.tries || {},
+                        scores: finalState.scores || {},
+                        currentPlayer: finalState.current_player,
+                        initialized: finalState.initialized,
+                        status: finalState.status,
+                        secretWord: finalState.secret_word,
+                        cleanup: () => { }
                     });
                 } catch (error) {
                     console.error('create_game_ui: Error updating player 2 in Supabase:', error);
