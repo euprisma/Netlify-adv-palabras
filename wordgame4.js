@@ -9,15 +9,15 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Anonymous authentication
 async function initSupabase() {
     //try {
-        //const { data, error } = await supabase.auth.signInAnonymously();
-        //if (error) {
-            //console.error('initSupabase: Authentication error', error);
-            //throw error;
-       // }
-        //console.log('initSupabase: Authenticated anonymously', data);
+    //const { data, error } = await supabase.auth.signInAnonymously();
+    //if (error) {
+    //console.error('initSupabase: Authentication error', error);
+    //throw error;
+    // }
+    //console.log('initSupabase: Authenticated anonymously', data);
     //} catch (error) {
-        //console.error('initSupabase: Failed to initialize Supabase', error);
-        //throw error;
+    //console.error('initSupabase: Failed to initialize Supabase', error);
+    //throw error;
     //}
     return;
 }
@@ -86,8 +86,8 @@ async function updateSession(sessionId, updates) {
         guessed_letters: Array.isArray(updates.guessed_letters)
             ? updates.guessed_letters
             : updates.guessed_letters instanceof Set
-            ? Array.from(updates.guessed_letters)
-            : [],
+                ? Array.from(updates.guessed_letters)
+                : [],
         last_updated: new Date()
     };
     // Validate other fields if present
@@ -1047,7 +1047,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         // Ensure anonymous sign-in
                         //const { user } = await supabase.auth.getUser();
                         //if (!user) {
-                            //await supabase.auth.signInAnonymously();
+                        //await supabase.auth.signInAnonymously();
                         //}
                         let attempts = 5;
                         let success = false;
@@ -1434,7 +1434,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     // Ensure anonymous sign-in
                     //const { user } = await supabase.auth.getUser();
                     //if (!user) {
-                        //await supabase.auth.signInAnonymously();
+                    //await supabase.auth.signInAnonymously();
                     //}
                     let attempts = 5;
                     let sessionState = null;
@@ -1506,7 +1506,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     let success = false;
                     let finalState = null;
                     attempts = 5;
-                    while (attempts--) {                    
+                    while (attempts--) {
                         try {
                             if (!Array.isArray(sessionState.guessed_letters)) {
                                 sessionState.guessed_letters = [];
@@ -2177,8 +2177,8 @@ async function play_game(
                                 .from('games')
                                 .update({ current_player: players[current_player_idx], last_updated: new Date() })
                                 .eq('session_id', sessionId);
-                        console.log('play_game: tries at start', tries);
-                        console.log('play_game: guessed_letters at start', Array.from(guessed_letters));
+                            console.log('play_game: tries at start', tries);
+                            console.log('play_game: guessed_letters at start', Array.from(guessed_letters));
                         }
                         break;
                     }
@@ -2343,7 +2343,7 @@ async function play_game(
                                             game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase()
                                         ) {
                                             console.log('REMOTE GAME LOOP: Prompting for guess', { localPlayer, currentPlayer: game.current_player });
-                                            if (!isGuessing && !gameIsOver && !input.disabled) {
+                                            if (!isGuessing && !gameIsOver) {
                                                 isGuessing = true;
                                                 try {
                                                     prompt.innerText = 'Ingresa una letra o la palabra completa:';
