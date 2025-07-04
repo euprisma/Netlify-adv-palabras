@@ -2302,17 +2302,9 @@ async function play_game(
                 output, container, prompt, input, button, display_feedback, current_player_idx_ref,
                 game_info, games_played, games_to_play, total_scores, difficulty, channel
             ) {
-                let isGuessing = false;
                 if (mode === '2' && gameType === 'remoto') {
                     try {
-                        console.log('REMOTE GAME LOOP: Starting, Loaded version 2025-07-04-v10.7', {
-                            sessionId,
-                            localPlayer,
-                            currentPlayer: players[current_player_idx_ref.value],
-                            inputId: input?.id,
-                            inputInDOM: !!document.getElementById('game-input')
-                        });
-                        // Fetch initial game state
+                        // 1. Fetch initial game state
                         const { data: gameData, error: gameError } = await supabase
                             .from('games')
                             .select('*')
@@ -2325,7 +2317,7 @@ async function play_game(
                         }
                         console.log('REMOTE GAME LOOP: Initial game state', gameData);
 
-                        // If this client is the current player, trigger the first guess
+                        // 2. If this client is the current player, handle the first move
                         if (
                             gameData.current_player &&
                             localPlayer &&
@@ -2346,7 +2338,9 @@ async function play_game(
                                     button
                                 );
                                 console.log('REMOTE GAME LOOP: First move guess received', { guess });
-                                // You may want to process the guess here, or let the listener handle it after update
+                                // Process the guess as you do in the listener:
+                                // (call process_guess, update DB, etc.)
+                                // Then let the listener handle the rest.
                             } catch (err) {
                                 console.error('REMOTE GAME LOOP: Error in first move get_guess', err);
                             } finally {
@@ -2354,6 +2348,7 @@ async function play_game(
                             }
                         }
 
+                        // 3. Set up the real-time listener for all future moves
                         if (channel) {
                             console.log('REMOTE GAME LOOP: Removing existing channel', sessionId);
                             supabase.removeChannel(channel);
@@ -2373,23 +2368,19 @@ async function play_game(
                                         console.log('REMOTE GAME LOOP: Supabase snapshot received', payload.new);
                                         const game = payload.new;
                                         if (!game) {
-                                            console.log('REMOTE GAME LOOP: Exiting listener early', { reason: 'Session deleted' });
                                             display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                             gameIsOver = true;
                                             return;
                                         }
                                         if (!game.secret_word || !game.initialized || game.status === 'waiting_for_player2') {
-                                            console.log('REMOTE GAME LOOP: Exiting listener early', { reason: 'Waiting for valid state', game });
                                             return;
                                         }
                                         if (game.status === 'finished' || game.status === 'ended') {
-                                            console.log('REMOTE GAME LOOP: Exiting listener early', { reason: 'Game already finished', game });
                                             gameIsOver = true;
                                             display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secret_word, new Set(game.guessed_letters || []))}.`, 'black', null, false);
                                             return;
                                         }
                                         if (game.status !== 'playing') {
-                                            console.log('REMOTE GAME LOOP: Exiting listener early', { reason: 'Unexpected status', status: game.status });
                                             return;
                                         }
 
@@ -2398,7 +2389,6 @@ async function play_game(
                                         Object.assign(scores, game.scores || {});
                                         current_player_idx_ref.value = players.indexOf(game.current_player);
                                         if (current_player_idx_ref.value === -1) {
-                                            console.warn('REMOTE GAME LOOP: Invalid current_player, defaulting to first player', game.current_player);
                                             current_player_idx_ref.value = 0;
                                             await supabase
                                                 .from('games')
@@ -2407,34 +2397,18 @@ async function play_game(
                                         }
                                         await update_ui(current_player_idx_ref, game.current_player);
 
-                                        console.log('REMOTE GAME LOOP: Checking for guess', {
-                                            localPlayer,
-                                            currentPlayer: game.current_player,
-                                            isGuessing,
-                                            gameIsOver,
-                                            inputId: input?.id,
-                                            inputInDOM: !!document.getElementById('game-input')
-                                        });
                                         if (
                                             game.current_player &&
                                             localPlayer &&
                                             game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
                                             !isGuessing && !gameIsOver
                                         ) {
-                                            console.log('REMOTE GAME LOOP: Prompting for guess', {
-                                                localPlayer,
-                                                currentPlayer: game.current_player,
-                                                inputId: input?.id,
-                                                inputInDOM: !!document.getElementById('game-input')
-                                            });
                                             isGuessing = true;
                                             try {
                                                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
                                                 input.disabled = false;
-                                                input.focus();
-                                                console.log('REMOTE GAME LOOP: Calling get_guess', { inputId: input.id, inputOuterHTML: input.outerHTML });
+                                                focusInput(input);
                                                 const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
-                                                console.log('REMOTE GAME LOOP: Guess received', { guess });
                                                 if (!guess) {
                                                     display_feedback('Entrada inválida. Turno perdido.', 'red', localPlayer, true);
                                                     isGuessing = false;
@@ -2466,13 +2440,6 @@ async function play_game(
                                                     try {
                                                         const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
                                                         const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
-                                                        console.log('REMOTE GAME LOOP: Before win/lose check', {
-                                                            tries: JSON.stringify(tries),
-                                                            guessed_letters: Array.from(guessed_letters),
-                                                            provided_secret_word,
-                                                            allPlayersOutOfTries,
-                                                            wordFullyGuessed
-                                                        });
                                                         const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
                                                         const { error } = await supabase
                                                             .from('games')
@@ -2487,14 +2454,12 @@ async function play_game(
                                                             .eq('session_id', sessionId);
                                                         if (error) throw error;
                                                         if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
-                                                            console.log('REMOTE GAME LOOP: Game ended', { reason: result.word_guessed ? 'word guessed' : allPlayersOutOfTries ? 'out of tries' : 'fully guessed' });
                                                             gameIsOver = true;
                                                             display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
                                                             return;
                                                         }
                                                         break;
                                                     } catch (err) {
-                                                        console.error('REMOTE GAME LOOP: Error updating Supabase', err);
                                                         await delay(500);
                                                         if (attempts === 0) {
                                                             display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
@@ -2503,17 +2468,14 @@ async function play_game(
                                                     }
                                                 }
                                             } catch (err) {
-                                                console.error('REMOTE GAME LOOP: Error in get_guess', err);
                                                 display_feedback('Error al procesar la entrada. Intenta de nuevo.', 'red', null, false);
                                                 isGuessing = false;
                                             }
                                         } else {
-                                            console.log('REMOTE GAME LOOP: Waiting for', game.current_player);
                                             prompt.innerText = `Esperando a ${escapeHTML(game.current_player)}...`;
                                             input.disabled = true;
                                         }
                                     } catch (error) {
-                                        console.error('REMOTE GAME LOOP: Error in listener', error);
                                         display_feedback('Error en la lógica del juego. Intenta de nuevo.', 'red', null, false);
                                     }
                                 }
@@ -2522,39 +2484,14 @@ async function play_game(
                                 if (status === 'SUBSCRIBED') {
                                     console.log('Subscribed to game:', sessionId);
                                 } else if (err) {
-                                    console.error('Subscription error:', err);
                                     display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
-                                    // Fallback: Try calling get_guess if subscription fails
-                                    if (!isGuessing && !gameIsOver && localPlayer === players[current_player_idx_ref.value]) {
-                                        console.log('REMOTE GAME LOOP: Fallback to get_guess due to subscription failure', { localPlayer });
-                                        isGuessing = true;
-                                        prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                        input.disabled = false;
-                                        input.focus();
-                                        get_guess(guessed_letters, provided_secret_word, prompt, input, output, button)
-                                            .then(guess => {
-                                                console.log('REMOTE GAME LOOP: Fallback guess received', { guess });
-                                                // Process guess as above
-                                                isGuessing = false;
-                                            })
-                                            .catch(err => {
-                                                console.error('REMOTE GAME LOOP: Fallback get_guess error', err);
-                                                display_feedback('Error al procesar la entrada. Intenta de nuevo.', 'red', null, false);
-                                                isGuessing = false;
-                                            });
-                                    }
                                 }
                             });
 
-                        // Wait for listener to process updates
-                        console.log('REMOTE GAME LOOP: Waiting for listener to process');
-                        await new Promise(resolve => setTimeout(resolve, 30000)); // Wait up to 30s for listener
-                        console.log('REMOTE GAME LOOP: Listener wait completed');
+                        // Do NOT block here. Just return.
                         return channel;
                     } catch (err) {
-                        console.error('REMOTE GAME LOOP: Setup error', err);
-                        display_feedback('Error al conectar con el servidor remoto. Intenta de nuevo.', 'red', null, false);
-                        return channel;
+                        display_feedback('Error en la lógica remota. Intenta de nuevo.', 'red', null, false);
                     }
                 } else {
                     while (
