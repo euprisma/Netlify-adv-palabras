@@ -538,6 +538,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             // Remove any previous handler
             if (input._guessHandler) {
                 input.removeEventListener('keydown', input._guessHandler);
+                console.log('get_guess: Handler attached to', input, input.id); // <-- ADD HERE
             }
             const enterHandler = (e) => {
                 console.log('get_guess: keydown event', e.key, input.value);
@@ -548,6 +549,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                     if (result.valid) {
                         input.removeEventListener('keydown', enterHandler);
                         input._guessHandler = null;
+                        console.log('get_guess: Resolving with guess', result.guess); // <-- ADD HERE
                         resolve(result.guess);
                     }
                 }
