@@ -1078,7 +1078,18 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     });
                                 if (playerError) throw playerError;
 
-                                console.log('create_game_ui: Supabase updated with player1', { sessionId: selected_sessionId, player1: selected_player1, state: updates });
+                                console.log('create_game_ui: Supabase updated with player1', {
+                                    sessionId: selected_sessionId,
+                                    player1: selected_player1,
+                                    state: {
+                                        player1: selected_player1,
+                                        status: 'waiting_for_player2',
+                                        current_player: selected_player1,
+                                        guessed_letters: snapshot.guessed_letters || [],
+                                        tries: snapshot.tries || {},
+                                        scores: snapshot.scores || {}
+                                    }
+                                });
                                 success = true;
                                 break;
                             } catch (error) {
