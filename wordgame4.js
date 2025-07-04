@@ -1073,7 +1073,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                     .from('game_players')
                                     .insert({
                                         session_id: selected_sessionId,
-                                        user_id: user.id,
+                                        user_id: null, // Assuming anonymous user
                                         player_name: selected_player1
                                     });
                                 if (playerError) throw playerError;
@@ -1530,7 +1530,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 .from('game_players')
                                 .insert({
                                     session_id: selected_sessionId,
-                                    user_id: user.id,
+                                    user_id: null, // Assuming anonymous user
                                     player_name: selected_player2
                                 });
                             if (playerError) throw playerError;
