@@ -8,17 +8,18 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Anonymous authentication
 async function initSupabase() {
-    try {
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) {
-            console.error('initSupabase: Authentication error', error);
-            throw error;
-        }
-        console.log('initSupabase: Authenticated anonymously', data);
-    } catch (error) {
-        console.error('initSupabase: Failed to initialize Supabase', error);
-        throw error;
-    }
+    //try {
+        //const { data, error } = await supabase.auth.signInAnonymously();
+        //if (error) {
+            //console.error('initSupabase: Authentication error', error);
+            //throw error;
+       // }
+        //console.log('initSupabase: Authenticated anonymously', data);
+    //} catch (error) {
+        //console.error('initSupabase: Failed to initialize Supabase', error);
+        //throw error;
+    //}
+    return;
 }
 
 async function createSession(sessionId, player1, mode, gameType, secretWord, totalTries) {
