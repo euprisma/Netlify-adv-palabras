@@ -75,6 +75,63 @@ async function createSession(sessionId, player1, mode, gameType, secretWord, tot
     return result;
 }
 
+async function updateSession(sessionId, updates) {
+    if (!sessionId || typeof sessionId !== 'string') {
+        console.error('updateSession: Invalid sessionId', sessionId);
+        throw new Error('Invalid session ID');
+    }
+    // Ensure guessed_letters is an array
+    const sanitizedUpdates = {
+        ...updates,
+        guessed_letters: Array.isArray(updates.guessed_letters)
+            ? updates.guessed_letters
+            : updates.guessed_letters instanceof Set
+            ? Array.from(updates.guessed_letters)
+            : [],
+        last_updated: new Date()
+    };
+    // Validate other fields if present
+    if (updates.tries && typeof updates.tries !== 'object') {
+        console.warn('updateSession: Invalid tries, resetting to empty object', updates.tries);
+        sanitizedUpdates.tries = {};
+    }
+    if (updates.scores && typeof updates.scores !== 'object') {
+        console.warn('updateSession: Invalid scores, resetting to empty object', updates.scores);
+        sanitizedUpdates.scores = {};
+    }
+    let attempts = 3;
+    let result = null;
+    while (attempts--) {
+        try {
+            const { data, error } = await supabase
+                .from('games')
+                .update(sanitizedUpdates)
+                .eq('session_id', sessionId)
+                .select()
+                .single();
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    console.error('updateSession: Session not found', sessionId);
+                    throw new Error('Session not found');
+                }
+                throw error;
+            }
+            result = data;
+            break;
+        } catch (error) {
+            console.warn(`updateSession: Retry ${3 - attempts}/3`, error);
+            if (attempts === 0) {
+                console.error('updateSession: Failed to update session', error);
+                throw error;
+            }
+            await delay(1000);
+        }
+    }
+    if (!result) throw new Error('Failed to update session after retries');
+    console.log('updateSession: Session updated', { sessionId, guessed_letters: result.guessed_letters });
+    return result;
+}
+
 // Define getSession
 async function getSession(sessionId) {
     if (!sessionId || typeof sessionId !== 'string') {
@@ -120,6 +177,10 @@ async function getSession(sessionId) {
     }
     console.log('getSession: Session retrieved', { sessionId, guessed_letters: result?.guessed_letters });
     return result;
+}
+
+function generateSessionId() {
+    return 'sess_' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 10) : Math.random().toString(36).substr(2, 9) + Date.now().toString(36));
 }
 
 var __name__ = '__main__';
@@ -984,10 +1045,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     }
                     try {
                         // Ensure anonymous sign-in
-                        const { user } = await supabase.auth.getUser();
-                        if (!user) {
-                            await supabase.auth.signInAnonymously();
-                        }
+                        //const { user } = await supabase.auth.getUser();
+                        //if (!user) {
+                            //await supabase.auth.signInAnonymously();
+                        //}
                         let attempts = 5;
                         let success = false;
                         while (attempts--) {
@@ -1360,10 +1421,10 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 }
                 try {
                     // Ensure anonymous sign-in
-                    const { user } = await supabase.auth.getUser();
-                    if (!user) {
-                        await supabase.auth.signInAnonymously();
-                    }
+                    //const { user } = await supabase.auth.getUser();
+                    //if (!user) {
+                        //await supabase.auth.signInAnonymously();
+                    //}
                     let attempts = 5;
                     let sessionState = null;
                     while (attempts--) {
