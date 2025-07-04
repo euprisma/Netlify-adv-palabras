@@ -511,8 +511,7 @@ function display_feedback(message, color, player = null, append = false, autoCle
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
-    console.log('get_guess: called with input', input, input.id, input.parentNode);
-    console.log('get_guess: Starting, Loaded version 2025-06-19-v9.19', {
+    console.log('get_guess: Starting, Loaded version 2025-07-04-v10.1', {
         prompt: prompt?.innerText,
         inputExists: !!input?.parentNode,
         buttonExists: !!button?.parentNode,
@@ -534,32 +533,39 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     }
     try {
         input.value = '';
+        input.disabled = false; // Ensure input is enabled
         focusInput(input);
         return new Promise((resolve, reject) => {
             // Remove any previous handler
             if (input._guessHandler) {
                 input.removeEventListener('keydown', input._guessHandler);
-                console.log('get_guess: Handler attached to', input, input.id); // <-- ADD HERE
+                console.log('get_guess: Removed previous handler', input.id);
             }
             const enterHandler = (e) => {
-                console.log('get_guess: keydown event', e.key, input.value);
+                console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, inputId: input.id });
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    console.log('get_guess: Enter pressed', { inputValue: input.value, inputId: input.id });
+                    console.log('get_guess: Enter key pressed', { inputValue: input.value, inputId: input.id });
                     const result = handleGuess('enter', input.value);
                     if (result.valid) {
                         input.removeEventListener('keydown', enterHandler);
                         input._guessHandler = null;
-                        console.log('get_guess: Resolving with guess', result.guess); // <-- ADD HERE
+                        console.log('get_guess: Resolving with guess', result.guess);
                         resolve(result.guess);
                     }
                 }
             };
             input._guessHandler = enterHandler;
             input.addEventListener('keydown', enterHandler);
-            function cleanup() {
+            console.log('get_guess: Attached keydown handler', input.id);
+            // Timeout to prevent hanging
+            const timeoutId = setTimeout(() => {
                 input.removeEventListener('keydown', enterHandler);
-            }
+                input._guessHandler = null;
+                console.warn('get_guess: Input timeout', input.id);
+                reject(new Error('Input timeout'));
+            }, 30000);
+
             function handleGuess(source, guessValue) {
                 console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
                 const rawGuess = guessValue || '';
@@ -586,35 +592,9 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                     return { valid: false };
                 }
             }
-            try {
-                input.addEventListener('keydown', enterHandler);
-            } catch (err) {
-                console.error('get_guess: Error attaching input listener', err);
-                cleanup();
-                reject(new Error('Failed to attach input listener'));
-                return;
-            }
-            // Add a timeout that cleans up the listener
-            const timeoutId = setTimeout(() => {
-                cleanup();
-                reject(new Error('Input timeout'));
-            }, 30000);
-            // Also cleanup the timeout if resolved
-            const originalResolve = resolve;
-            resolve = (value) => {
-                clearTimeout(timeoutId);
-                cleanup();
-                originalResolve(value);
-            };
-            const originalReject = reject;
-            reject = (err) => {
-                clearTimeout(timeoutId);
-                cleanup();
-                originalReject(err);
-            };
         });
     } catch (err) {
-        console.error('get_guess: Error setting input focus', err);
+        console.error('get_guess: Error setting up input', err);
         throw new Error('Invalid input element');
     }
 }
@@ -2271,14 +2251,17 @@ async function play_game(
                     }
                     progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
                     prompt.innerText = mode === '2' && gameType === 'remoto' && player !== localPlayer ? `Esperando a ${escapeHTML(player)}...` : 'Ingresa una letra o la palabra completa:';
-                    if (
-                        input.parentNode &&
-                        (mode !== '2' || gameType !== 'remoto' || currentPlayer === localPlayer)
-                    ) {
-                        input.disabled = false;
-                        focusInput(input);
-                    } else if (input.parentNode) {
-                        input.disabled = true;
+                    if (input.parentNode) {
+                        if (mode !== '2' || gameType !== 'remoto' || player === localPlayer) {
+                            input.disabled = false;
+                            console.log('update_ui: Enabling input for', player, { inputId: input.id, isLocalPlayer: player === localPlayer });
+                            focusInput(input);
+                        } else {
+                            input.disabled = true;
+                            console.log('update_ui: Disabling input for', localPlayer, 'waiting for', player);
+                        }
+                    } else {
+                        console.error('update_ui: Input not in DOM', { input });
                     }
                 } catch (err) {
                     console.error('update_ui: Error updating UI', err);
@@ -2360,7 +2343,7 @@ async function play_game(
                                                     prompt.innerText = 'Ingresa una letra o la palabra completa:';
                                                     input.disabled = false;
                                                     focusInput(input);
-                                                    console.log('REMOTE GAME LOOP: Calling get_guess for', localPlayer);
+                                                    console.log('REMOTE GAME LOOP: Input enabled for', localPlayer, { inputId: input.id });
                                                     const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
                                                     if (!guess) {
                                                         display_feedback('Entrada inválida. Turno perdido.', 'red', localPlayer, true);
