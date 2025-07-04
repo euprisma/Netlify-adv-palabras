@@ -2662,7 +2662,7 @@ async function play_game(
 async function main(config = null) {
     console.log('main: CALLED', { config, stack: new Error().stack });
     await initSupabase();
-    await create_game_ui();
+    //await create_game_ui();
     console.log('main: Starting', config ? '(rematch mode)' : '');
     try {
         if (config && config.skipMenu) {
