@@ -511,15 +511,15 @@ function display_feedback(message, color, player = null, append = false, autoCle
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
-    console.log('get_guess: Starting, Loaded version 2025-07-04-v10.1', {
+    console.log('get_guess: Starting, Loaded version 2025-07-04-v10.3', {
         prompt: prompt?.innerText,
         inputExists: !!input?.parentNode,
         buttonExists: !!button?.parentNode,
         inputValue: input?.value,
         inputId: input?.id || 'no-id'
     });
-    if (!prompt || !input || !output) {
-        console.error('get_guess: Missing required DOM elements', { prompt, input, output });
+    if (!prompt || !input || !output || !button) {
+        console.error('get_guess: Missing required DOM elements', { prompt, input, output, button });
         throw new Error('Missing required DOM elements');
     }
     input.id = input.id || `guess-input-${Date.now()}`;
@@ -527,76 +527,103 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     const min_guesses_for_word = secret_word.length < 5 ? 1 : 2;
     const permitir_palabra = guessed_letters.size >= min_guesses_for_word || Array.from(guessed_letters).some(l => secret_word.split('').filter(x => x === l).length > 1);
     prompt.innerText = permitir_palabra ? 'Adivina una letra o la palabra completa:' : 'Adivina una letra:';
-    if (button && button.parentNode) {
-        button.style.display = 'none';
-        console.log('get_guess: Enviar button hidden for guessing');
-    }
-    try {
-        input.value = '';
-        input.disabled = false; // Ensure input is enabled
-        focusInput(input);
-        return new Promise((resolve, reject) => {
-            // Remove any previous handler
-            if (input._guessHandler) {
-                input.removeEventListener('keydown', input._guessHandler);
-                console.log('get_guess: Removed previous handler', input.id);
-            }
-            const enterHandler = (e) => {
-                console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, inputId: input.id });
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    console.log('get_guess: Enter key pressed', { inputValue: input.value, inputId: input.id });
-                    const result = handleGuess('enter', input.value);
-                    if (result.valid) {
-                        input.removeEventListener('keydown', enterHandler);
-                        input._guessHandler = null;
-                        console.log('get_guess: Resolving with guess', result.guess);
-                        resolve(result.guess);
-                    }
-                }
-            };
-            input._guessHandler = enterHandler;
-            input.addEventListener('keydown', enterHandler);
-            console.log('get_guess: Attached keydown handler', input.id);
-            // Timeout to prevent hanging
-            const timeoutId = setTimeout(() => {
-                input.removeEventListener('keydown', enterHandler);
-                input._guessHandler = null;
-                console.warn('get_guess: Input timeout', input.id);
-                reject(new Error('Input timeout'));
-            }, 30000);
+    button.style.display = 'inline-block';
+    button.innerText = 'Enviar';
+    input.value = '';
+    input.disabled = false;
+    focusInput(input);
+    console.log('get_guess: Input initialized', { inputId: input.id, disabled: input.disabled, focused: document.activeElement === input });
 
-            function handleGuess(source, guessValue) {
-                console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
-                const rawGuess = guessValue || '';
-                const trimmedGuess = rawGuess.trim();
-                const normalizedGuess = normalizar(trimmedGuess);
-                console.log('get_guess: Processing guess', { rawGuess, trimmedGuess, normalizedGuess, secret_word, normalized_secret });
-                if (!trimmedGuess) {
-                    output.innerText = 'Entrada vacía. Ingresa una letra o palabra válida.';
-                    output.style.color = 'red';
-                    focusInput(input);
-                    return { valid: false };
-                }
-                if (permitir_palabra && normalizedGuess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
-                    input.value = '';
-                    return { valid: true, guess: normalizedGuess };
-                } else if (normalizedGuess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
-                    input.value = '';
-                    return { valid: true, guess: normalizedGuess };
-                } else {
-                    output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida (solo letras, incluyendo áéíóúüñ).';
-                    output.style.color = 'red';
-                    input.value = '';
-                    focusInput(input);
-                    return { valid: false };
+    return new Promise((resolve, reject) => {
+        // Remove existing handlers
+        if (input._guessHandler) {
+            input.removeEventListener('keydown', input._guessHandler);
+            console.log('get_guess: Removed previous keydown handler', input.id);
+        }
+        if (button._clickHandler) {
+            button.removeEventListener('click', button._clickHandler);
+            console.log('get_guess: Removed previous button click handler', button.id);
+        }
+
+        function handleGuess(source, guessValue) {
+            console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
+            const rawGuess = guessValue || '';
+            const trimmedGuess = rawGuess.trim();
+            const normalizedGuess = normalizar(trimmedGuess);
+            console.log('get_guess: Processing guess', { rawGuess, trimmedGuess, normalizedGuess, secret_word, normalized_secret });
+            if (!trimmedGuess) {
+                output.innerText = 'Entrada vacía. Ingresa una letra o palabra válida.';
+                output.style.color = 'red';
+                focusInput(input);
+                return { valid: false };
+            }
+            if (permitir_palabra && normalizedGuess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                input.value = '';
+                return { valid: true, guess: normalizedGuess };
+            } else if (normalizedGuess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                input.value = '';
+                return { valid: true, guess: normalizedGuess };
+            } else {
+                output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida (solo letras, incluyendo áéíóúüñ).';
+                output.style.color = 'red';
+                input.value = '';
+                focusInput(input);
+                return { valid: false };
+            }
+        }
+
+        const enterHandler = (e) => {
+            console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, inputId: input.id, focused: document.activeElement === input });
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                console.log('get_guess: Enter key pressed', { inputValue: input.value, inputId: input.id });
+                const result = handleGuess('enter', input.value);
+                if (result.valid) {
+                    cleanup();
+                    resolve(result.guess);
                 }
             }
-        });
-    } catch (err) {
-        console.error('get_guess: Error setting up input', err);
-        throw new Error('Invalid input element');
-    }
+        };
+
+        const clickHandler = () => {
+            console.log('get_guess: Button clicked', { inputValue: input.value, inputId: input.id });
+            const result = handleGuess('button', input.value);
+            if (result.valid) {
+                cleanup();
+                resolve(result.guess);
+            }
+        };
+
+        function cleanup() {
+            input.removeEventListener('keydown', enterHandler);
+            button.removeEventListener('click', clickHandler);
+            input._guessHandler = null;
+            button._clickHandler = null;
+            clearTimeout(timeoutId);
+            console.log('get_guess: Cleaned up handlers', input.id);
+        }
+
+        input._guessHandler = enterHandler;
+        button._clickHandler = clickHandler;
+        input.addEventListener('keydown', enterHandler);
+        button.addEventListener('click', clickHandler);
+        console.log('get_guess: Attached handlers', { inputId: input.id, buttonId: button.id });
+
+        // Periodically check focus
+        const focusCheckInterval = setInterval(() => {
+            if (document.activeElement !== input) {
+                console.warn('get_guess: Input lost focus, re-focusing', input.id);
+                focusInput(input);
+            }
+        }, 1000);
+
+        const timeoutId = setTimeout(() => {
+            cleanup();
+            clearInterval(focusCheckInterval);
+            console.warn('get_guess: Input timeout', input.id);
+            reject(new Error('Input timeout'));
+        }, 60000);
+    });
 }
 
 function get_guess_feedback(guess, secret_word, player_score) {
@@ -2252,13 +2279,11 @@ async function play_game(
                     progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
                     prompt.innerText = mode === '2' && gameType === 'remoto' && player !== localPlayer ? `Esperando a ${escapeHTML(player)}...` : 'Ingresa una letra o la palabra completa:';
                     if (input.parentNode) {
-                        if (mode !== '2' || gameType !== 'remoto' || player === localPlayer) {
-                            input.disabled = false;
-                            console.log('update_ui: Enabling input for', player, { inputId: input.id, isLocalPlayer: player === localPlayer });
+                        const isLocalPlayer = player.toLowerCase() === localPlayer?.toLowerCase();
+                        input.disabled = !isLocalPlayer;
+                        console.log('update_ui: Input state updated', { player, localPlayer, isLocalPlayer, inputId: input.id, disabled: input.disabled });
+                        if (isLocalPlayer) {
                             focusInput(input);
-                        } else {
-                            input.disabled = true;
-                            console.log('update_ui: Disabling input for', localPlayer, 'waiting for', player);
                         }
                     } else {
                         console.error('update_ui: Input not in DOM', { input });
@@ -2280,6 +2305,11 @@ async function play_game(
                 if (mode === '2' && gameType === 'remoto') {
                     try {
                         console.log('REMOTE GAME LOOP: Setting up Supabase listener for session', sessionId);
+                        // Remove any existing channel
+                        if (channel) {
+                            console.log('REMOTE GAME LOOP: Removing existing channel', sessionId);
+                            supabase.removeChannel(channel);
+                        }
                         channel = supabase
                             .channel(`game:${sessionId}`)
                             .on(
@@ -2650,15 +2680,18 @@ async function play_game(
                 }
             }
             container.appendChild(button_group);
+            console.log('play_game: Completed', { games_played, total_scores });
+            
         } catch (err) {
             console.error('play_game: Error in game execution', err);
             display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
+            throw err;
         }
     } finally {
-        if (gameIsOver && channel) {
-            console.log('REMOTE GAME LOOP: Unsubscribing at', new Date().toISOString());
+        if (channel) {
+            console.log('play_game: Cleaning up Supabase channel', sessionId);
             supabase.removeChannel(channel);
-            console.log('play_game: Supabase channel cleaned up');
+            channel = null;
         }
     }
 }
