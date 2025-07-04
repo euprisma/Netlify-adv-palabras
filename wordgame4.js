@@ -541,13 +541,13 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                     console.log('get_guess: Enter pressed', { inputValue: input.value, inputId: input.id });
                     const result = handleGuess('enter', input.value);
                     if (result.valid) {
-                        input.removeEventListener('keypress', enterHandler); // Remove listener before resolving
+                        input.removeEventListener('Keydown', enterHandler); // Remove listener before resolving
                         resolve(result.guess);
                     }
                 }
             };
             function cleanup() {
-                input.removeEventListener('keypress', enterHandler);
+                input.removeEventListener('Keydown', enterHandler);
             }
             function handleGuess(source, guessValue) {
                 console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
@@ -576,7 +576,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                 }
             }
             try {
-                input.addEventListener('keypress', enterHandler);
+                input.addEventListener('Keydown', enterHandler);
             } catch (err) {
                 console.error('get_guess: Error attaching input listener', err);
                 cleanup();
@@ -700,7 +700,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 console.log('create_game_ui: Mode input:', value);
                 if (value === '1' || value === '2' || value === '3') {
                     selected_mode = value;
-                    input.removeEventListener('keypress', currentHandler);
+                    input.removeEventListener('Keydown', currentHandler);
 
                     if (selected_mode === '3') {
                         // Step 1: Prompt for difficulty
@@ -735,7 +735,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 currentHandler = (e) => {
                                     if (e.key === 'Enter') button.click();
                                 };
-                                input.addEventListener('keypress', currentHandler);
+                                input.addEventListener('Keydown', currentHandler);
 
                                 function handlePlayer1IAInput() {
                                     const player1Input = input.value.trim();
@@ -747,7 +747,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         return;
                                     }
                                     selected_player1 = format_name(player1Input);
-                                    input.removeEventListener('keypress', currentHandler);
+                                    input.removeEventListener('Keydown', currentHandler);
                                     button.onclick = null;
                                     resolve({
                                         mode: selected_mode,
@@ -798,7 +798,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         currentHandler = (e) => {
                             if (e.key === 'Enter') button.click();
                         };
-                        input.addEventListener('keypress', currentHandler);
+                        input.addEventListener('Keydown', currentHandler);
                     }
                 } else {
                     output.innerText = 'Inválido. Ingresa 1, 2, o 3.';
@@ -814,7 +814,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 if (buttonContainer.parentNode) container.removeChild(buttonContainer);
                 if (!input.parentNode) container.appendChild(input);
                 if (!button.parentNode) container.appendChild(button);
-                input.removeEventListener('keypress', currentHandler);
+                input.removeEventListener('Keydown', currentHandler);
                 if (selected_gameType === 'remoto') {
                     prompt.innerText = '¿Crear juego o unirse? (Ingresa "crear" o "unirse"):';
                     input.value = '';
@@ -823,7 +823,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     currentHandler = (e) => {
                         if (e.key === 'Enter') button.click();
                     };
-                    input.addEventListener('keypress', currentHandler);
+                    input.addEventListener('Keydown', currentHandler);
                 } else {
                     prompt.innerText = 'Nombre Jugador 1:';
                     input.value = '';
@@ -832,7 +832,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     currentHandler = (e) => {
                         if (e.key === 'Enter') button.click();
                     };
-                    input.addEventListener('keypress', currentHandler);
+                    input.addEventListener('Keydown', currentHandler);
 
                     function handlePlayer1LocalInput() {
                         const player1Input = input.value.trim();
@@ -848,11 +848,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         input.value = '';
                         focusInput(input);
                         button.onclick = handlePlayer2LocalInput;
-                        input.removeEventListener('keypress', currentHandler);
+                        input.removeEventListener('Keydown', currentHandler);
                         currentHandler = (e) => {
                             if (e.key === 'Enter') button.click();
                         };
-                        input.addEventListener('keypress', currentHandler);
+                        input.addEventListener('Keydown', currentHandler);
                     }
 
                     function handlePlayer2LocalInput() {
@@ -865,7 +865,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             return;
                         }
                         selected_player2 = format_name(player2Input);
-                        input.removeEventListener('keypress', currentHandler);
+                        input.removeEventListener('Keydown', currentHandler);
                         button.onclick = null;
                         resolve({
                             mode: selected_mode,
@@ -977,12 +977,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
                         input.value = '';
                         focusInput(input);
-                        input.removeEventListener('keypress', currentHandler);
+                        input.removeEventListener('Keydown', currentHandler);
                         button.onclick = () => handlePlayer1Input();
                         currentHandler = (e) => {
                             if (e.key === 'Enter') button.click();
                         };
-                        input.addEventListener('keypress', currentHandler);
+                        input.addEventListener('Keydown', currentHandler);
                     } catch (error) {
                         console.error('create_game_ui: Error creating game session:', error);
                         output.innerText = error.status === 406
@@ -1005,12 +1005,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     prompt.innerText = 'Ingresa el ID de sesión:';
                     input.value = '';
                     focusInput(input);
-                    input.removeEventListener('keypress', currentHandler);
+                    input.removeEventListener('Keydown', currentHandler);
                     button.onclick = handleSessionIdInput;
                     currentHandler = (e) => {
                         if (e.key === 'Enter') button.click();
                     };
-                    input.addEventListener('keypress', currentHandler);
+                    input.addEventListener('Keydown', currentHandler);
                 } else {
                     console.warn('create_game_ui: Invalid remote role input:', value);
                     output.innerText = 'Entrada inválida. Ingresa "crear" o "unirse".';
@@ -1156,7 +1156,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         console.log('handlePlayer1Input: Player 2 joined', game.player2);
                                         selected_player2 = game.player2;
                                         clearTimeout(timeoutId);
-                                        input.removeEventListener('keypress', currentHandler);
+                                        input.removeEventListener('Keydown', currentHandler);
                                         input.style.display = 'inline-block';
                                         focusInput(input);
                                         cleanup(); // Use cleanup function
@@ -1384,12 +1384,12 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     prompt.innerText = 'Nombre Jugador 2:';
                     input.value = '';
                     focusInput(input);
-                    input.removeEventListener('keypress', currentHandler);
+                    input.removeEventListener('Keydown', currentHandler);
                     button.onclick = handlePlayer2Input;
                     currentHandler = (e) => {
                         if (e.key === 'Enter') button.click();
                     };
-                    input.addEventListener('keypress', currentHandler);
+                    input.addEventListener('Keydown', currentHandler);
                 } catch (error) {
                     console.error('create_game_ui: Error checking session ID:', error);
                     output.innerText = error.code === '42501'
@@ -1574,7 +1574,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     output.innerText = `Unido al juego con ID: ${selected_sessionId}`;
                     output.style.color = 'black';
                     input.value = '';
-                    input.removeEventListener('keypress', currentHandler);
+                    input.removeEventListener('Keydown', currentHandler);
                     prompt.innerText = 'Ingresa una letra o la palabra completa:';
                     button.style.display = 'none';
                     focusInput(input);
@@ -1636,7 +1636,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             currentHandler = (e) => {
                 if (e.key === 'Enter') button.click();
             };
-            input.addEventListener('keypress', currentHandler);
+            input.addEventListener('Keydown', currentHandler);
         });
     } finally {
         isCreatingUI = false;
