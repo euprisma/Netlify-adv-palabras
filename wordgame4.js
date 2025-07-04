@@ -2325,6 +2325,35 @@ async function play_game(
                         }
                         console.log('REMOTE GAME LOOP: Initial game state', gameData);
 
+                        // If this client is the current player, trigger the first guess
+                        if (
+                            gameData.current_player &&
+                            localPlayer &&
+                            gameData.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase()
+                        ) {
+                            console.log('REMOTE GAME LOOP: First move - calling get_guess for', localPlayer);
+                            isGuessing = true;
+                            try {
+                                prompt.innerText = 'Ingresa una letra o la palabra completa:';
+                                input.disabled = false;
+                                focusInput(input);
+                                const guess = await get_guess(
+                                    guessed_letters,
+                                    provided_secret_word,
+                                    prompt,
+                                    input,
+                                    output,
+                                    button
+                                );
+                                console.log('REMOTE GAME LOOP: First move guess received', { guess });
+                                // You may want to process the guess here, or let the listener handle it after update
+                            } catch (err) {
+                                console.error('REMOTE GAME LOOP: Error in first move get_guess', err);
+                            } finally {
+                                isGuessing = false;
+                            }
+                        }
+
                         if (channel) {
                             console.log('REMOTE GAME LOOP: Removing existing channel', sessionId);
                             supabase.removeChannel(channel);
