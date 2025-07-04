@@ -2304,7 +2304,7 @@ async function play_game(
                 let isGuessing = false;
                 if (mode === '2' && gameType === 'remoto') {
                     try {
-                        console.log('REMOTE GAME LOOP: Starting, Loaded version 2025-07-04-v10.6', {
+                        console.log('REMOTE GAME LOOP: Starting, Loaded version 2025-07-04-v10.7', {
                             sessionId,
                             localPlayer,
                             currentPlayer: players[current_player_idx_ref.value],
@@ -2494,8 +2494,32 @@ async function play_game(
                                 } else if (err) {
                                     console.error('Subscription error:', err);
                                     display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
+                                    // Fallback: Try calling get_guess if subscription fails
+                                    if (!isGuessing && !gameIsOver && localPlayer === players[current_player_idx_ref.value]) {
+                                        console.log('REMOTE GAME LOOP: Fallback to get_guess due to subscription failure', { localPlayer });
+                                        isGuessing = true;
+                                        prompt.innerText = 'Ingresa una letra o la palabra completa:';
+                                        input.disabled = false;
+                                        input.focus();
+                                        get_guess(guessed_letters, provided_secret_word, prompt, input, output, button)
+                                            .then(guess => {
+                                                console.log('REMOTE GAME LOOP: Fallback guess received', { guess });
+                                                // Process guess as above
+                                                isGuessing = false;
+                                            })
+                                            .catch(err => {
+                                                console.error('REMOTE GAME LOOP: Fallback get_guess error', err);
+                                                display_feedback('Error al procesar la entrada. Intenta de nuevo.', 'red', null, false);
+                                                isGuessing = false;
+                                            });
+                                    }
                                 }
                             });
+
+                        // Wait for listener to process updates
+                        console.log('REMOTE GAME LOOP: Waiting for listener to process');
+                        await new Promise(resolve => setTimeout(resolve, 30000)); // Wait up to 30s for listener
+                        console.log('REMOTE GAME LOOP: Listener wait completed');
                         return channel;
                     } catch (err) {
                         console.error('REMOTE GAME LOOP: Setup error', err);
