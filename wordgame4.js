@@ -2514,6 +2514,11 @@ async function play_game(
             );
             await delay(3000);
 
+            if (!gameIsOver && mode === '2' && gameType === 'remoto') {
+                // For remote games, don't show end UI until the listener says so
+                return;
+            }
+
             // End of game UI and buttons
             players.forEach(p => {
                 total_scores[p] = (total_scores[p] || 0) + (scores[p] || 0);
