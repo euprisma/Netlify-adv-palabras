@@ -1,13 +1,25 @@
 // Transcrypt'ed from Python, 2025-06-16, updated 2025-10-14 for Firebase v10.14.0
 
-//import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = 'https://bbjryfwufpdyyfbrmdvv.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJianJ5Znd1ZnBkeXlmYnJtZHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NTQzNjcsImV4cCI6MjA2NzEzMDM2N30.cASkkXdQx9SvoPnLqGbHsj-pnqLxvlozYQRcyuc0-Bs'
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Anonymous sign-in
-//await supabase.auth.signInAnonymously();
+// Anonymous authentication
+async function initSupabase() {
+    try {
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error) {
+            console.error('initSupabase: Authentication error', error);
+            throw error;
+        }
+        console.log('initSupabase: Authenticated anonymously', data);
+    } catch (error) {
+        console.error('initSupabase: Failed to initialize Supabase', error);
+        throw error;
+    }
+}
 
 async function createSession(sessionId, player1, mode, gameType, secretWord) {
     if (!sessionId || !player1 || !secretWord || typeof secretWord !== 'string') {
@@ -27,7 +39,7 @@ async function createSession(sessionId, player1, mode, gameType, secretWord) {
                     player1,
                     status: 'waiting_for_player2',
                     secret_word: secretWord,
-                    guessed_letters: [], // Always an empty array
+                    guessed_letters: [],
                     tries: { [player1]: totalTries },
                     scores: { [player1]: 0 },
                     current_player: player1,
@@ -43,24 +55,28 @@ async function createSession(sessionId, player1, mode, gameType, secretWord) {
                 .from('game_players')
                 .insert({
                     session_id: sessionId,
-                    user_id: user?.id || null,
+                    user_id: user?.data?.user?.id || null,
                     player_name: player1
                 });
             if (playerError) throw playerError;
             result = data;
             break;
         } catch (error) {
-            console.warn(`createSession: Retry ${3 - attempts}/3`, error);
+            console.warn(`createSession: Retry ${3 - attempts}/3`, { sessionId, error });
             if (attempts === 0) {
-                console.error('createSession: Failed to create session', error);
+                console.error('createSession: Failed to create session', { sessionId, error });
                 throw error;
             }
-            await delay(1000); // Assuming delay is defined as in your code
+            await delay(1000);
         }
     }
-    if (!result) throw new Error('Failed to create session after retries');
-    console.log('createSession: Session created', { sessionId, guessed_letters: result.guessed_letters });
+    if (!result) throw new Error('Failed to create session');
+    console.log('createSession: Session created', { sessionId });
     return result;
+}
+
+function generateSessionId() {
+    return 'sess_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
 }
 
 // Define updateSession
@@ -137,22 +153,29 @@ async function getSession(sessionId) {
                 .eq('session_id', sessionId)
                 .single();
             if (error) {
-                if (error.code === 'PGRST116') {
-                    console.warn('getSession: Session not found', sessionId);
-                    return null; // Graceful handling for no session
+                if (error.code === 'PGRST116' || error.status === 406) {
+                    console.warn('getSession: Session not found or inaccessible', { sessionId, error });
+                    // Clean up potential stale session
+                    try {
+                        await supabase.from('games').delete().eq('session_id', sessionId);
+                        await supabase.from('game_players').delete().eq('session_id', sessionId);
+                        console.log('getSession: Cleaned up stale session', sessionId);
+                    } catch (cleanupError) {
+                        console.warn('getSession: Failed to clean up stale session', { sessionId, cleanupError });
+                    }
+                    return null;
                 }
                 throw error;
             }
-            // Ensure guessed_letters is an array
             result = {
                 ...data,
                 guessed_letters: Array.isArray(data.guessed_letters) ? data.guessed_letters : []
             };
             break;
         } catch (error) {
-            console.warn(`getSession: Retry ${3 - attempts}/3`, error);
+            console.warn(`getSession: Retry ${3 - attempts}/3`, { sessionId, error });
             if (attempts === 0) {
-                console.error('getSession: Failed to fetch session', error);
+                console.error('getSession: Failed to fetch session', { sessionId, error });
                 throw error;
             }
             await delay(1000);
@@ -868,7 +891,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                 const value = input.value.trim().toLowerCase();
                 console.log('create_game_ui: Remote role input:', value);
                 if (value === 'crear') {
-                    selected_sessionId = Math.random().toString(36).substring(2, 12);
+                    selected_sessionId = generateSessionId();
                     console.log('create_game_ui: Generated session ID:', selected_sessionId);
                     if (!selected_sessionId) {
                         console.error('create_game_ui: Failed to generate session ID');
@@ -915,111 +938,30 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         while (attempts--) {
                             try {
                                 // Check for session ID collision
-                                try {
-                                    const existingSession = await getSession(selected_sessionId);
+                                const existingSession = await getSession(selected_sessionId);
+                                if (existingSession) {
                                     console.warn('create_game_ui: Session ID collision', selected_sessionId);
-                                    selected_sessionId = Math.random().toString(36).substring(2, 12);
+                                    selected_sessionId = generateSessionId();
                                     continue;
-                                } catch (error) {
-                                    if (error.code === 'PGRST116') { // No rows found
-                                        // Expected case: session doesn't exist yet
-                                    } else {
-                                        throw error;
-                                    }
                                 }
-                                // Use createSession to insert the initial state
-                                await createSession(selected_sessionId, {
-                                    status: 'waiting',
-                                    player1: '',
-                                    player2: '',
-                                    mode: selected_mode,
-                                    gameType: selected_gameType,
-                                    secretWord,
-                                    guessedLetters: [],
-                                    tries: { init: null },
-                                    scores: { init: null },
-                                    currentPlayer: 'none',
-                                    initialized: true
-                                });
-                                // Validate inserted state
-                                let validationAttempts = 3;
-                                let createdState;
-                                while (validationAttempts--) {
-                                    await delay(1000);
-                                    createdState = await getSession(selected_sessionId);
-                                    console.log('create_game_ui: Retrieved state after insert', { sessionId: selected_sessionId, createdState });
-                                    if (createdState && createdState.secret_word && createdState.initialized) {
-                                        // Fix missing or incorrect fields
-                                        let needsUpdate = false;
-                                        const updates = {};
-                                        if (!Array.isArray(createdState.guessed_letters)) {
-                                            updates.guessed_letters = [];
-                                            needsUpdate = true;
-                                        }
-                                        if (!createdState.tries || typeof createdState.tries !== 'object' || createdState.tries === null) {
-                                            updates.tries = { init: null };
-                                            needsUpdate = true;
-                                        }
-                                        if (!createdState.scores || typeof createdState.scores !== 'object' || createdState.scores === null) {
-                                            updates.scores = { init: null };
-                                            needsUpdate = true;
-                                        }
-                                        if (createdState.current_player === undefined || createdState.current_player === null) {
-                                            updates.current_player = 'none';
-                                            needsUpdate = true;
-                                        }
-                                        if (needsUpdate) {
-                                            console.log('create_game_ui: Correcting missing fields for session', selected_sessionId);
-                                            await updateSession(selected_sessionId, updates);
-                                            console.log('create_game_ui: Corrected missing fields for session', selected_sessionId);
-                                            await delay(1000);
-                                            createdState = await getSession(selected_sessionId);
-                                        }
-                                        if (createdState && createdState.secret_word && createdState.initialized) {
-                                            break;
-                                        }
-                                    }
-                                    console.warn('create_game_ui: Validation attempt failed', {
-                                        attempt: 3 - validationAttempts,
-                                        hasSecretWord: !!createdState?.secret_word,
-                                        hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessed_letters == null ? 'null/undefined' : typeof createdState.guessed_letters,
-                                        hasTries: createdState?.tries != null,
-                                        hasScores: createdState?.scores != null,
-                                        hasCurrentPlayer: createdState?.current_player != null,
-                                        status: createdState?.status
-                                    });
-                                }
-                                if (!createdState || !createdState.secret_word || !createdState.initialized) {
-                                    console.error('create_game_ui: Invalid state after insert', {
-                                        createdState,
-                                        hasSecretWord: !!createdState?.secret_word,
-                                        hasInitialized: !!createdState?.initialized,
-                                        guessedLettersType: createdState?.guessed_letters == null ? 'null/undefined' : typeof createdState.guessed_letters,
-                                        hasTries: createdState?.tries != null,
-                                        hasScores: createdState?.scores != null,
-                                        hasCurrentPlayer: createdState?.current_player != null,
-                                        status: createdState?.status
-                                    });
-                                    const { error: deleteError } = await supabase
-                                        .from('games')
-                                        .delete()
-                                        .eq('session_id', selected_sessionId);
-                                    if (deleteError) {
-                                        console.warn('create_game_ui: Failed to clean up invalid session', deleteError);
-                                    } else {
-                                        console.log('create_game_ui: Cleaned up invalid session', selected_sessionId);
-                                    }
-                                    throw new Error('Failed to validate session state');
-                                }
-                                console.log('create_game_ui: Supabase session created', { sessionId: selected_sessionId, secretWord, createdState });
+                                // Create session
+                                await createSession(selected_sessionId, 'Player1', selected_mode, selected_gameType, secretWord);
+                                console.log('create_game_ui: Supabase session created', { sessionId: selected_sessionId, secretWord });
                                 success = true;
                                 break;
                             } catch (error) {
                                 console.warn(`create_game_ui: Retry ${5 - attempts}/5 for Supabase insert`, error);
-                                if (error.code === '42501') { // Insufficient privilege
-                                    console.error('create_game_ui: Permission denied, check Supabase RLS policies', { error });
-                                    output.innerText = 'Error: Permiso denegado. Verifica las reglas de Supabase.';
+                                if (error.code === '42501' || error.status === 406) {
+                                    console.error('create_game_ui: Permission denied or invalid request', { error });
+                                    output.innerText = 'Error: Permiso denegado o solicitud inválida. Verifica la configuración de Supabase.';
+                                    output.style.color = 'red';
+                                    input.value = '';
+                                    focusInput(input);
+                                    return;
+                                }
+                                if (attempts === 0) {
+                                    console.error('create_game_ui: Failed to create Supabase session after retries');
+                                    output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo o verifica la conexión a Supabase.';
                                     output.style.color = 'red';
                                     input.value = '';
                                     focusInput(input);
@@ -1028,14 +970,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 await delay(1000);
                             }
                         }
-                        if (!success) {
-                            console.error('create_game_ui: Failed to create Supabase session after retries');
-                            output.innerText = 'Error al crear la sesión de juego. Intenta de nuevo o verifica la conexión a Supabase.';
-                            output.style.color = 'red';
-                            input.value = '';
-                            focusInput(input);
-                            return;
-                        }
+                        if (!success) return;
                         prompt.innerText = `Nombre Jugador 1 (ID de sesión: ${selected_sessionId}):`;
                         input.value = '';
                         focusInput(input);
@@ -1047,14 +982,13 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         input.addEventListener('keypress', currentHandler);
                     } catch (error) {
                         console.error('create_game_ui: Error creating game session:', error);
-                        output.innerText = error.code === '42501'
-                            ? 'Error: Permiso denegado. Verifica las reglas de Supabase.'
+                        output.innerText = error.code === '42501' || error.status === 406
+                            ? 'Error: Permiso denegado o solicitud inválida. Verifica la configuración de Supabase.'
                             : 'Error al crear la sesión de juego. Intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
                         focusInput(input);
                     } finally {
-                        // Remove loading message and restore UI for player name input
                         if (loadingMessage && loadingMessage.parentNode) {
                             container.removeChild(loadingMessage);
                         }
@@ -1269,17 +1203,14 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         console.warn('handlePlayer1Input: Timeout waiting for Player 2', { sessionId });
                                         output.innerText = 'Tiempo de espera agotado. Intenta crear un nuevo juego.';
                                         output.style.color = 'red';
-                                        // Clean up both games and game_players tables
                                         let attempts = 3;
                                         while (attempts--) {
                                             try {
-                                                // Delete from games table
                                                 const { error: deleteGameError } = await supabase
                                                     .from('games')
                                                     .delete()
                                                     .eq('session_id', sessionId);
                                                 if (deleteGameError) throw deleteGameError;
-                                                // Delete from game_players table
                                                 const { error: deletePlayerError } = await supabase
                                                     .from('game_players')
                                                     .delete()
@@ -1294,7 +1225,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                                     output.innerText = 'Error al limpiar la sesión. Intenta de nuevo.';
                                                     output.style.color = 'red';
                                                 }
-                                                await delay(1000); // Assuming delay is defined
+                                                await delay(1000);
                                             }
                                         }
                                     }
@@ -1305,7 +1236,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 }
                                 input.style.display = 'inline-block';
                                 button.style.display = 'inline-block';
-                                input.value = '';
+                                input.value = generateSessionId();
                                 focusInput(input);
                                 button.onclick = () => main();
                                 cleanup();
@@ -2714,6 +2645,8 @@ async function play_game(
 }
 
 async function main(config = null) {
+    await initSupabase();
+    await create_game_ui();
     console.log('main: Starting', config ? '(rematch mode)' : '');
     try {
         if (config && config.skipMenu) {
