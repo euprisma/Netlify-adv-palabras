@@ -1506,6 +1506,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                     let success = false;
                     attempts = 5;
                     while (attempts--) {
+                    let finalState = null;
                         try {
                             if (!Array.isArray(sessionState.guessed_letters)) {
                                 sessionState.guessed_letters = [];
@@ -1531,7 +1532,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                 initialized: true
                             });
                             // Validate update
-                            const finalState = await getSession(selected_sessionId);
+                            finalState = await getSession(selected_sessionId);
                             if (finalState.player2 !== selected_player2 || finalState.status !== 'playing') {
                                 console.warn('handlePlayer2Input: Update validation failed, retrying');
                                 throw new Error('Update validation failed');
