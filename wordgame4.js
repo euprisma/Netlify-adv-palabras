@@ -511,6 +511,7 @@ function display_feedback(message, color, player = null, append = false, autoCle
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
+    console.log('get_guess: called for', input, input.id, input.parentNode, document.activeElement === input);
     console.log('get_guess: Starting, Loaded version 2025-07-04-v10.3', {
         prompt: prompt?.innerText,
         inputExists: !!input?.parentNode,
