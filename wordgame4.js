@@ -2298,7 +2298,7 @@ async function play_game(
 
             // Game Loop
             async function game_loop(
-                players, tries, scores, mode, secret_word_length, guessed_letters, gameType, sessionId,
+                players, tries, scores, mode, provided_secret_word, secret_word_length, guessed_letters, gameType, sessionId,
                 output, container, prompt, input, button, display_feedback, current_player_idx_ref,
                 game_info, games_played, games_to_play, total_scores, difficulty, channel
             ) {
@@ -2550,7 +2550,7 @@ async function play_game(
                 }
             }
             await game_loop(
-                players, tries, scores, mode, provided_secret_word.length, guessed_letters, gameType, sessionId,
+                players, tries, scores, mode, provided_secret_word, provided_secret_word.length, guessed_letters, gameType, sessionId,
                 output, container, prompt, input, button, display_feedback, current_player_idx_ref,
                 game_info, games_played, games_to_play, total_scores, difficulty
             );
