@@ -1,6 +1,6 @@
 // Transcrypt'ed from Python, 2025-06-16, updated 2025-10-14 for Firebase v10.14.0
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.7/+esm";
 
 const supabaseUrl = 'https://bbjryfwufpdyyfbrmdvv.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJianJ5Znd1ZnBkeXlmYnJtZHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NTQzNjcsImV4cCI6MjA2NzEzMDM2N30.cASkkXdQx9SvoPnLqGbHsj-pnqLxvlozYQRcyuc0-Bs'
