@@ -2459,6 +2459,7 @@ async function play_game(
                                                     delay,
                                                     display_feedback
                                                 );
+                                                console.log('DB update after guess:', { error });
                                                 await update_ui(current_player_idx_ref, game.current_player);
                                                 let attempts = 3;
                                                 while (attempts--) {
@@ -2476,8 +2477,8 @@ async function play_game(
                                                                 status: newStatus,
                                                                 last_updated: new Date()
                                                             })
-                                                            console.log('DB update after guess:', { error });
                                                             .eq('session_id', sessionId);
+                                                        console.log('DB update after guess:', { error });
                                                         if (error) throw error;
                                                         if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
                                                             gameIsOver = true;
