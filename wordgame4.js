@@ -896,7 +896,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         button.onclick = null;
                         resolve({
                             mode: selected_mode,
-                            player1: selected_player1,
+                            player1: finalState_player1,
                             player2: selected_player2,
                             prompt,
                             input,
@@ -906,7 +906,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             difficulty: selected_difficulty,
                             gameType: selected_gameType,
                             sessionId: selected_sessionId,
-                            players: [selected_player1, selected_player2]
+                            players: [finalState_player1, selected_player2]
                         });
                     }
                 }
@@ -1189,7 +1189,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                         cleanup(); // Use cleanup function
                                         resolve({
                                             mode: selected_mode,
-                                            player1: selected_player1,
+                                            player1: finalState_player1,
                                             player2: selected_player2,
                                             prompt,
                                             input,
@@ -1200,7 +1200,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                             gameType: selected_gameType,
                                             sessionId: selected_sessionId,
                                             localPlayer: selected_player1,
-                                            players: [selected_player1, selected_player2],
+                                            players: [finalState_player1, selected_player2],
                                             guessedLetters: Array.isArray(game.guessed_letters) ? game.guessed_letters : [],
                                             tries: game.tries || {},
                                             scores: game.scores || {},
