@@ -1738,7 +1738,13 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
     });
     // Validate DOM elements
     if (!prompt || !input || !output || !button || !prompt.parentNode || !input.parentNode || !output.parentNode || !button.parentNode) {
-        console.error('process_guess: Missing or unattached DOM elements', { prompt, input, output, button });
+        console.error('REMOTE GAME LOOP: One or more DOM elements missing or not attached', {
+            prompt, input, output, button,
+            promptInDOM: !!prompt?.parentNode,
+            inputInDOM: !!input?.parentNode,
+            outputInDOM: !!output?.parentNode,
+            buttonInDOM: !!button?.parentNode
+        });
         display_feedback('Error: Interfaz no disponible. Reinicia el juego.', 'red', player, true);
         return { penalizo: true, tries, scores, guessed_letters, word_guessed: false };
     }
@@ -2326,7 +2332,15 @@ async function play_game(
                             console.log('REMOTE GAME LOOP: First move - calling get_guess for', localPlayer);
 
                             // --- PLACE THIS CHECK HERE ---
-                            console.log('REMOTE GAME LOOP: About to call get_guess', { provided_secret_word, type: typeof provided_secret_word });
+                            console.log('REMOTE GAME LOOP: About to call get_guess', {
+                                provided_secret_word,
+                                type: typeof provided_secret_word,
+                                prompt, input, output, button,
+                                promptInDOM: !!prompt?.parentNode,
+                                inputInDOM: !!input?.parentNode,
+                                outputInDOM: !!output?.parentNode,
+                                buttonInDOM: !!button?.parentNode
+                            });
                             if (!provided_secret_word || typeof provided_secret_word !== 'string') {
                                 throw new Error('provided_secret_word is missing or not a string');
                             }
