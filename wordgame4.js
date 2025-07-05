@@ -2359,6 +2359,7 @@ async function play_game(
                                     output,
                                     button
                                 );
+                                console.log('Post-get_guess DOM check:', { inputInDOM: !!input.parentNode, focused: document.activeElement === input });
                                 console.log('REMOTE GAME LOOP: First move guess received', { guess });
                                 // Process the guess as you do in the listener:
                                 // (call process_guess, update DB, etc.)
@@ -2432,6 +2433,7 @@ async function play_game(
                                                 focusInput(input);
                                                 console.log('REMOTE GAME LOOP: typeof get_guess', typeof get_guess);
                                                 const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
+                                                console.log('Post-get_guess DOM check:', { inputInDOM: !!input.parentNode, focused: document.activeElement === input });
                                                 if (!guess) {
                                                     display_feedback('Entrada inválida. Turno perdido.', 'red', localPlayer, true);
                                                     isGuessing = false;
@@ -2474,6 +2476,7 @@ async function play_game(
                                                                 status: newStatus,
                                                                 last_updated: new Date()
                                                             })
+                                                            console.log('DB update after guess:', { error });
                                                             .eq('session_id', sessionId);
                                                         if (error) throw error;
                                                         if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
