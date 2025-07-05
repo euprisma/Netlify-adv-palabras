@@ -2362,6 +2362,13 @@ async function play_game(
                                 input.disabled = false;
                                 focusInput(input);
                                 console.log('REMOTE GAME LOOP: typeof get_guess', typeof get_guess);
+                                console.log('About to call get_guess', {
+                                    prompt, input, output, button,
+                                    promptType: prompt && prompt.nodeType,
+                                    inputType: input && input.nodeType,
+                                    outputType: output && output.nodeType,
+                                    buttonType: button && button.nodeType
+                                });
                                 const guess = await get_guess(
                                     guessed_letters,
                                     provided_secret_word,
@@ -2444,6 +2451,13 @@ async function play_game(
                                                 input.disabled = false;
                                                 focusInput(input);
                                                 console.log('REMOTE GAME LOOP: typeof get_guess', typeof get_guess);
+                                                console.log('About to call get_guess', {
+                                                    prompt, input, output, button,
+                                                    promptType: prompt && prompt.nodeType,
+                                                    inputType: input && input.nodeType,
+                                                    outputType: output && output.nodeType,
+                                                    buttonType: button && button.nodeType
+                                                });
                                                 const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
                                                 console.log('Post-get_guess DOM check:', { inputInDOM: !!input.parentNode, focused: document.activeElement === input });
                                                 if (!guess) {
