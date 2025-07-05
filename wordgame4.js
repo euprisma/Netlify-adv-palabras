@@ -1740,12 +1740,15 @@ async function start_game(gameState, games_played = 0, total_scores = null, wins
 }
 
 async function process_guess(player, guessed_letters, secret_word, tries, scores, lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels, max_score, difficulty, mode, prompt, input, output, button, delay, display_feedback) {
-    console.log('process_guess: Starting for', player, {
-        max_score,
-        score: scores[player] || 0,
+    console.log('process_guess: ENTRY', {
+        player,
+        secret_word,
         guessed_letters: Array.from(guessed_letters),
-        retried: 0,
-        difficulty
+        tries: { ...tries },
+        scores: { ...scores },
+        max_score,
+        difficulty,
+        mode
     });
     // Validate DOM elements
     if (!prompt || !input || !output || !button || !prompt.parentNode || !input.parentNode || !output.parentNode || !button.parentNode) {
@@ -2684,8 +2687,8 @@ async function play_game(
             );
 
             if (!gameIsOver && mode === '2' && gameType === 'remoto') {
-                // For remote games, don't show end UI until the listener says so
-                return;
+                console.log('play_game: Remote game active, waiting for subscription updates');
+                return; // Wait for subscription to handle game end
             }
 
             // End of game UI and buttons
