@@ -713,7 +713,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             prompt.innerText = 'Ingresa una letra o la palabra completa:';
             button.style.display = 'none';
             focusInput(input);
-            return { mode, player1, player2, prompt, input, button, output, container, difficulty, gameType, sessionId, secretWord: secretWord, localPlayer: player1 };
+            return { mode, player1, player2, prompt, input, button, output, container, difficulty, gameType, sessionId, secretWord: secretWord, localPlayer: player1, players: [selected_player1, selected_player2] };
         }
         prompt.innerHTML = 'Ingresa 1 para <strong>un jugador</strong>, 2 para <strong>dos jugadores</strong>, o 3 para <strong>jugador contra IA</strong>:';
         focusInput(input);
@@ -2856,7 +2856,9 @@ async function main(config = null) {
         console.log('main: Game state received', gameState);
         if (gameState) {
             console.log('main: create_game_ui resolved with', gameState);
-            const players = [gameState.player1, gameState.player2].filter(Boolean);
+            const players = gameState.players && Array.isArray(gameState.players)
+            ? gameState.players
+            : [gameState.player1, gameState.player2].filter(Boolean);
             console.log('main: Players:', players);
             try {
                 await play_game(
