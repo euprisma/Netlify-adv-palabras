@@ -340,6 +340,10 @@ function choice(lst) {
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
+    console.log('get_guess: ENTRY', { secret_word, typeofSecret: typeof secret_word });
+    if (!secret_word || typeof secret_word !== 'string') {
+        throw new Error('get_guess: secret_word is missing or not a string');
+    }
     console.log('get_guess: called for', input, input.id, input.parentNode, document.activeElement === input);
     console.log('get_guess: Starting, Loaded version 2025-07-04-v10.3', {
         prompt: prompt?.innerText,
