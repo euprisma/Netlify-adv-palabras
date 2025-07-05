@@ -509,7 +509,7 @@ function display_feedback(message, color, player = null, append = false, autoCle
         }, autoClearMs);
     }
 }
-
+console.log('REMOTE GAME LOOP: typeof get_guess', typeof get_guess);
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
     console.log('get_guess: called for', input, input.id, input.parentNode, document.activeElement === input);
     console.log('get_guess: Starting, Loaded version 2025-07-04-v10.3', {
@@ -2350,6 +2350,7 @@ async function play_game(
                                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
                                 input.disabled = false;
                                 focusInput(input);
+                                console.log('REMOTE GAME LOOP: typeof get_guess', typeof get_guess);
                                 const guess = await get_guess(
                                     guessed_letters,
                                     provided_secret_word,
@@ -2429,6 +2430,7 @@ async function play_game(
                                                 prompt.innerText = 'Ingresa una letra o la palabra completa:';
                                                 input.disabled = false;
                                                 focusInput(input);
+                                                console.log('REMOTE GAME LOOP: typeof get_guess', typeof get_guess);
                                                 const guess = await get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
                                                 if (!guess) {
                                                     display_feedback('Entrada inválida. Turno perdido.', 'red', localPlayer, true);
