@@ -344,6 +344,7 @@ async function get_guess() {
     return 'a';
 }
 window.get_guess = get_guess;
+window.get_guess_defined_here = 'YES';
 
 // Modified get_secret_word to fetch, translate, and cache
 async function get_secret_word() {
