@@ -2033,7 +2033,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                 }
             } else {
                 const feedback_data = get_guess_feedback(guess, secret_word, scores[player]);
-                feedback = feedback_data.join('\n');
+                feedback = feedback_data.messages.join('\n');
                 feedback_color = feedback_data.color;
                 if (secret_word.includes(guess) && !guessed_letters.has(guess)) {
                     scores[player] = Math.min(max_score, scores[player] + secret_word.split('').filter(l => l === guess).length);
