@@ -713,7 +713,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             prompt.innerText = 'Ingresa una letra o la palabra completa:';
             button.style.display = 'none';
             focusInput(input);
-            return { mode, player1, player2, prompt, input, button, output, container, difficulty, gameType, sessionId };
+            return { mode, player1, player2, prompt, input, button, output, container, difficulty, gameType, sessionId, secretWord: secretWord };
         }
         prompt.innerHTML = 'Ingresa 1 para <strong>un jugador</strong>, 2 para <strong>dos jugadores</strong>, o 3 para <strong>jugador contra IA</strong>:';
         focusInput(input);
