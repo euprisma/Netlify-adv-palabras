@@ -455,6 +455,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         }, 60000);
     });
 }
+console.log('get_guess defined at', new Date());
 window.get_guess = get_guess;
 
 // Modified get_secret_word to fetch, translate, and cache
