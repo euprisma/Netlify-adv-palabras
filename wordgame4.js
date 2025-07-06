@@ -899,7 +899,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                         button.onclick = null;
                         resolve({
                             mode: selected_mode,
-                            player1: finalState_player1,
+                            player1: selected_player1,
                             player2: selected_player2,
                             prompt,
                             input,
@@ -909,7 +909,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                             difficulty: selected_difficulty,
                             gameType: selected_gameType,
                             sessionId: selected_sessionId,
-                            players: [finalState_player1, selected_player2]
+                            players: [selected_player1, selected_player2]
                         });
                     }
                 }
