@@ -1213,6 +1213,11 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                             secretWord: game.secret_word,
                                             cleanup // Expose cleanup for consumer
                                         });
+                                        // After resolve(...) in create_game_ui:
+                                        input.value = '';
+                                        input.removeEventListener('keydown', currentHandler);
+                                        button.onclick = null;
+                                        button.removeEventListener('click', currentHandler);
                                     }
                                 }
                             )
