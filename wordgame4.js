@@ -4,6 +4,18 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const supabaseUrl = 'https://owogtpmqckdzutupcyvy.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93b2d0cG1xY2tkenV0dXBjeXZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAyNjY4MDksImV4cCI6MjA0NTg0MjgwOX0.jG9kN8KO5sC8nE2Qh9R0f7F1qG8yL0n3gV9h6g9kN8KO';
 const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+async function initSupabase() {
+    //try {
+    //    const { data, error } = await supabase.auth.signInAnonymously();
+    //    if (error) throw error;
+    //    console.log('initSupabase: Authenticated anonymously', data);
+    //} catch (error) {
+    //    console.error('initSupabase: Authentication error', error);
+    //    throw error;
+    //}
+}
+
 const WORD_API_KEY = 'JGZtMGy2radD8zIA1hAQgoqJKa8Nzhck0XhgDtoL';
 const TRANSLATE_API_KEY = '8c71deb7-78c4-4ee2-8bf1-621a0a490d85:fx';
 const vowels = ['a', 'e', 'i', 'o', 'u'];
@@ -793,7 +805,7 @@ async function play_game(mode, players, gameType, sessionId, output, container, 
     output.innerText = final_message;
 }
 
-async function initSupabase() {
+//async function initSupabase() {
     //try {
     //    const { data, error } = await supabase.auth.signInAnonymously();
     //    if (error) throw error;
@@ -802,7 +814,7 @@ async function initSupabase() {
     //    console.error('initSupabase: Authentication error', error);
     //    throw error;
     //}
-}
+//}
 
 async function main(config = null) {
     try {
