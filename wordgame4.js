@@ -1,3 +1,5 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.7/+esm";
+
 // Global variables and constants
 const supabaseUrl = 'https://owogtpmqckdzutupcyvy.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93b2d0cG1xY2tkenV0dXBjeXZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAyNjY4MDksImV4cCI6MjA0NTg0MjgwOX0.jG9kN8KO5sC8nE2Qh9R0f7F1qG8yL0n3gV9h6g9kN8KO';
