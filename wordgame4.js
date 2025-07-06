@@ -1213,11 +1213,7 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
                                             secretWord: game.secret_word,
                                             cleanup // Expose cleanup for consumer
                                         });
-                                        // After resolve(...) in create_game_ui:
-                                        input.value = '';
-                                        input.removeEventListener('keydown', currentHandler);
-                                        button.onclick = null;
-                                        button.removeEventListener('click', currentHandler);
+                                        
                                     }
                                 }
                             )
@@ -2928,6 +2924,14 @@ async function main(config = null) {
         const gameState = await create_game_ui();
         console.log('main: Game state received', gameState);
         if (gameState) {
+            // Replace input and button with fresh clones to remove all old handlers
+            const newInput = gameState.input.cloneNode(true);
+            const newButton = gameState.button.cloneNode(true);
+            gameState.input.parentNode.replaceChild(newInput, gameState.input);
+            gameState.button.parentNode.replaceChild(newButton, gameState.button);
+            // Update references in gameState
+            gameState.input = newInput;
+            gameState.button = newButton;
             console.log('main: create_game_ui resolved with', gameState);
             const players = gameState.players && Array.isArray(gameState.players)
                 ? gameState.players
