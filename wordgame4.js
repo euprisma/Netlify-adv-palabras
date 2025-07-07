@@ -2322,7 +2322,7 @@ async function play_game(
                 if (mode === '2' && gameType === 'remoto') {
                     let isGuessing = false;
                     try {
-                        // 1. Fetch initial game state (already done in play_game, but verify)
+                        // 1. Fetch initial game state
                         const { data: gameData, error: gameError } = await supabase
                             .from('games')
                             .select('*')
@@ -2411,7 +2411,6 @@ async function play_game(
                                                 try {
                                                     // Ensure UI is ready for input
                                                     await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                                    console.log('REMOTE GAME LOOP: Before get_guess', { current_player: game.current_player, isGuessing, inputDisabled: input.disabled });
                                                     const guess = await window.get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
@@ -2420,7 +2419,6 @@ async function play_game(
                                                         output,
                                                         button
                                                     );
-                                                    console.log('REMOTE GAME LOOP: After get_guess', { guess });
                                                     console.log('REMOTE GAME LOOP: Guess received', { guess });
                                                     if (guess === null) {
                                                         display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
@@ -2533,7 +2531,6 @@ async function play_game(
                                 try {
                                     // Ensure UI is ready for input
                                     await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                    console.log('REMOTE GAME LOOP: Before get_guess', { current_player: game.current_player, isGuessing, inputDisabled: input.disabled });
                                     const guess = await window.get_guess(
                                         guessed_letters,
                                         provided_secret_word,
@@ -2542,8 +2539,18 @@ async function play_game(
                                         output,
                                         button
                                     );
-                                    console.log('REMOTE GAME LOOP: After get_guess', { guess });
-                                    if (guess !== null) {
+                                    console.log('REMOTE GAME LOOP: First move guess received', { guess });
+                                    if (guess === null) {
+                                        display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
+                                        tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                        current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+                                        await supabase.from('games').update({
+                                            tries,
+                                            current_player: players[current_player_idx_ref.value],
+                                            last_updated: new Date()
+                                        }).eq('session_id', sessionId);
+                                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                    } else {
                                         const result = await process_guess(
                                             localPlayer,
                                             guessed_letters,
@@ -2606,16 +2613,6 @@ async function play_game(
                                                 await delay(500);
                                             }
                                         }
-                                    } else {
-                                        display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
-                                        tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
-                                        current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                        await supabase.from('games').update({
-                                            tries,
-                                            current_player: players[current_player_idx_ref.value],
-                                            last_updated: new Date()
-                                        }).eq('session_id', sessionId);
-                                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                     }
                                 } catch (err) {
                                     console.error('REMOTE GAME LOOP: Error in first move', err);
