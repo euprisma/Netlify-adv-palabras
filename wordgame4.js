@@ -2342,6 +2342,9 @@ async function play_game(
                         Object.assign(scores, gameData.scores || {});
                         current_player_idx_ref.value = players.indexOf(gameData.current_player) || 0;
 
+                        // Initial UI update
+                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+
                         // 2. Set up subscription and return a Promise that resolves when game ends
                         return new Promise(async (resolve) => {
                             if (channel) {
@@ -2393,7 +2396,7 @@ async function play_game(
                                                     .eq('session_id', sessionId);
                                             }
 
-                                            // Update UI
+                                            // Update UI before processing guess
                                             await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
                                             // Handle guess if it's the local player's turn
@@ -2406,9 +2409,9 @@ async function play_game(
                                             ) {
                                                 isGuessing = true;
                                                 try {
-                                                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                                    input.disabled = false;
-                                                    focusInput(input);
+                                                    // Ensure UI is ready for input
+                                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                    console.log('REMOTE GAME LOOP: Before get_guess', { current_player: game.current_player, isGuessing, inputDisabled: input.disabled });
                                                     const guess = await window.get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
@@ -2417,6 +2420,7 @@ async function play_game(
                                                         output,
                                                         button
                                                     );
+                                                    console.log('REMOTE GAME LOOP: After get_guess', { guess });
                                                     console.log('REMOTE GAME LOOP: Guess received', { guess });
                                                     if (guess === null) {
                                                         display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
@@ -2522,13 +2526,14 @@ async function play_game(
                                 gameData.current_player &&
                                 localPlayer &&
                                 gameData.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
-                                !gameIsOver
+                                !gameIsOver &&
+                                !isGuessing
                             ) {
                                 isGuessing = true;
                                 try {
-                                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                    input.disabled = false;
-                                    focusInput(input);
+                                    // Ensure UI is ready for input
+                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                    console.log('REMOTE GAME LOOP: Before get_guess', { current_player: game.current_player, isGuessing, inputDisabled: input.disabled });
                                     const guess = await window.get_guess(
                                         guessed_letters,
                                         provided_secret_word,
@@ -2537,6 +2542,7 @@ async function play_game(
                                         output,
                                         button
                                     );
+                                    console.log('REMOTE GAME LOOP: After get_guess', { guess });
                                     if (guess !== null) {
                                         const result = await process_guess(
                                             localPlayer,
