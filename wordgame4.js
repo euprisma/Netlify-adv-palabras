@@ -2430,7 +2430,7 @@ async function play_game(
                                                     last_updated: new Date()
                                                 })
                                                 .eq('session_id', sessionId);
-                                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                            //await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                             if (error) throw error;
                                             if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
                                                 gameIsOver = true;
@@ -2582,7 +2582,7 @@ async function play_game(
                                                                     last_updated: new Date()
                                                                 })
                                                                 .eq('session_id', sessionId);
-                                                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                            //await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                                             if (error) throw error;
                                                             if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
                                                                 gameIsOver = true;
