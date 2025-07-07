@@ -2485,6 +2485,7 @@ async function play_game(
                                     try {
                                         console.log('REMOTE GAME LOOP: Supabase snapshot received', payload.new);
                                         const game = payload.new;
+                                        console.log('SUBSCRIPTION: Received game update', game); // <--- ADD HERE
                                         if (!game) {
                                             display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
                                             gameIsOver = true;
