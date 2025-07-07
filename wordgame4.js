@@ -2221,15 +2221,10 @@ async function play_game(
                         if (current_player_idx === -1) {
                             console.warn('play_game: Invalid current_player, defaulting to first player', game.current_player);
                             current_player_idx = 0;
-                            current_player_idx_ref.value = 0; // keep local state in sync!
-                            const nextPlayerIdx = (current_player_idx_ref.value + 1) % players.length;
                             await supabase
                                 .from('games')
-                                .update({ current_player: players[nextPlayerIdx], last_updated: new Date() })
+                                .update({ current_player: players[0], last_updated: new Date() })
                                 .eq('session_id', sessionId);
-                            // Now update local index to match DB
-                            current_player_idx_ref.value = nextPlayerIdx;
-                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                         }
                         break;
                     }
@@ -2302,7 +2297,7 @@ async function play_game(
                     progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
                     prompt.innerText = mode === '2' && gameType === 'remoto' && player !== localPlayer ? `Esperando a ${escapeHTML(player)}...` : 'Ingresa una letra o la palabra completa:';
                     if (input.parentNode) {
-                        const isLocalPlayer = player.toLowerCase() === localPlayer?.toLowerCase();
+                        const isLocalPlayer = mode !== '2' || gameType !== 'remoto' || (player && localPlayer && player.toLowerCase() === localPlayer.toLowerCase());
                         input.disabled = !isLocalPlayer;
                         console.log('update_ui: Input state updated', { player, localPlayer, isLocalPlayer, inputId: input.id, disabled: input.disabled });
                         if (isLocalPlayer) {
@@ -2325,8 +2320,9 @@ async function play_game(
                 game_info, games_played, games_to_play, total_scores, difficulty, channel
             ) {
                 if (mode === '2' && gameType === 'remoto') {
+                    let isGuessing = false;
                     try {
-                        // 1. Fetch initial game state
+                        // 1. Fetch initial game state (already done in play_game, but verify)
                         const { data: gameData, error: gameError } = await supabase
                             .from('games')
                             .select('*')
@@ -2339,70 +2335,166 @@ async function play_game(
                         }
                         console.log('REMOTE GAME LOOP: Initial game state', gameData);
 
-                        // 2. Set up subscription FIRST
-                        if (channel) {
-                            supabase.removeChannel(channel);
-                        }
-                        let isGuessing = false;
-                        channel = supabase
-                            .channel(`game:${sessionId}`)
-                            .on(
-                                'postgres_changes',
-                                {
-                                    event: 'UPDATE',
-                                    schema: 'public',
-                                    table: 'games',
-                                    filter: `session_id=eq.${sessionId}`
-                                },
-                                async (payload) => {
-                                    try {
-                                        const game = payload.new;
-                                        console.log('SUBSCRIPTION: Received game update', game);
-                                        if (!game) {
-                                            display_feedback('Sesión terminada. Reinicia el juego.', 'red', null, false);
-                                            gameIsOver = true;
-                                            return;
-                                        }
-                                        if (!game.secret_word || !game.initialized || game.status === 'waiting_for_player2') {
-                                            return;
-                                        }
-                                        if (game.status === 'finished' || game.status === 'ended') {
-                                            gameIsOver = true;
-                                            display_feedback(`Juego terminado. Palabra: ${format_secret_word(game.secret_word, new Set(game.guessed_letters || []))}.`, 'black', null, false);
-                                            return;
-                                        }
-                                        if (game.status !== 'playing') {
-                                            return;
-                                        }
+                        // Update local state from database
+                        guessed_letters.clear();
+                        (Array.isArray(gameData.guessed_letters) ? gameData.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
+                        Object.assign(tries, gameData.tries || {});
+                        Object.assign(scores, gameData.scores || {});
+                        current_player_idx_ref.value = players.indexOf(gameData.current_player) || 0;
 
-                                        guessed_letters = new Set(Array.isArray(game.guessed_letters) ? game.guessed_letters : []);
-                                        Object.assign(tries, game.tries || {});
-                                        Object.assign(scores, game.scores || {});
-                                        current_player_idx_ref.value = players.indexOf(game.current_player);
-                                        if (current_player_idx_ref.value === -1) {
-                                            current_player_idx_ref.value = 0;
-                                            await supabase
-                                                .from('games')
-                                                .update({ current_player: players[0], last_updated: new Date() })
-                                                .eq('session_id', sessionId);
-                                        }
-                                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                        // 2. Set up subscription and return a Promise that resolves when game ends
+                        return new Promise(async (resolve) => {
+                            if (channel) {
+                                supabase.removeChannel(channel);
+                            }
+                            channel = supabase
+                                .channel(`game:${sessionId}`)
+                                .on(
+                                    'postgres_changes',
+                                    {
+                                        event: 'UPDATE',
+                                        schema: 'public',
+                                        table: 'games',
+                                        filter: `session_id=eq.${sessionId}`
+                                    },
+                                    async (payload) => {
+                                        try {
+                                            const game = payload.new;
+                                            console.log('SUBSCRIPTION: Received game update', game);
+                                            if (!game || !game.secret_word || !game.initialized || game.status === 'waiting_for_player2') {
+                                                return;
+                                            }
+                                            if (game.status === 'finished' || game.status === 'ended') {
+                                                gameIsOver = true;
+                                                display_feedback(
+                                                    `Juego terminado. Palabra: ${format_secret_word(game.secret_word, new Set(game.guessed_letters || []))}.`,
+                                                    'black',
+                                                    null,
+                                                    false
+                                                );
+                                                resolve();
+                                                return;
+                                            }
+                                            if (game.status !== 'playing') {
+                                                return;
+                                            }
 
-                                        if (
-                                            game.current_player &&
-                                            localPlayer &&
-                                            game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
-                                            !isGuessing && !gameIsOver
-                                        ) {
-                                            isGuessing = true;
-                                            try {
-                                                prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                                                input.disabled = false;
-                                                focusInput(input);
-                                                const guess = await window.get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
-                                                console.log('REMOTE GAME LOOP: Guess received', { guess });
-                                                if (guess === null) {
-                                                    display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
+                                            // Update local state
+                                            guessed_letters.clear();
+                                            (Array.isArray(game.guessed_letters) ? game.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
+                                            Object.assign(tries, game.tries || {});
+                                            Object.assign(scores, game.scores || {});
+                                            current_player_idx_ref.value = players.indexOf(game.current_player);
+                                            if (current_player_idx_ref.value === -1) {
+                                                current_player_idx_ref.value = 0;
+                                                await supabase
+                                                    .from('games')
+                                                    .update({ current_player: players[0], last_updated: new Date() })
+                                                    .eq('session_id', sessionId);
+                                            }
+
+                                            // Update UI
+                                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+
+                                            // Handle guess if it's the local player's turn
+                                            if (
+                                                game.current_player &&
+                                                localPlayer &&
+                                                game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
+                                                !isGuessing &&
+                                                !gameIsOver
+                                            ) {
+                                                isGuessing = true;
+                                                try {
+                                                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
+                                                    input.disabled = false;
+                                                    focusInput(input);
+                                                    const guess = await window.get_guess(
+                                                        guessed_letters,
+                                                        provided_secret_word,
+                                                        prompt,
+                                                        input,
+                                                        output,
+                                                        button
+                                                    );
+                                                    console.log('REMOTE GAME LOOP: Guess received', { guess });
+                                                    if (guess === null) {
+                                                        display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
+                                                        tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                                        current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+                                                        await supabase.from('games').update({
+                                                            tries,
+                                                            current_player: players[current_player_idx_ref.value],
+                                                            last_updated: new Date()
+                                                        }).eq('session_id', sessionId);
+                                                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                    } else {
+                                                        const result = await process_guess(
+                                                            localPlayer,
+                                                            guessed_letters,
+                                                            provided_secret_word,
+                                                            tries,
+                                                            scores,
+                                                            lastCorrectWasVowel,
+                                                            used_wrong_letters,
+                                                            used_wrong_words,
+                                                            vowels,
+                                                            max_score,
+                                                            difficulty,
+                                                            mode,
+                                                            prompt,
+                                                            input,
+                                                            output,
+                                                            button,
+                                                            delay,
+                                                            display_feedback
+                                                        );
+                                                        let attempts = 3;
+                                                        while (attempts--) {
+                                                            try {
+                                                                const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
+                                                                const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
+                                                                const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
+                                                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+                                                                const { error } = await supabase
+                                                                    .from('games')
+                                                                    .update({
+                                                                        guessed_letters: Array.from(guessed_letters),
+                                                                        tries,
+                                                                        scores,
+                                                                        current_player: players[current_player_idx_ref.value],
+                                                                        status: newStatus,
+                                                                        last_updated: new Date()
+                                                                    })
+                                                                    .eq('session_id', sessionId);
+                                                                if (error) throw error;
+                                                                if (newStatus === 'finished') {
+                                                                    gameIsOver = true;
+                                                                    display_feedback(
+                                                                        `Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`,
+                                                                        'black',
+                                                                        null,
+                                                                        false
+                                                                    );
+                                                                    resolve();
+                                                                    return;
+                                                                }
+                                                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                                break;
+                                                            } catch (err) {
+                                                                console.warn(`REMOTE GAME LOOP: Retry ${3 - attempts}/3 for DB update`, err);
+                                                                if (attempts === 0) {
+                                                                    display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
+                                                                    resolve();
+                                                                    return;
+                                                                }
+                                                                await delay(500);
+                                                            }
+                                                        }
+                                                    }
+                                                } catch (err) {
+                                                    console.error('REMOTE GAME LOOP: Error in get_guess', err);
+                                                    display_feedback('Error al procesar la adivinanza. Turno perdido.', 'red', localPlayer, true);
                                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                                     current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                                     await supabase.from('games').update({
@@ -2410,166 +2502,131 @@ async function play_game(
                                                         current_player: players[current_player_idx_ref.value],
                                                         last_updated: new Date()
                                                     }).eq('session_id', sessionId);
-                                                } else {
-                                                    const result = await process_guess(
-                                                        localPlayer,
-                                                        guessed_letters,
-                                                        provided_secret_word,
+                                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                } finally {
+                                                    isGuessing = false;
+                                                }
+                                            }
+                                        } catch (error) {
+                                            console.error('REMOTE GAME LOOP: Error in listener', error);
+                                            display_feedback('Error en la lógica del juego. Intenta de nuevo.', 'red', null, false);
+                                        }
+                                    }
+                                )
+                                .subscribe();
+
+                            window.gameChannel = channel;
+
+                            // 3. Process first move if it's this client's turn
+                            if (
+                                gameData.current_player &&
+                                localPlayer &&
+                                gameData.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
+                                !gameIsOver
+                            ) {
+                                isGuessing = true;
+                                try {
+                                    prompt.innerText = 'Ingresa una letra o la palabra completa:';
+                                    input.disabled = false;
+                                    focusInput(input);
+                                    const guess = await window.get_guess(
+                                        guessed_letters,
+                                        provided_secret_word,
+                                        prompt,
+                                        input,
+                                        output,
+                                        button
+                                    );
+                                    if (guess !== null) {
+                                        const result = await process_guess(
+                                            localPlayer,
+                                            guessed_letters,
+                                            provided_secret_word,
+                                            tries,
+                                            scores,
+                                            lastCorrectWasVowel,
+                                            used_wrong_letters,
+                                            used_wrong_words,
+                                            vowels,
+                                            max_score,
+                                            difficulty,
+                                            mode,
+                                            prompt,
+                                            input,
+                                            output,
+                                            button,
+                                            delay,
+                                            display_feedback
+                                        );
+                                        let attempts = 3;
+                                        while (attempts--) {
+                                            try {
+                                                const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
+                                                const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
+                                                const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
+                                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+                                                const { error } = await supabase
+                                                    .from('games')
+                                                    .update({
+                                                        guessed_letters: Array.from(guessed_letters),
                                                         tries,
                                                         scores,
-                                                        lastCorrectWasVowel,
-                                                        used_wrong_letters,
-                                                        used_wrong_words,
-                                                        vowels,
-                                                        max_score,
-                                                        difficulty,
-                                                        mode,
-                                                        prompt,
-                                                        input,
-                                                        output,
-                                                        button,
-                                                        delay,
-                                                        display_feedback
+                                                        current_player: players[current_player_idx_ref.value],
+                                                        status: newStatus,
+                                                        last_updated: new Date()
+                                                    })
+                                                    .eq('session_id', sessionId);
+                                                if (error) throw error;
+                                                if (newStatus === 'finished') {
+                                                    gameIsOver = true;
+                                                    display_feedback(
+                                                        `Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`,
+                                                        'black',
+                                                        null,
+                                                        false
                                                     );
-                                                    let attempts = 3;
-                                                    while (attempts--) {
-                                                        try {
-                                                            const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
-                                                            const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
-                                                            const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
-                                                            current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                                            const { error } = await supabase
-                                                                .from('games')
-                                                                .update({
-                                                                    guessed_letters: Array.from(guessed_letters),
-                                                                    tries,
-                                                                    scores,
-                                                                    current_player: players[current_player_idx_ref.value],
-                                                                    status: newStatus,
-                                                                    last_updated: new Date()
-                                                                })
-                                                                .eq('session_id', sessionId);
-                                                            if (error) throw error;
-                                                            if (newStatus === 'finished') {
-                                                                gameIsOver = true;
-                                                                display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
-                                                                return;
-                                                            }
-                                                            break;
-                                                        } catch (err) {
-                                                            console.warn(`REMOTE GAME LOOP: Retry ${3 - attempts}/3 for DB update`, err);
-                                                            if (attempts === 0) {
-                                                                display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
-                                                                return;
-                                                            }
-                                                            await delay(500);
-                                                        }
-                                                    }
+                                                    resolve();
+                                                    return;
                                                 }
+                                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                break;
                                             } catch (err) {
-                                                console.error('REMOTE GAME LOOP: Error in get_guess', err);
-                                                display_feedback('Error al procesar la adivinanza. Turno perdido.', 'red', localPlayer, true);
-                                                tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
-                                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                                await supabase.from('games').update({
-                                                    tries,
-                                                    current_player: players[current_player_idx_ref.value],
-                                                    last_updated: new Date()
-                                                }).eq('session_id', sessionId);
-                                            } finally {
-                                                isGuessing = false;
+                                                console.warn(`REMOTE GAME LOOP: Retry ${3 - attempts}/3 for first move DB update`, err);
+                                                if (attempts === 0) {
+                                                    display_feedback('Error de sincronización en el primer movimiento. Intenta de nuevo.', 'red', null, false);
+                                                    resolve();
+                                                    return;
+                                                }
+                                                await delay(500);
                                             }
-                                        } else {
-                                            prompt.innerText = `Esperando a ${escapeHTML(game.current_player)}...`;
-                                            input.disabled = true;
                                         }
-                                    } catch (error) {
-                                        console.error('REMOTE GAME LOOP: Error in listener', error);
-                                        display_feedback('Error en la lógica del juego. Intenta de nuevo.', 'red', null, false);
-                                    }
-                                }
-                            )
-                            .subscribe();
-
-                        // 3. Immediately process the first move if it's this client's turn
-                        if (
-                            gameData.current_player &&
-                            localPlayer &&
-                            gameData.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase()
-                        ) {
-                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                            prompt.innerText = 'Ingresa una letra o la palabra completa:';
-                            input.disabled = false;
-                            focusInput(input);
-                            const guess = await window.get_guess(guessed_letters, provided_secret_word, prompt, input, output, button);
-                            if (guess !== null) {
-                                const result = await process_guess(
-                                    localPlayer,
-                                    guessed_letters,
-                                    provided_secret_word,
-                                    tries,
-                                    scores,
-                                    lastCorrectWasVowel,
-                                    used_wrong_letters,
-                                    used_wrong_words,
-                                    vowels,
-                                    max_score,
-                                    difficulty,
-                                    mode,
-                                    prompt,
-                                    input,
-                                    output,
-                                    button,
-                                    delay,
-                                    display_feedback
-                                );
-                                let attempts = 3;
-                                while (attempts--) {
-                                    try {
-                                        const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
-                                        const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
-                                        const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
+                                    } else {
+                                        display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
+                                        tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                         current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                        const { error } = await supabase
-                                            .from('games')
-                                            .update({
-                                                guessed_letters: Array.from(guessed_letters),
-                                                tries,
-                                                scores,
-                                                current_player: players[current_player_idx_ref.value],
-                                                status: newStatus,
-                                                last_updated: new Date()
-                                            })
-                                            .eq('session_id', sessionId);
-                                        if (error) throw error;
-                                        if (newStatus === 'finished') {
-                                            gameIsOver = true;
-                                            display_feedback(`Juego terminado. Palabra: ${format_secret_word(provided_secret_word, guessed_letters)}.`, 'black', null, false);
-                                            return channel;
-                                        }
-                                        break;
-                                    } catch (err) {
-                                        console.warn(`REMOTE GAME LOOP: Retry ${3 - attempts}/3 for first move DB update`, err);
-                                        if (attempts === 0) {
-                                            display_feedback('Error de sincronización en el primer movimiento. Intenta de nuevo.', 'red', null, false);
-                                            return channel;
-                                        }
-                                        await delay(500);
+                                        await supabase.from('games').update({
+                                            tries,
+                                            current_player: players[current_player_idx_ref.value],
+                                            last_updated: new Date()
+                                        }).eq('session_id', sessionId);
+                                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                     }
+                                } catch (err) {
+                                    console.error('REMOTE GAME LOOP: Error in first move', err);
+                                    display_feedback('Error al procesar la adivinanza. Turno perdido.', 'red', localPlayer, true);
+                                    tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                    current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+                                    await supabase.from('games').update({
+                                        tries,
+                                        current_player: players[current_player_idx_ref.value],
+                                        last_updated: new Date()
+                                    }).eq('session_id', sessionId);
+                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                } finally {
+                                    isGuessing = false;
                                 }
-                            } else {
-                                display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
-                                tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
-                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                await supabase.from('games').update({
-                                    tries,
-                                    current_player: players[current_player_idx_ref.value],
-                                    last_updated: new Date()
-                                }).eq('session_id', sessionId);
                             }
-                        }
-
-                        return channel;
+                        });
                     } catch (err) {
                         console.error('REMOTE GAME LOOP: Outer error', err);
                         display_feedback('Error en la lógica remota. Intenta de nuevo.', 'red', null, false);
@@ -2795,10 +2852,10 @@ async function play_game(
             throw err;
         }
     } finally {
-        if (channel) {
+        if (window.gameChannel) {
             console.log('play_game: Cleaning up Supabase channel', sessionId);
-            supabase.removeChannel(channel);
-            channel = null;
+            supabase.removeChannel(window.gameChannel);
+            window.gameChannel = null;
         }
     }
 }
