@@ -2389,7 +2389,7 @@ async function play_game(
                                         current_player: players[current_player_idx_ref.value],
                                         last_updated: new Date()
                                     }).eq('session_id', sessionId);
-                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                    //await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                 } else {
                                     const result = await process_guess(
                                         localPlayer,
@@ -2460,7 +2460,7 @@ async function play_game(
                                     current_player: players[current_player_idx_ref.value],
                                     last_updated: new Date()
                                 }).eq('session_id', sessionId);
-                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                //await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                             } finally {
                                 isGuessing = false;
                             }
@@ -2541,7 +2541,7 @@ async function play_game(
                                                         current_player: players[current_player_idx_ref.value],
                                                         last_updated: new Date()
                                                     }).eq('session_id', sessionId);
-                                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                    //await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                                 } else {
                                                     const result = await process_guess(
                                                         localPlayer,
@@ -2612,7 +2612,7 @@ async function play_game(
                                                     current_player: players[current_player_idx_ref.value],
                                                     last_updated: new Date()
                                                 }).eq('session_id', sessionId);
-                                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                //await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                             } finally {
                                                 isGuessing = false;
                                             }
@@ -2678,7 +2678,7 @@ async function play_game(
                             current_player: players[(current_player_idx + 1) % players.length],
                             last_updated: new Date()
                         }).eq('session_id', sessionId);
-                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                        //await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
                         if (!result) {
                             console.error('game_loop: process_guess returned undefined');
