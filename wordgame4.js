@@ -2221,10 +2221,14 @@ async function play_game(
                         if (current_player_idx === -1) {
                             console.warn('play_game: Invalid current_player, defaulting to first player', game.current_player);
                             current_player_idx = 0;
+                            current_player_idx_ref.value = 0; // keep local state in sync!
+                            const nextPlayerIdx = (current_player_idx_ref.value + 1) % players.length;
                             await supabase
                                 .from('games')
-                                .update({ current_player: players[(current_player_idx_ref.value + 1) % players.length], last_updated: new Date() })
+                                .update({ current_player: players[nextPlayerIdx], last_updated: new Date() })
                                 .eq('session_id', sessionId);
+                            // Now update local index to match DB
+                            current_player_idx_ref.value = nextPlayerIdx;
                             await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                         }
                         break;
@@ -2378,12 +2382,14 @@ async function play_game(
                                     // Handle timeout or null guess
                                     display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                    a// Advance local turn index to match DB update
+                                    current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                     await supabase.from('games').update({
                                         tries,
-                                        current_player: players[(current_player_idx_ref.value + 1) % players.length],
+                                        current_player: players[current_player_idx_ref.value],
                                         last_updated: new Date()
                                     }).eq('session_id', sessionId);
-                                    await update_ui(current_player_idx_ref, players[(current_player_idx_ref.value + 1) % players.length]);
+                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                 } else {
                                     const result = await process_guess(
                                         localPlayer,
@@ -2411,18 +2417,20 @@ async function play_game(
                                             const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
                                             const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
                                             const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
+                                            // Advance local turn index to match DB update
+                                            current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                             const { error } = await supabase
                                                 .from('games')
                                                 .update({
                                                     guessed_letters: Array.from(guessed_letters),
                                                     tries,
                                                     scores,
-                                                    current_player: players[(current_player_idx_ref.value + 1) % players.length],
+                                                    current_player: players[current_player_idx_ref.value],
                                                     status: newStatus,
                                                     last_updated: new Date()
                                                 })
                                                 .eq('session_id', sessionId);
-                                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                             if (error) throw error;
                                             if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
                                                 gameIsOver = true;
@@ -2445,12 +2453,14 @@ async function play_game(
                                 console.error('REMOTE GAME LOOP: Error in first move get_guess', err);
                                 display_feedback('Error al procesar la adivinanza. Turno perdido.', 'red', localPlayer, true);
                                 tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                // Advance local turn index to match DB update
+                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                 await supabase.from('games').update({
                                     tries,
-                                    current_player: players[(current_player_idx_ref.value + 1) % players.length],
+                                    current_player: players[current_player_idx_ref.value],
                                     last_updated: new Date()
                                 }).eq('session_id', sessionId);
-                                await update_ui(current_player_idx_ref, players[(current_player_idx_ref.value + 1) % players.length]);
+                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                             } finally {
                                 isGuessing = false;
                             }
@@ -2498,12 +2508,15 @@ async function play_game(
                                         current_player_idx_ref.value = players.indexOf(game.current_player);
                                         if (current_player_idx_ref.value === -1) {
                                             current_player_idx_ref.value = 0;
+                                            const nextPlayerIdx = (current_player_idx_ref.value + 1) % players.length;
                                             await supabase
                                                 .from('games')
-                                                .update({ current_player: players[(current_player_idx_ref.value + 1) % players.length], last_updated: new Date() })
+                                                .update({ current_player: players[nextPlayerIdx], last_updated: new Date() })
                                                 .eq('session_id', sessionId);
+                                            // Now update local index to match DB
+                                            current_player_idx_ref.value = nextPlayerIdx;
                                         }
-                                        await update_ui(current_player_idx_ref, game.current_player);
+                                        await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
                                         if (
                                             game.current_player &&
@@ -2521,12 +2534,14 @@ async function play_game(
                                                 if (guess === null) {
                                                     display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
                                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                                    a// Advance local turn index to match DB update
+                                                    current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                                     await supabase.from('games').update({
                                                         tries,
-                                                        current_player: players[(current_player_idx_ref.value + 1) % players.length],
+                                                        current_player: players[current_player_idx_ref.value],
                                                         last_updated: new Date()
                                                     }).eq('session_id', sessionId);
-                                                    await update_ui(current_player_idx_ref, players[(current_player_idx_ref.value + 1) % players.length]);
+                                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                                 } else {
                                                     const result = await process_guess(
                                                         localPlayer,
@@ -2554,18 +2569,20 @@ async function play_game(
                                                             const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
                                                             const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
                                                             const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
+                                                            // Advance local turn index to match DB update
+                                                            current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                                             const { error } = await supabase
                                                                 .from('games')
                                                                 .update({
                                                                     guessed_letters: Array.from(guessed_letters),
                                                                     tries,
                                                                     scores,
-                                                                    current_player: players[(current_player_idx_ref.value + 1) % players.length],
+                                                                    current_player: players[current_player_idx_ref.value],
                                                                     status: newStatus,
                                                                     last_updated: new Date()
                                                                 })
                                                                 .eq('session_id', sessionId);
-                                                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                                             if (error) throw error;
                                                             if (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) {
                                                                 gameIsOver = true;
@@ -2588,12 +2605,14 @@ async function play_game(
                                                 console.error('REMOTE GAME LOOP: Error in get_guess', err);
                                                 display_feedback('Error al procesar la adivinanza. Turno perdido.', 'red', localPlayer, true);
                                                 tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                                // Advance local turn index to match DB update
+                                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                                 await supabase.from('games').update({
                                                     tries,
-                                                    current_player: players[(current_player_idx_ref.value + 1) % players.length],
+                                                    current_player: players[current_player_idx_ref.value],
                                                     last_updated: new Date()
                                                 }).eq('session_id', sessionId);
-                                                await update_ui(current_player_idx_ref, players[(current_player_idx_ref.value + 1) % players.length]);
+                                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                             } finally {
                                                 isGuessing = false;
                                             }
