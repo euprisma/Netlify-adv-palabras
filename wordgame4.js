@@ -2312,7 +2312,7 @@ async function play_game(
                         });
                         if (isLocalPlayer) {
                             input.value = ''; // Clear input for new guess
-                            await new Promise(resolve => setTimeout(resolve, 50)); // Ensure DOM updates
+                            await new Promise(resolve => setTimeout(resolve, 200)); // Ensure DOM updates
                             focusInput(input);
                         }
                     } else {
