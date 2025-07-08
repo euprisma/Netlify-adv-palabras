@@ -340,22 +340,15 @@ function choice(lst) {
 }
 
 async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
-    console.log('get_guess: ENTRY', { secret_word, typeofSecret: typeof secret_word });
+    console.log('get_guess: ENTRY', { secret_word, inputId: input.id, focused: document.activeElement === input });
     if (!secret_word || typeof secret_word !== 'string') {
         throw new Error('get_guess: secret_word is missing or not a string');
     }
-    console.log('get_guess: called for', input, input.id, input.parentNode, document.activeElement === input);
-    console.log('get_guess: Starting, Loaded version 2025-07-04-v10.3', {
-        prompt: prompt?.innerText,
-        inputExists: !!input?.parentNode,
-        buttonExists: !!button?.parentNode,
-        inputValue: input?.value,
-        inputId: input?.id || 'no-id'
-    });
-    if (!prompt || !input || !output || !button) {
-        console.error('get_guess: Missing required DOM elements', { prompt, input, output, button });
+    if (!prompt || !input || !output || !button || !input.parentNode || !button.parentNode) {
+        console.error('get_guess: Missing or detached DOM elements', { prompt, input, output, button });
         throw new Error('Missing required DOM elements');
     }
+
     input.id = input.id || `guess-input-${Date.now()}`;
     const normalized_secret = normalizar(secret_word);
     const min_guesses_for_word = secret_word.length < 5 ? 1 : 2;
@@ -365,78 +358,78 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     button.innerText = 'Enviar';
     input.value = '';
     input.disabled = false;
-    focusInput(input);
-    console.log('get_guess: Input initialized', { inputId: input.id, disabled: input.disabled, focused: document.activeElement === input });
+
+    // Ensure input is focused
+    if (!focusInput(input)) {
+        console.warn('get_guess: Failed to focus input initially');
+    }
 
     return new Promise((resolve, reject) => {
-        // Remove existing handlers
-        if (input._guessHandler) {
-            input.removeEventListener('keydown', input._guessHandler);
-            console.log('get_guess: Removed previous keydown handler', input.id);
-        }
-        if (button._clickHandler) {
-            button.removeEventListener('click', button._clickHandler);
-            console.log('get_guess: Removed previous button click handler', button.id);
-        }
+        // Robust cleanup of existing handlers
+        const cleanup = () => {
+            if (input._guessHandler) {
+                input.removeEventListener('keydown', input._guessHandler);
+                input._guessHandler = null;
+            }
+            if (button._clickHandler) {
+                button.removeEventListener('click', button._clickHandler);
+                button._clickHandler = null;
+            }
+            clearTimeout(timeoutId);
+            clearInterval(focusCheckInterval);
+            console.log('get_guess: Cleaned up handlers', { inputId: input.id });
+        };
 
+        // Remove any existing handlers
+        cleanup();
+
+        let guessReceived = false;
         function handleGuess(source, guessValue) {
-            console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
+            if (guessReceived) {
+                console.log('get_guess: Ignoring duplicate guess', { source, guessValue });
+                return;
+            }
+            console.log('get_guess: handleGuess called', { source, guessValue, inputId: input.id });
             const rawGuess = guessValue || '';
             const trimmedGuess = rawGuess.trim();
             const normalizedGuess = normalizar(trimmedGuess);
-            console.log('get_guess: Processing guess', { rawGuess, trimmedGuess, normalizedGuess, secret_word, normalized_secret });
             if (!trimmedGuess) {
                 output.innerText = 'Entrada vacía. Ingresa una letra o palabra válida.';
                 output.style.color = 'red';
                 focusInput(input);
-                return { valid: false };
+                return;
             }
             if (permitir_palabra && normalizedGuess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                guessReceived = true;
                 input.value = '';
-                return { valid: true, guess: normalizedGuess };
+                cleanup();
+                resolve(normalizedGuess);
             } else if (normalizedGuess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
+                guessReceived = true;
                 input.value = '';
-                return { valid: true, guess: normalizedGuess };
+                cleanup();
+                resolve(normalizedGuess);
             } else {
                 output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida (solo letras, incluyendo áéíóúüñ).';
                 output.style.color = 'red';
                 input.value = '';
                 focusInput(input);
-                return { valid: false };
+                return;
             }
         }
 
         const enterHandler = (e) => {
-            console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, inputId: input.id, focused: document.activeElement === input });
             if (e.key === 'Enter') {
                 e.preventDefault();
                 console.log('get_guess: Enter key pressed', { inputValue: input.value, inputId: input.id });
-                const result = handleGuess('enter', input.value);
-                if (result.valid) {
-                    cleanup();
-                    resolve(result.guess);
-                }
+                handleGuess('enter', input.value);
             }
         };
 
         const clickHandler = () => {
             console.log('get_guess: Button clicked', { inputValue: input.value, inputId: input.id });
-            const result = handleGuess('button', input.value);
-            if (result.valid) {
-                cleanup();
-                resolve(result.guess);
-            }
+            handleGuess('button', input.value);
         };
-
-        function cleanup() {
-            input.removeEventListener('keydown', enterHandler);
-            button.removeEventListener('click', clickHandler);
-            input._guessHandler = null;
-            button._clickHandler = null;
-            clearTimeout(timeoutId);
-            clearInterval(focusCheckInterval);
-            console.log('get_guess: Cleaned up handlers', input.id);
-        }
 
         input._guessHandler = enterHandler;
         button._clickHandler = clickHandler;
@@ -444,22 +437,24 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         button.addEventListener('click', clickHandler);
         console.log('get_guess: Attached handlers', { inputId: input.id, buttonId: button.id });
 
-        // Periodically check focus
+        // Focus check with shorter interval to catch issues quickly
         const focusCheckInterval = setInterval(() => {
-            if (document.activeElement !== input) {
+            if (document.activeElement !== input && !guessReceived) {
                 console.warn('get_guess: Input lost focus, re-focusing', input.id);
                 focusInput(input);
             }
-        }, 1000);
+        }, 500);
 
-        // Extend timeout for remote mode
         const timeoutId = setTimeout(() => {
-            cleanup();
-            console.warn('get_guess: Input timeout', input.id);
-            output.innerText = 'Tiempo de espera agotado. Turno perdido.';
-            output.style.color = 'red';
-            resolve(null); // Return null instead of rejecting to allow turn skip
-        }, 120000); // Increase to 120 seconds for remote mode
+            if (!guessReceived) {
+                guessReceived = true;
+                cleanup();
+                console.warn('get_guess: Input timeout', input.id);
+                output.innerText = 'Tiempo de espera agotado. Turno perdido.';
+                output.style.color = 'red';
+                resolve(null);
+            }
+        }, 120000);
     });
 }
 console.log('get_guess defined at', new Date());
@@ -2300,7 +2295,8 @@ async function play_game(
                     prompt.innerText = isLocalPlayer ? 'Ingresa una letra o la palabra completa:' : `Esperando a ${escapeHTML(player)}...`;
                     if (input.parentNode && button.parentNode) {
                         input.disabled = !isLocalPlayer;
-                        button.style.display = isLocalPlayer ? 'inline-block' : 'none'; // Show button only for local player
+                        button.style.display = isLocalPlayer ? 'inline-block' : 'none';
+                        input.value = ''; // Clear input for new guess
                         console.log('update_ui: Input and button state updated', {
                             player,
                             localPlayer,
@@ -2311,12 +2307,15 @@ async function play_game(
                             prompt: prompt.innerText
                         });
                         if (isLocalPlayer) {
-                            input.value = ''; // Clear input for new guess
                             await new Promise(resolve => setTimeout(resolve, 50)); // Ensure DOM updates
-                            focusInput(input);
+                            if (!focusInput(input)) {
+                                console.warn('update_ui: Failed to focus input');
+                                setTimeout(() => focusInput(input), 100); // Retry focus
+                            }
                         }
                     } else {
                         console.error('update_ui: Input or button not in DOM', { inputInDOM: !!input.parentNode, buttonInDOM: !!button.parentNode });
+                        throw new Error('Input or button not in DOM');
                     }
                 } catch (err) {
                     console.error('update_ui: Error updating UI', err);
@@ -2381,8 +2380,9 @@ async function play_game(
             ) {
                 if (mode === '2' && gameType === 'remoto') {
                     let isGuessing = false;
+                    let lastUpdateTimestamp = null;
                     try {
-                        // 1. Fetch initial game state
+                        // Fetch initial game state
                         const { data: gameData, error: gameError } = await supabase
                             .from('games')
                             .select('*')
@@ -2400,158 +2400,23 @@ async function play_game(
                             guessed_letters: gameData.guessed_letters,
                             tries: gameData.tries,
                             scores: gameData.scores,
-                            status: gameData.status
+                            status: gameData.status,
+                            last_updated: gameData.last_updated
                         });
 
-                        // Update local state from database
+                        // Update local state
                         guessed_letters.clear();
                         (Array.isArray(gameData.guessed_letters) ? gameData.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
                         Object.assign(tries, gameData.tries || {});
                         Object.assign(scores, gameData.scores || {});
                         current_player_idx_ref.value = players.indexOf(gameData.current_player) || 0;
+                        lastUpdateTimestamp = gameData.last_updated;
 
-                        // Ensure UI is ready for first guess
+                        // Ensure UI is updated
                         await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                        console.log('REMOTE GAME LOOP: UI updated for initial guess', {
-                            currentPlayer: players[current_player_idx_ref.value],
-                            localPlayer,
-                            inputDisabled: input.disabled,
-                            buttonDisplay: button.style.display,
-                            prompt: prompt.innerText
-                        });
+                        await new Promise(resolve => setTimeout(resolve, 100)); // Allow UI to settle
 
-                        // Process initial guess if local player's turn
-                        if (
-                            gameData.current_player &&
-                            localPlayer &&
-                            gameData.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
-                            !gameIsOver &&
-                            !isGuessing
-                        ) {
-                            isGuessing = true;
-                            try {
-                                console.log('REMOTE GAME LOOP: Processing initial guess', {
-                                    localPlayer,
-                                    currentPlayer: gameData.current_player,
-                                    inputDisabled: input.disabled,
-                                    buttonDisplay: button.style.display,
-                                    prompt: prompt.innerText
-                                });
-                                // Ensure UI is ready
-                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                await new Promise(resolve => setTimeout(resolve, 50)); // Ensure DOM updates
-                                const guess = await window.get_guess(
-                                    guessed_letters,
-                                    provided_secret_word,
-                                    prompt,
-                                    input,
-                                    output,
-                                    button
-                                );
-                                console.log('REMOTE GAME LOOP: Initial guess received', { guess });
-                                if (guess === null) {
-                                    console.log('REMOTE GAME LOOP: Initial guess timed out', { localPlayer });
-                                    display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
-                                    tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
-                                    current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                    const updateData = {
-                                        tries,
-                                        current_player: players[current_player_idx_ref.value],
-                                        last_updated: new Date()
-                                    };
-                                    console.log('REMOTE GAME LOOP: Updating game state after timeout', updateData);
-                                    await supabase.from('games').update(updateData).eq('session_id', sessionId);
-                                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                } else {
-                                    const result = await process_guess(
-                                        localPlayer,
-                                        guessed_letters,
-                                        provided_secret_word,
-                                        tries,
-                                        scores,
-                                        lastCorrectWasVowel,
-                                        used_wrong_letters,
-                                        used_wrong_words,
-                                        vowels,
-                                        max_score,
-                                        difficulty,
-                                        mode,
-                                        prompt,
-                                        input,
-                                        output,
-                                        button,
-                                        delay,
-                                        display_feedback
-                                    );
-                                    let attempts = 3;
-                                    while (attempts--) {
-                                        try {
-                                            const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
-                                            const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
-                                            const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
-                                            current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                            const updateData = {
-                                                guessed_letters: Array.from(guessed_letters),
-                                                tries,
-                                                scores,
-                                                current_player: players[current_player_idx_ref.value],
-                                                status: newStatus,
-                                                last_updated: new Date()
-                                            };
-                                            console.log('REMOTE GAME LOOP: Updating game state for initial guess', updateData);
-                                            const { error } = await supabase
-                                                .from('games')
-                                                .update(updateData)
-                                                .eq('session_id', sessionId);
-                                            if (error) throw error;
-                                            if (newStatus === 'finished') {
-                                                gameIsOver = true;
-                                                display_feedback(
-                                                    `Juego terminado. Palabra: ${formato_palabra(provided_secret_word, guessed_letters)}.`,
-                                                    'black',
-                                                    null,
-                                                    false
-                                                );
-                                                return channel;
-                                            }
-                                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                            break;
-                                        } catch (err) {
-                                            console.warn(`REMOTE GAME LOOP: Retry ${3 - attempts}/3 for initial guess DB update`, err);
-                                            if (attempts === 0) {
-                                                display_feedback('Error de sincronización en el primer movimiento. Intenta de nuevo.', 'red', null, false);
-                                                return channel;
-                                            }
-                                            await delay(500);
-                                        }
-                                    }
-                                }
-                            } catch (err) {
-                                console.error('REMOTE GAME LOOP: Error in initial guess', err);
-                                display_feedback('Error al procesar la adivinanza inicial. Turno perdido.', 'red', localPlayer, true);
-                                tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
-                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                const updateData = {
-                                    tries,
-                                    current_player: players[current_player_idx_ref.value],
-                                    last_updated: new Date()
-                                };
-                                console.log('REMOTE GAME LOOP: Updating game state after error', updateData);
-                                await supabase.from('games').update(updateData).eq('session_id', sessionId);
-                                await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                            } finally {
-                                isGuessing = false;
-                                console.log('REMOTE GAME LOOP: Reset isGuessing after initial guess', { isGuessing });
-                            }
-                        } else {
-                            console.log('REMOTE GAME LOOP: Not local player’s turn for initial guess', {
-                                currentPlayer: gameData.current_player,
-                                localPlayer
-                            });
-                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                        }
-
-                        // 2. Set up subscription and handle subsequent guesses
+                        // Set up subscription
                         return new Promise((resolve) => {
                             if (channel) {
                                 supabase.removeChannel(channel);
@@ -2575,12 +2440,31 @@ async function play_game(
                                                 guessed_letters: game.guessed_letters,
                                                 tries: game.tries,
                                                 scores: game.scores,
-                                                status: game.status
+                                                status: game.status,
+                                                last_updated: game.last_updated
                                             });
-                                            if (!game || !game.secret_word || !game.initialized || game.status === 'waiting_for_player2') {
-                                                console.log('SUBSCRIPTION: Skipping update due to invalid game state', { game });
+
+                                            // Skip if update is outdated or game is not in a valid state
+                                            if (
+                                                !game ||
+                                                !game.secret_word ||
+                                                !game.initialized ||
+                                                game.status === 'waiting_for_player2' ||
+                                                (lastUpdateTimestamp && game.last_updated <= lastUpdateTimestamp)
+                                            ) {
+                                                console.log('SUBSCRIPTION: Skipping update', {
+                                                    reason: !game ? 'No game data' :
+                                                        !game.secret_word ? 'No secret word' :
+                                                        !game.initialized ? 'Not initialized' :
+                                                        game.status === 'waiting_for_player2' ? 'Waiting for player2' :
+                                                        'Outdated timestamp',
+                                                    lastUpdateTimestamp,
+                                                    gameLastUpdated: game.last_updated
+                                                });
                                                 return;
                                             }
+                                            lastUpdateTimestamp = game.last_updated;
+
                                             if (game.status === 'finished' || game.status === 'ended') {
                                                 gameIsOver = true;
                                                 display_feedback(
@@ -2612,8 +2496,9 @@ async function play_game(
                                                     .eq('session_id', sessionId);
                                             }
 
-                                            // Update UI before processing guess
+                                            // Update UI
                                             await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+                                            await new Promise(resolve => setTimeout(resolve, 100)); // Ensure UI updates
 
                                             // Handle guess if it's the local player's turn
                                             if (
@@ -2632,8 +2517,25 @@ async function play_game(
                                                         buttonDisplay: button.style.display,
                                                         prompt: prompt.innerText
                                                     });
+
+                                                    // Replace input and button to clear any stale listeners
+                                                    const newInput = input.cloneNode(true);
+                                                    const newButton = button.cloneNode(true);
+                                                    input.parentNode.replaceChild(newInput, input);
+                                                    button.parentNode.replaceChild(newButton, button);
+                                                    input = newInput;
+                                                    button = newButton;
+                                                    input.id = `guess-input-${Date.now()}`;
+                                                    button.id = `guess-button-${Date.now()}`;
+                                                    input.type = 'text';
+                                                    input.className = 'game-input';
+                                                    button.className = 'game-button';
+                                                    button.innerText = 'Enviar';
+                                                    console.log('SUBSCRIPTION: Replaced input and button', { inputId: input.id, buttonId: button.id });
+
+                                                    // Update UI again to ensure correct state
                                                     await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                                    await new Promise(resolve => setTimeout(resolve, 50)); // Ensure DOM updates
+
                                                     const guess = await window.get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
@@ -2751,20 +2653,16 @@ async function play_game(
                                         }
                                     }
                                 )
-                                .subscribe();
+                                .subscribe((status, err) => {
+                                    if (status === 'SUBSCRIBED') {
+                                        console.log('Subscribed to game:', sessionId);
+                                    } else if (err) {
+                                        console.error('Subscription error:', err);
+                                        display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
+                                        resolve();
+                                    }
+                                });
                             window.gameChannel = channel;
-                            // Trigger initial subscription update if not local player’s turn
-                            if (
-                                gameData.current_player &&
-                                localPlayer &&
-                                gameData.current_player.trim().toLowerCase() !== localPlayer.trim().toLowerCase()
-                            ) {
-                                console.log('REMOTE GAME LOOP: Triggering initial subscription update for non-local player', { localPlayer });
-                                supabase
-                                    .from('games')
-                                    .update({ last_updated: new Date() })
-                                    .eq('session_id', sessionId);
-                            }
                         });
                     } catch (err) {
                         console.error('REMOTE GAME LOOP: Outer error', err);
