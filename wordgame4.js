@@ -3053,7 +3053,7 @@ async function play_game(
             container.appendChild(button_group);
             console.log('play_game: Completed', { games_played, total_scores });
 
-        } catch (err) {
+        } catch (error) {
             console.error('play_game: Error in game execution', err);
             display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
             throw err;
