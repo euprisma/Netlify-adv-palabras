@@ -3054,9 +3054,9 @@ async function play_game(
             console.log('play_game: Completed', { games_played, total_scores });
 
         } catch (error) {
-            console.error('play_game: Error in game execution', err);
+            console.error('play_game: Error in game execution', error);
             display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
-            throw err;
+            throw error;
         }
     } finally {
         if (window.gameChannel) {
