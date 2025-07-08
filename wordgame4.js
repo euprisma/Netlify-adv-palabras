@@ -356,15 +356,14 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         console.error('get_guess: Missing required DOM elements', { prompt, input, output, button });
         throw new Error('Missing required DOM elements');
     }
+    // Ensure unique input ID and reset state
     input.id = input.id || `guess-input-${Date.now()}`;
-    const normalized_secret = normalizar(secret_word);
-    const min_guesses_for_word = secret_word.length < 5 ? 1 : 2;
-    const permitir_palabra = guessed_letters.size >= min_guesses_for_word || Array.from(guessed_letters).some(l => secret_word.split('').filter(x => x === l).length > 1);
+    input.value = ''; // Clear any residual input
+    input.disabled = false; // Ensure input is enabled
     prompt.innerText = permitir_palabra ? 'Adivina una letra o la palabra completa:' : 'Adivina una letra:';
     button.style.display = 'inline-block';
     button.innerText = 'Enviar';
-    input.value = '';
-    input.disabled = false;
+    // Force focus and ensure input is ready
     focusInput(input);
     console.log('get_guess: Input initialized', { inputId: input.id, disabled: input.disabled, focused: document.activeElement === input });
 
@@ -392,15 +391,15 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                 return { valid: false };
             }
             if (permitir_palabra && normalizedGuess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
-                input.value = '';
+                input.value = ''; // Clear input after valid guess
                 return { valid: true, guess: normalizedGuess };
             } else if (normalizedGuess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
-                input.value = '';
+                input.value = ''; // Clear input after valid guess
                 return { valid: true, guess: normalizedGuess };
             } else {
                 output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida (solo letras, incluyendo áéíóúüñ).';
                 output.style.color = 'red';
-                input.value = '';
+                input.value = ''; // Clear input after invalid guess
                 focusInput(input);
                 return { valid: false };
             }
@@ -438,11 +437,15 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             console.log('get_guess: Cleaned up handlers', input.id);
         }
 
+        // Attach new handlers
         input._guessHandler = enterHandler;
         button._clickHandler = clickHandler;
         input.addEventListener('keydown', enterHandler);
         button.addEventListener('click', clickHandler);
         console.log('get_guess: Attached handlers', { inputId: input.id, buttonId: button.id });
+
+        // Ensure focus with a slight delay to avoid race conditions
+        setTimeout(() => focusInput(input), 100);
 
         // Periodically check focus
         const focusCheckInterval = setInterval(() => {
@@ -459,7 +462,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             output.innerText = 'Tiempo de espera agotado. Turno perdido.';
             output.style.color = 'red';
             resolve(null); // Return null instead of rejecting to allow turn skip
-        }, 120000); // Increase to 120 seconds for remote mode
+        }, 120000); // 120 seconds for remote mode
     });
 }
 console.log('get_guess defined at', new Date());
