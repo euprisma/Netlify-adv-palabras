@@ -2628,7 +2628,11 @@ async function play_game(
                                             if (game.status === 'finished' || game.status === 'ended') {
                                                 gameIsOver = true;
                                                 display_feedback(
-                                                    `Juego terminado. Palabra: ${formato_palabra(provided_secret_word, new Set(game.guessed_letters || []))}.`,
+                                                    `Juego terminado. Palabra: ${formato_palabra(
+                                                        normalizar(provided_secret_word).split('').map(
+                                                            l => (new Set(game.guessed_letters || [])).has(l) ? l : "_"
+                                                        )
+                                                    )}.`,
                                                     'black',
                                                     null,
                                                     false
