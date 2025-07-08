@@ -370,12 +370,15 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
     prompt.innerText = permitir_palavra ? 'Adivina una letra o la palabra completa:' : 'Adivina una letra:';
     button.style.display = 'inline-block';
     button.innerText = 'Enviar';
-    // Immediate focus attempt
-    input.focus();
+    input.focus(); // Immediate focus
     console.log('get_guess: Input initialized', { inputId: input.id, disabled: input.disabled, focused: document.activeElement === input });
 
     return new Promise((resolve, reject) => {
         // Remove existing handlers
+        if (input._keypressHandler) {
+            input.removeEventListener('keypress', input._keypressHandler);
+            console.log('get_guess: Removed previous keypress handler', input.id);
+        }
         if (input._guessHandler) {
             input.removeEventListener('keydown', input._guessHandler);
             console.log('get_guess: Removed previous keydown handler', input.id);
@@ -386,6 +389,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         }
 
         const normalized_secret = normalizar(secret_word);
+        let currentGuess = ''; // Track input manually
 
         function handleGuess(source, guessValue) {
             console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
@@ -414,12 +418,20 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             }
         }
 
+        const keypressHandler = (e) => {
+            // Only capture printable characters
+            if (/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]$/.test(e.key)) {
+                currentGuess = (currentGuess + e.key).toLowerCase();
+                console.log('get_guess: keypress event', { key: e.key, currentGuess, inputId: input.id });
+            }
+        };
+
         const enterHandler = (e) => {
-            console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, inputId: input.id, focused: document.activeElement === input });
+            console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, currentGuess, inputId: input.id, focused: document.activeElement === input });
             if (e.key === 'Enter') {
                 e.preventDefault();
-                console.log('get_guess: Enter key pressed', { inputValue: input.value, inputId: input.id });
-                const result = handleGuess('enter', input.value);
+                console.log('get_guess: Enter key pressed', { inputValue: input.value, currentGuess, inputId: input.id });
+                const result = handleGuess('enter', currentGuess || input.value);
                 if (result.valid) {
                     cleanup();
                     resolve(result.guess);
@@ -428,8 +440,8 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         };
 
         const clickHandler = () => {
-            console.log('get_guess: Button clicked', { inputValue: input.value, inputId: input.id });
-            const result = handleGuess('button', input.value);
+            console.log('get_guess: Button clicked', { inputValue: input.value, currentGuess, inputId: input.id });
+            const result = handleGuess('button', currentGuess || input.value);
             if (result.valid) {
                 cleanup();
                 resolve(result.guess);
@@ -437,45 +449,43 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         };
 
         function cleanup() {
+            input.removeEventListener('keypress', keypressHandler);
             input.removeEventListener('keydown', enterHandler);
             button.removeEventListener('click', clickHandler);
+            input._keypressHandler = null;
             input._guessHandler = null;
             button._clickHandler = null;
             clearTimeout(timeoutId);
-            clearInterval(focusCheckInterval);
             console.log('get_guess: Cleaned up handlers', input.id);
         }
 
         // Attach new handlers
+        input._keypressHandler = keypressHandler;
         input._guessHandler = enterHandler;
         button._clickHandler = clickHandler;
+        input.addEventListener('keypress', keypressHandler);
         input.addEventListener('keydown', enterHandler);
         button.addEventListener('click', clickHandler);
         console.log('get_guess: Attached handlers', { inputId: input.id, buttonId: button.id });
 
-        // Fallback focus with delay to ensure input readiness
+        // Fallback focus with delay
         setTimeout(() => {
-            input.value = ''; // Extra reset
-            input.focus();
-            console.log('get_guess: Delayed focus applied', { inputId: input.id, focused: document.activeElement === input });
+            if (document.activeElement !== input) {
+                input.value = ''; // Extra reset
+                currentGuess = '';
+                input.focus();
+                console.log('get_guess: Delayed focus applied', { inputId: input.id, focused: document.activeElement === input });
+            }
         }, 100);
 
-        // Periodically check focus
-        const focusCheckInterval = setInterval(() => {
-            if (document.activeElement !== input) {
-                console.warn('get_guess: Input lost focus, re-focusing', input.id);
-                input.focus();
-            }
-        }, 1000);
-
-        // Extend timeout for remote mode
+        // Timeout for remote mode
         const timeoutId = setTimeout(() => {
             cleanup();
             console.warn('get_guess: Input timeout', input.id);
             output.innerText = 'Tiempo de espera agotado. Turno perdido.';
             output.style.color = 'red';
             resolve(null); // Allow turn skip
-        }, 120000); // 120 seconds for remote mode
+        }, 120000); // 120 seconds
     });
 }
 console.log('get_guess defined at', new Date());
@@ -2455,6 +2465,10 @@ async function play_game(
                                 });
 
                                 // Clean up stale listeners
+                                if (input._keypressHandler) {
+                                    input.removeEventListener('keypress', input._keypressHandler);
+                                    input._keypressHandler = null;
+                                }
                                 if (input._guessHandler) {
                                     input.removeEventListener('keydown', input._guessHandler);
                                     input._guessHandler = null;
@@ -2664,6 +2678,10 @@ async function play_game(
                                                     });
 
                                                     // Clean up stale listeners
+                                                    if (input._keypressHandler) {
+                                                        input.removeEventListener('keypress', input._keypressHandler);
+                                                        input._keypressHandler = null;
+                                                    }
                                                     if (input._guessHandler) {
                                                         input.removeEventListener('keydown', input._guessHandler);
                                                         input._guessHandler = null;
@@ -2672,7 +2690,7 @@ async function play_game(
                                                         button.removeEventListener('click', button._clickHandler);
                                                         button._clickHandler = null;
                                                     }
-                                                    
+
                                                     await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
                                                     await new Promise(resolve => setTimeout(resolve, 50));
                                                     const guess = await window.get_guess(
