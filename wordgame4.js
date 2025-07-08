@@ -2765,7 +2765,12 @@ async function play_game(
                                                                 if (newStatus === 'finished') {
                                                                     gameIsOver = true;
                                                                     display_feedback(
-                                                                        `Juego terminado. Palabra: ${formato_palabra(provided_secret_word, guessed_letters)}.`,
+                                                                        `Juego terminado. Palabra: ${
+                                                                        formato_palabra(
+                                                                            normalizar(provided_secret_word).split('').map(
+                                                                                l => guessed_letters.has(l) ? l : "_"
+                                                                            )
+                                                                        )}.`,
                                                                         'black',
                                                                         null,
                                                                         false
@@ -2917,7 +2922,11 @@ async function play_game(
                 if (input.parentNode) container.removeChild(input);
                 if (button.parentNode) container.removeChild(button);
             } catch (err) { }
-            const formatted_word = formato_palabra(provided_secret_word, guessed_letters);
+            const formatted_word = formato_palabra(
+                normalizar(provided_secret_word).split('').map(
+                    l => guessed_letters.has(l) ? l : "_"
+                )
+            );
             output.innerHTML += `Juego terminado. Palabra: ${formatted_word}.`;
             output.style.color = 'black';
             players.forEach(p => {
