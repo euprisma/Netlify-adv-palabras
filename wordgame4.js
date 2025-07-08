@@ -2312,7 +2312,7 @@ async function play_game(
                         });
                         if (isLocalPlayer) {
                             input.value = ''; // Clear input for new guess
-                            await new Promise(resolve => setTimeout(resolve, 200)); // Ensure DOM updates
+                            await new Promise(resolve => setTimeout(resolve, 250)); // Ensure DOM updates
                             focusInput(input);
                         }
                     } else {
@@ -2439,7 +2439,7 @@ async function play_game(
                                 });
                                 // Ensure UI is ready
                                 await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                await new Promise(resolve => setTimeout(resolve, 50)); // Ensure DOM updates
+                                await new Promise(resolve => setTimeout(resolve, 250)); // Ensure DOM updates
                                 const guess = await window.get_guess(
                                     guessed_letters,
                                     provided_secret_word,
