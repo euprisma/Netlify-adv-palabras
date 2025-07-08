@@ -1768,7 +1768,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
     console.log('process_guess: ENTRY', {
         player,
         secret_word,
-        guessed_letters: guessed_letters instanceof Set ? Array.from(guessed_letters) : guessed_letters,
+        guessed_letters: Array.from(guessed_letters),
         tries: { ...tries },
         scores: { ...scores },
         max_score,
@@ -1777,7 +1777,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
     });
     // Validate DOM elements
     if (!prompt || !input || !output || !button || !prompt.parentNode || !input.parentNode || !output.parentNode || !button.parentNode) {
-        console.error('process_guess: One or more DOM elements missing or not attached', {
+        console.error('REMOTE GAME LOOP: One or more DOM elements missing or not attached', {
             prompt, input, output, button,
             promptInDOM: !!prompt?.parentNode,
             inputInDOM: !!input?.parentNode,
@@ -1785,12 +1785,6 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
             buttonInDOM: !!button?.parentNode
         });
         display_feedback('Error: Interfaz no disponible. Reinicia el juego.', 'red', player, true);
-        return { penalizo: true, tries, scores, guessed_letters, word_guessed: false };
-    }
-    // Validate core parameters
-    if (!player || !secret_word || !guessed_letters || !(guessed_letters instanceof Set)) {
-        console.warn('process_guess: Invalid core parameters', { player, secret_word, guessedLettersType: guessed_letters instanceof Set ? 'Set' : typeof guessed_letters });
-        display_feedback('Error: Parámetros inválidos.', 'red', player, true);
         return { penalizo: true, tries, scores, guessed_letters, word_guessed: false };
     }
     let retried = 0;
@@ -1830,7 +1824,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                 timeoutPromise
             ]);
             console.log('process_guess: Human guess:', human_guess);
-            if (!human_guess?.trim()) {
+            if (!human_guess.trim()) {
                 feedback = 'Entrada vacía. Ingresa una adivinanza válida.';
                 feedback_color = 'orange';
                 display_feedback(feedback, feedback_color, player, true);
@@ -1886,40 +1880,29 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
             display_feedback('IA está pensando...', 'blue', player, true);
             await delay(1000);
             guess = await get_ai_guess_wrapper();
-            if (!guess) {
-                console.warn('process_guess: AI guess returned null');
-                return { penalizo, tries, scores, guessed_letters, word_guessed: false };
-            }
+            if (!guess) return { penalizo, tries, scores, guessed_letters, word_guessed: false };
         } else {
             while (timeout_retries < max_timeout_retries) {
                 const result = await get_human_guess();
                 if (result === null) continue;
-                if (result === false) {
-                    console.warn('process_guess: Human guess failed after max timeouts');
-                    return { penalizo, tries, scores, guessed_letters, word_guessed: false };
-                }
+                if (result === false) return { penalizo, tries, scores, guessed_letters, word_guessed: false };
                 guess = result;
                 break;
             }
-            if (!guess) {
-                console.warn('process_guess: No valid human guess after retries');
+            if (timeout_retries >= max_timeout_retries) {
                 return { penalizo, tries, scores, guessed_letters, word_guessed: false };
             }
         }
         // Process guess with retry logic
         while (retried < max_retries) {
-            console.log('process_guess: Attempting guess', { guess, retried });
             if (!guess) {
                 penalizo = true;
                 feedback = 'Adivinanza inválida. Pierdes el turno.';
                 feedback_color = 'red';
                 display_feedback(feedback, feedback_color, player, true);
-                console.warn('process_guess: Invalid guess', { guess });
                 return { penalizo, tries, scores, guessed_letters, word_guessed: false };
             }
-            const normalized_guess = normalizar(guess);
-            console.log('process_guess: Processing guess', { player, guess, normalized_guess, normalized_secret });
-            // Check for repeated or invalid guesses
+            console.log('process_guess: Processing guess', { player, guess, normalized_guess: normalizar(guess), normalized_secret });
             if (guess.length === 1 && lastCorrectWasVowel[player] && vowels.has(guess)) {
                 display_feedback('Inválido. Ingrese una consonante.', 'red', player, true);
                 retried++;
@@ -2036,41 +2019,6 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                 display_feedback(feedback, feedback_color, player, true);
                 return { penalizo, tries, scores, guessed_letters, word_guessed: false };
             }
-            // Validate full-word guess eligibility
-            if (guess.length === secret_word.length) {
-                const secretLength = secret_word.length;
-                const guessedCount = guessed_letters.size;
-                const permitir_palavra = (secretLength === 4 && guessedCount >= 1) ||
-                    (secretLength > 4 && secretLength <= 12 && guessedCount >= 2);
-                if (!permitir_palavra) {
-                    display_feedback('No se permite adivinar la palabra completa todavía.', 'red', player, true);
-                    retried++;
-                    console.log('process_guess: Full-word guess not allowed', { secretLength, guessedCount, retried });
-                    if (retried >= max_retries) {
-                        penalizo = true;
-                        feedback = 'Demasiados intentos inválidos. Pierdes el turno.';
-                        if (scores[player] > 0) {
-                            const penalty = Math.min(1, scores[player]);
-                            feedback += ` (-${penalty} punto)`;
-                            scores[player] = Math.max(0, scores[player] - penalty);
-                            console.log('process_guess: Max retries penalty applied', { player, penalty, new_score: scores[player] });
-                        }
-                        feedback_color = 'red';
-                        display_feedback(feedback, feedback_color, player, true);
-                        return { penalizo, tries, scores, guessed_letters, word_guessed: false };
-                    }
-                    if (player === 'IA') {
-                        guess = await get_ai_guess_wrapper();
-                        if (!guess) break;
-                    } else {
-                        const result = await get_human_guess();
-                        if (result === null) continue;
-                        if (result === false) return { penalizo, tries, scores, guessed_letters, word_guessed: false };
-                        guess = result;
-                    }
-                    continue;
-                }
-            }
             const score_before = scores[player];
             if (guess.length === secret_word.length) {
                 if (normalizar(guess) === normalized_secret) {
@@ -2080,7 +2028,6 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     feedback = `¡Felicidades, ${escapeHTML(player)}! Adivinaste '${escapeHTML(secret_word)}'!`;
                     feedback_color = 'green';
                     restar_intento = false;
-                    console.log('process_guess: Word guessed correctly', { guess, score_before, score_after: scores[player] });
                 } else {
                     const letras_nuevas = new Set(secret_word.split('').filter(l => guess.includes(l) && !guessed_letters.has(l)));
                     const penalizacion = scores[player] > 0 ? Math.min(2, scores[player]) : 0;
@@ -2497,8 +2444,7 @@ async function play_game(
                             prompt: prompt.innerText
                         });
 
-
-                        // Initial Guess Processing                            
+                        // Process initial guess if local player's turn
                         if (
                             gameData.current_player &&
                             localPlayer &&
@@ -2555,23 +2501,12 @@ async function play_game(
                                     // Process the guess
                                     const result = await process_guess(
                                         gameData.current_player,
-                                        guessed_letters,
                                         provided_secret_word,
+                                        guessed_letters,
                                         tries,
                                         scores,
-                                        lastCorrectWasVowel,
-                                        used_wrong_letters,
-                                        used_wrong_words,
-                                        vowels,
-                                        max_score,
-                                        difficulty,
-                                        mode,
-                                        prompt,
-                                        input,
                                         output,
-                                        button,
-                                        delay,
-                                        display_feedback
+                                        guess
                                     );
                                     console.log('play_game: Process guess result', { result, guessedLetters: Array.from(guessed_letters) });
                                     // Update UI after guess
@@ -2659,7 +2594,7 @@ async function play_game(
                                             // Update UI before processing guess
                                             await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
-                                            // Subscription-Based Guess Processing
+                                            // Handle guess if it's the local player's turn
                                             if (
                                                 game.current_player &&
                                                 localPlayer &&
@@ -2716,23 +2651,12 @@ async function play_game(
                                                         // Process the guess
                                                         const result = await process_guess(
                                                             game.current_player,
-                                                            guessed_letters,
                                                             provided_secret_word,
+                                                            guessed_letters,
                                                             tries,
                                                             scores,
-                                                            lastCorrectWasVowel,
-                                                            used_wrong_letters,
-                                                            used_wrong_words,
-                                                            vowels,
-                                                            max_score,
-                                                            difficulty,
-                                                            mode,
-                                                            prompt,
-                                                            input,
                                                             output,
-                                                            button,
-                                                            delay,
-                                                            display_feedback
+                                                            guess
                                                         );
                                                         console.log('play_game: Process guess result', { result, guessedLetters: Array.from(guessed_letters) });
                                                         // Update UI after guess
