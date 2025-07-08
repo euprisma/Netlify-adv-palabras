@@ -356,11 +356,9 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         console.error('get_guess: Missing required DOM elements', { prompt, input, output, button });
         throw new Error('Missing required DOM elements');
     }
-    // Handle guessed_letters as a Set or fallback to empty array
-    const safeGuessedLetters = guessed_letters instanceof Set ? guessed_letters : new Set();
-    // Compute permitir_palavra
+    // Compute permitir_palavra based on secret_word and guessed_letters
     const secretLength = secret_word.length;
-    const guessedCount = safeGuessedLetters.size;
+    const guessedCount = guessed_letters.length;
     const permitir_palavra = (secretLength === 4 && guessedCount >= 1) ||
                             (secretLength > 4 && secretLength <= 12 && guessedCount >= 2);
     console.log('get_guess: Computed permitir_palavra', { secretLength, guessedCount, permitir_palavra });
@@ -377,19 +375,18 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
 
     return new Promise((resolve, reject) => {
         // Remove existing handlers
-        // Remove ALL previous handlers, even if not tracked
-        input.removeEventListener('keypress', keypressHandler);
-        input.removeEventListener('keydown', enterHandler);
-        button.removeEventListener('click', clickHandler);
-
-        // Now attach new handlers
-        input.addEventListener('keypress', keypressHandler);
-        input.addEventListener('keydown', enterHandler);
-        button.addEventListener('click', clickHandler);
-
-        input._keypressHandler = keypressHandler;
-        input._guessHandler = enterHandler;
-        button._clickHandler = clickHandler;
+        if (input._keypressHandler) {
+            input.removeEventListener('keypress', input._keypressHandler);
+            console.log('get_guess: Removed previous keypress handler', input.id);
+        }
+        if (input._guessHandler) {
+            input.removeEventListener('keydown', input._guessHandler);
+            console.log('get_guess: Removed previous keydown handler', input.id);
+        }
+        if (button._clickHandler) {
+            button.removeEventListener('click', button._clickHandler);
+            console.log('get_guess: Removed previous button click handler', button.id);
+        }
 
         const normalized_secret = normalizar(secret_word);
         let currentGuess = ''; // Track input manually
@@ -408,11 +405,9 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             }
             if (permitir_palavra && normalizedGuess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
                 input.value = ''; // Clear input after valid guess
-                console.log('get_guess: Valid full-word guess', { guess: normalizedGuess });
                 return { valid: true, guess: normalizedGuess };
             } else if (normalizedGuess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalizedGuess)) {
                 input.value = ''; // Clear input after valid guess
-                console.log('get_guess: Valid single-letter guess', { guess: normalizedGuess });
                 return { valid: true, guess: normalizedGuess };
             } else {
                 output.innerText = 'Entrada inválida. Ingresa una letra o palabra válida (solo letras, incluyendo áéíóúüñ).';
@@ -424,6 +419,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         }
 
         const keypressHandler = (e) => {
+            // Only capture printable characters
             if (/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]$/.test(e.key)) {
                 currentGuess = (currentGuess + e.key).toLowerCase();
                 console.log('get_guess: keypress event', { key: e.key, currentGuess, inputId: input.id });
@@ -438,10 +434,6 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                 const result = handleGuess('enter', currentGuess || input.value);
                 if (result.valid) {
                     cleanup();
-                    console.log('get_guess: Guess resolved, triggering UI update', { guess: result.guess });
-                    // Force immediate UI feedback
-                    output.innerText = `Procesando adivinanza: ${result.guess}`;
-                    output.style.color = 'blue';
                     resolve(result.guess);
                 }
             }
@@ -452,10 +444,6 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             const result = handleGuess('button', currentGuess || input.value);
             if (result.valid) {
                 cleanup();
-                console.log('get_guess: Guess resolved, triggering UI update', { guess: result.guess });
-                // Force immediate UI feedback
-                output.innerText = `Procesando adivinanza: ${result.guess}`;
-                output.style.color = 'blue';
                 resolve(result.guess);
             }
         };
@@ -467,6 +455,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             input._keypressHandler = null;
             input._guessHandler = null;
             button._clickHandler = null;
+            clearTimeout(timeoutId);
             console.log('get_guess: Cleaned up handlers', input.id);
         }
 
@@ -487,7 +476,16 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
                 input.focus();
                 console.log('get_guess: Delayed focus applied', { inputId: input.id, focused: document.activeElement === input });
             }
-        }, 200);
+        }, 100);
+
+        // Timeout for remote mode
+        const timeoutId = setTimeout(() => {
+            cleanup();
+            console.warn('get_guess: Input timeout', input.id);
+            output.innerText = 'Tiempo de espera agotado. Turno perdido.';
+            output.style.color = 'red';
+            resolve(null); // Allow turn skip
+        }, 120000); // 120 seconds
     });
 }
 console.log('get_guess defined at', new Date());
@@ -2459,12 +2457,11 @@ async function play_game(
                             isGuessing = true;
                             try {
                                 console.log('REMOTE GAME LOOP: Processing initial guess', {
-                                localPlayer,
+                                    localPlayer,
                                     currentPlayer: gameData.current_player,
                                     inputDisabled: input.disabled,
                                     buttonDisplay: button.style.display,
-                                    prompt: prompt.innerText,
-                                    guessedLettersType: guessed_letters instanceof Set ? 'Set' : typeof guessed_letters
+                                    prompt: prompt.innerText
                                 });
 
                                 // Clean up stale listeners
@@ -2480,16 +2477,10 @@ async function play_game(
                                     button.removeEventListener('click', button._clickHandler);
                                     button._clickHandler = null;
                                 }
-                                 // Ensure guessed_letters is a Set
-                                if (!(guessed_letters instanceof Set)) {
-                                    guessed_letters = new Set();
-                                    console.warn('play_game: Initialized guessed_letters as Set', guessed_letters);
-                                }
 
                                 // Ensure UI is ready
                                 await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                console.log('play_game: UI updated before guess', { player: gameData.current_player });
-                                await new Promise(resolve => setTimeout(resolve, 50));
+                                await new Promise(resolve => setTimeout(resolve, 50)); // Keep original delay unless needed
                                 const guess = await window.get_guess(
                                     guessed_letters,
                                     provided_secret_word,
@@ -2497,8 +2488,9 @@ async function play_game(
                                     input,
                                     output,
                                     button
+                                    
                                 );
-                                console.log('REMOTE GAME LOOP: Initial guess received', { guess, guessedLetters: Array.from(guessed_letters) });
+                                console.log('REMOTE GAME LOOP: Initial guess received', { guess });
                                 if (guess === null) {
                                     console.log('REMOTE GAME LOOP: Initial guess timed out', { localPlayer });
                                     display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
@@ -2682,8 +2674,7 @@ async function play_game(
                                                         localPlayer,
                                                         inputDisabled: input.disabled,
                                                         buttonDisplay: button.style.display,
-                                                        prompt: prompt.innerText,
-                                                        guessedLettersType: guessed_letters instanceof Set ? 'Set' : typeof guessed_letters
+                                                        prompt: prompt.innerText
                                                     });
 
                                                     // Clean up stale listeners
@@ -2700,14 +2691,7 @@ async function play_game(
                                                         button._clickHandler = null;
                                                     }
 
-                                                     // Ensure guessed_letters is a Set
-                                                    if (!(guessed_letters instanceof Set)) {
-                                                        guessed_letters = new Set();
-                                                        console.warn('play_game: Initialized guessed_letters as Set', guessed_letters);
-                                                    }
-
                                                     await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-                                                    console.log('play_game: UI updated before guess', { player: game.current_player });
                                                     await new Promise(resolve => setTimeout(resolve, 50));
                                                     const guess = await window.get_guess(
                                                         guessed_letters,
@@ -2716,8 +2700,9 @@ async function play_game(
                                                         input,
                                                         output,
                                                         button
+                                                        
                                                     );
-                                                    console.log('REMOTE GAME LOOP: Guess received from subscription', { guess, guessedLetters: Array.from(guessed_letters) });
+                                                    console.log('SUBSCRIPTION: Guess received', { guess });
                                                     if (guess === null) {
                                                         console.log('SUBSCRIPTION: Guess timed out', { localPlayer });
                                                         display_feedback('Tiempo de espera agotado. Turno perdido.', 'red', localPlayer, true);
@@ -2843,7 +2828,7 @@ async function play_game(
                                     .eq('session_id', sessionId);
                             }
                         });
-                    } catch (error) {
+                    } catch (err) {
                         console.error('REMOTE GAME LOOP: Outer error', err);
                         display_feedback('Error en la lógica remota. Intenta de nuevo.', 'red', null, false);
                         return channel;
@@ -3053,10 +3038,10 @@ async function play_game(
             container.appendChild(button_group);
             console.log('play_game: Completed', { games_played, total_scores });
 
-        } catch (error) {
-            console.error('play_game: Error in game execution', error);
+        } catch (err) {
+            console.error('play_game: Error in game execution', err);
             display_feedback('Error en el juego. Por favor, reinicia.', 'red', null, false);
-            throw error;
+            throw err;
         }
     } finally {
         if (window.gameChannel) {
