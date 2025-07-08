@@ -2843,7 +2843,7 @@ async function play_game(
                                     .eq('session_id', sessionId);
                             }
                         });
-                    } catch (err) {
+                    } catch (error) {
                         console.error('REMOTE GAME LOOP: Outer error', err);
                         display_feedback('Error en la lógica remota. Intenta de nuevo.', 'red', null, false);
                         return channel;
