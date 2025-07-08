@@ -377,18 +377,19 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
 
     return new Promise((resolve, reject) => {
         // Remove existing handlers
-        if (input._keypressHandler) {
-            input.removeEventListener('keypress', input._keypressHandler);
-            console.log('get_guess: Removed previous keypress handler', input.id);
-        }
-        if (input._guessHandler) {
-            input.removeEventListener('keydown', input._guessHandler);
-            console.log('get_guess: Removed previous keydown handler', input.id);
-        }
-        if (button._clickHandler) {
-            button.removeEventListener('click', button._clickHandler);
-            console.log('get_guess: Removed previous button click handler', input.id);
-        }
+        // Remove ALL previous handlers, even if not tracked
+        input.removeEventListener('keypress', keypressHandler);
+        input.removeEventListener('keydown', enterHandler);
+        button.removeEventListener('click', clickHandler);
+
+        // Now attach new handlers
+        input.addEventListener('keypress', keypressHandler);
+        input.addEventListener('keydown', enterHandler);
+        button.addEventListener('click', clickHandler);
+
+        input._keypressHandler = keypressHandler;
+        input._guessHandler = enterHandler;
+        button._clickHandler = clickHandler;
 
         const normalized_secret = normalizar(secret_word);
         let currentGuess = ''; // Track input manually
