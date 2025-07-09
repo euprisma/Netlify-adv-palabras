@@ -2621,6 +2621,19 @@ async function play_game(
                                                 scores: game.scores,
                                                 status: game.status
                                             });
+                                            // UPDATE LOCAL STATE FROM DB
+                                            guessed_letters.clear();
+                                            (Array.isArray(game.guessed_letters) ? game.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
+                                            Object.assign(tries, game.tries || {});
+                                            Object.assign(scores, game.scores || {});
+                                            current_player_idx_ref.value = players.findIndex(
+                                                p => p.toLowerCase() === game.current_player.toLowerCase()
+                                            );
+                                            if (current_player_idx_ref.value === -1) current_player_idx_ref.value = 0;
+                                            
+                                            // Always update UI
+                                            await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
+
                                             if (!game || !game.secret_word || !game.initialized || game.status === 'waiting_for_player2') {
                                                 console.log('SUBSCRIPTION: Skipping update due to invalid game state', { game });
                                                 return;
