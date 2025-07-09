@@ -2531,24 +2531,22 @@ async function play_game(
                                                         prompt: prompt.innerText
                                                     });
 
-                                                    // Clean up stale listeners
-                                                    if (input._keypressHandler) {
-                                                        input.removeEventListener('keypress', input._keypressHandler);
-                                                        input._keypressHandler = null;
-                                                    }
-                                                    if (input._guessHandler) {
-                                                        input.removeEventListener('keydown', input._guessHandler);
-                                                        input._guessHandler = null;
-                                                    }
-                                                    if (button._clickHandler) {
-                                                        button.removeEventListener('click', button._clickHandler);
-                                                        button._clickHandler = null;
-                                                    }
+                                                    // Wait for UI to be ready with longer delay
+                                                    await new Promise(resolve => setTimeout(resolve, 500));
 
-                                                    // Small delay to ensure UI is ready
-                                                    await new Promise(resolve => setTimeout(resolve, 50));
+                                                    // Ensure input is properly set up
+                                                    input.disabled = false;
+                                                    button.style.display = 'inline-block';
+                                                    input.value = '';
+                                                    input.focus();
 
-                                                    const guess = await window.get_guess(
+                                                    console.log('SUBSCRIPTION: About to call get_guess', {
+                                                        inputFocused: document.activeElement === input,
+                                                        inputDisabled: input.disabled,
+                                                        buttonVisible: button.style.display
+                                                    });
+
+                                                    const guess = await get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
                                                         prompt,
@@ -2687,12 +2685,13 @@ async function play_game(
                             window.gameChannel = channel;
 
                             // Trigger initial subscription event to start the game
-                            // This ensures the subscription handler processes the initial turn
                             console.log('REMOTE GAME LOOP: Triggering initial subscription update');
-                            supabase
-                                .from('games')
-                                .update({ last_updated: new Date() })
-                                .eq('session_id', sessionId);
+                            setTimeout(() => {
+                                supabase
+                                    .from('games')
+                                    .update({ last_updated: new Date() })
+                                    .eq('session_id', sessionId);
+                            }, 1000); // Delay the trigger to ensure subscription is ready
                         });
 
                     } catch (err) {
