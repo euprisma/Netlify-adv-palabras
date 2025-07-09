@@ -2352,7 +2352,7 @@ async function play_game(
             await update_ui(current_player_idx_ref, players[current_player_idx]);
 
             // Fallback get_guess implementation (replace with actual if shared)
-            async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
+            //async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
                 console.log('get_guess: Starting', {
                     inputDisabled: input.disabled,
                     buttonDisplay: button.style.display,
@@ -2396,8 +2396,8 @@ async function play_game(
                         resolve(null);
                     }, 30000); // 30-second timeout
                 });
-            }
-            window.get_guess = window.get_guess || get_guess;
+            //}
+            //window.get_guess = window.get_guess || get_guess;
 
             // Game Loop
             async function game_loop(
