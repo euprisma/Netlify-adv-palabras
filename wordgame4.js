@@ -2531,21 +2531,10 @@ async function play_game(
                                                         prompt: prompt.innerText
                                                     });
 
-                                                    // Wait for UI to be ready with longer delay
-                                                    await new Promise(resolve => setTimeout(resolve, 500));
+                                                    // Wait for UI to be ready
+                                                    await new Promise(resolve => setTimeout(resolve, 100));
 
-                                                    // Ensure input is properly set up
-                                                    input.disabled = false;
-                                                    button.style.display = 'inline-block';
-                                                    input.value = '';
-                                                    input.focus();
-
-                                                    console.log('SUBSCRIPTION: About to call get_guess', {
-                                                        inputFocused: document.activeElement === input,
-                                                        inputDisabled: input.disabled,
-                                                        buttonVisible: button.style.display
-                                                    });
-
+                                                    // Call the ACTUAL get_guess function (lines 342-490)
                                                     const guess = await get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
@@ -2691,7 +2680,7 @@ async function play_game(
                                     .from('games')
                                     .update({ last_updated: new Date() })
                                     .eq('session_id', sessionId);
-                            }, 1000); // Delay the trigger to ensure subscription is ready
+                            }, 1000);
                         });
 
                     } catch (err) {
