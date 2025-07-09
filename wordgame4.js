@@ -2529,6 +2529,57 @@ async function play_game(
                     }
                 }
             }
+
+            // Helper function to handle a player's turn
+            async function handlePlayerTurn(
+                localPlayer, guessed_letters, provided_secret_word, tries, scores,
+                current_player_idx_ref, players, sessionId, prompt, input, output, button,
+                display_feedback, difficulty, mode
+            ) {
+                let isGuessing = true;
+                try {
+                    const guess = await window.get_guess(
+                        guessed_letters, provided_secret_word, prompt, input, output, button
+                    );
+
+                    if (guess === null) {
+                        tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                        current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+                        await supabase.from('games').update({
+                            tries,
+                            current_player: players[current_player_idx_ref.value],
+                            last_updated: new Date()
+                        }).eq('session_id', sessionId);
+                    } else {
+                        const result = await process_guess(
+                            localPlayer, guessed_letters, provided_secret_word, tries, scores,
+                            lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
+                            max_score, difficulty, mode, prompt, input, output, button, delay,
+                            display_feedback
+                        );
+
+                        const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
+                        const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
+                        const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
+
+                        current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+
+                        await supabase.from('games').update({
+                            guessed_letters: Array.from(guessed_letters),
+                            tries,
+                            scores,
+                            current_player: players[current_player_idx_ref.value],
+                            status: newStatus,
+                            last_updated: new Date()
+                        }).eq('session_id', sessionId);
+                    }
+                } catch (error) {
+                    console.error('Turn Processing Error:', error);
+                } finally {
+                    isGuessing = false;
+                }
+            }
+
             channel = await game_loop(
                 players, tries, scores, mode, provided_secret_word, guessed_letters, gameType, sessionId,
                 output, container, prompt, input, button, display_feedback, current_player_idx_ref,
