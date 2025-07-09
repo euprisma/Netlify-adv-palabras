@@ -2351,7 +2351,7 @@ async function play_game(
             }
             await update_ui(current_player_idx_ref, players[current_player_idx]);
 
-
+            
 
             // Game Loop
             async function game_loop(
@@ -2376,8 +2376,6 @@ async function play_game(
                             return channel;
                         }
 
-                        console.log('REMOTE GAME LOOP: Initial game state', gameData);
-
                         // Update local state from database
                         guessed_letters.clear();
                         (Array.isArray(gameData.guessed_letters) ? gameData.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
@@ -2391,8 +2389,7 @@ async function play_game(
                         // Update UI to reflect current state
                         await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
-                        // 2. REMOVE INITIAL PROCESSING - Let subscription handle ALL turns
-                        // Set up subscription to handle ALL turns (including first)
+                        // 2. Set up subscription to handle ALL turns (no separate initial processing)
                         return new Promise((resolve) => {
                             if (channel) {
                                 supabase.removeChannel(channel);
@@ -2451,7 +2448,7 @@ async function play_game(
                                                     await new Promise(resolve => setTimeout(resolve, 100));
 
                                                     // Use the GLOBAL get_guess function
-                                                    const guess = await get_guess(
+                                                    const guess = await window.get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
                                                         prompt,
@@ -2530,15 +2527,18 @@ async function play_game(
                             window.gameChannel = channel;
 
                             // Trigger initial subscription event to start the game
-                            console.log('REMOTE GAME LOOP: Triggering initial subscription update');
-                            setTimeout(() => {
-                                supabase
+                            setTimeout(async () => {
+                                console.log('REMOTE GAME LOOP: Triggering initial update');
+                                const { error } = await supabase
                                     .from('games')
                                     .update({ last_updated: new Date() })
                                     .eq('session_id', sessionId);
-                            }, 1000);
-
-                            console.log('REMOTE GAME LOOP: Subscription set up, waiting for updates');
+                                if (error) {
+                                    console.error('REMOTE GAME LOOP: Error triggering update', error);
+                                } else {
+                                    console.log('REMOTE GAME LOOP: Initial update successful');
+                                }
+                            }, 1000); // Increase delay to 1 second
                         });
 
                     } catch (err) {
