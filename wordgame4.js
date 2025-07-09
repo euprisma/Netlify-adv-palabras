@@ -2351,53 +2351,7 @@ async function play_game(
             }
             await update_ui(current_player_idx_ref, players[current_player_idx]);
 
-            // Fallback get_guess implementation (replace with actual if shared)
-            //async function get_guess(guessed_letters, secret_word, prompt, input, output, button) {
-            console.log('get_guess: Starting', {
-                inputDisabled: input.disabled,
-                buttonDisplay: button.style.display,
-                prompt: prompt.innerText,
-                inputValue: input.value,
-                hasKeypressListener: !!input.onkeypress
-            });
-            return new Promise((resolve) => {
-                input.disabled = false;
-                button.style.display = 'inline-block';
-                input.focus();
-                const onSubmit = () => {
-                    const guess = input.value.trim().toLowerCase();
-                    console.log('get_guess: Guess submitted', { guess, inputValue: input.value });
-                    if (guess) {
-                        input.value = '';
-                        resolve(guess);
-                    } else {
-                        console.log('get_guess: Empty guess, waiting for input');
-                    }
-                };
-                const handleKeyPress = (e) => {
-                    console.log('get_guess: Key pressed', { key: e.key, inputValue: input.value });
-                    if (e.key === 'Enter') {
-                        onSubmit();
-                    }
-                };
-                // Remove existing listeners to prevent duplicates
-                input.removeEventListener('keypress', input.onkeypress);
-                input.addEventListener('keypress', handleKeyPress);
-                button.onclick = onSubmit;
-                // Cleanup to prevent memory leaks
-                const cleanup = () => {
-                    input.removeEventListener('keypress', handleKeyPress);
-                    button.onclick = null;
-                };
-                // Timeout to prevent hanging
-                setTimeout(() => {
-                    cleanup();
-                    console.log('get_guess: Timeout');
-                    resolve(null);
-                }, 30000); // 30-second timeout
-            });
-            //}
-            //window.get_guess = window.get_guess || get_guess;
+            
 
             // Game Loop
             async function game_loop(
@@ -2494,7 +2448,7 @@ async function play_game(
                                                     await new Promise(resolve => setTimeout(resolve, 100));
 
                                                     // Use the GLOBAL get_guess function
-                                                    const guess = await get_guess(
+                                                    const guess = await window.get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
                                                         prompt,
