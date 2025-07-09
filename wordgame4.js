@@ -2527,12 +2527,18 @@ async function play_game(
                             window.gameChannel = channel;
 
                             // Trigger initial subscription event to start the game
-                            setTimeout(() => {
-                                supabase
+                            setTimeout(async () => {
+                                console.log('REMOTE GAME LOOP: Triggering initial update');
+                                const { error } = await supabase
                                     .from('games')
                                     .update({ last_updated: new Date() })
                                     .eq('session_id', sessionId);
-                            }, 500);
+                                if (error) {
+                                    console.error('REMOTE GAME LOOP: Error triggering update', error);
+                                } else {
+                                    console.log('REMOTE GAME LOOP: Initial update successful');
+                                }
+                            }, 1000); // Increase delay to 1 second
                         });
 
                     } catch (err) {
