@@ -2534,8 +2534,8 @@ async function play_game(
                                                     // Wait for UI to be ready
                                                     await new Promise(resolve => setTimeout(resolve, 100));
 
-                                                    // Call the ACTUAL get_guess function (lines 342-490)
-                                                    const guess = await get_guess(
+                                                    // Call the GLOBAL get_guess function that's defined at the top of the file
+                                                    const guess = await window.get_guess(
                                                         guessed_letters,
                                                         provided_secret_word,
                                                         prompt,
