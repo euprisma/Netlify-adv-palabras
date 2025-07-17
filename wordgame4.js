@@ -468,7 +468,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         button.addEventListener('click', clickHandler);
         console.log('get_guess: Attached handlers', { inputId: input.id, buttonId: button.id });
 
-        // Fallback focus with delay
+// Fallback focus with delay
         setTimeout(() => {
             if (document.activeElement !== input) {
                 input.value = ''; // Extra reset
