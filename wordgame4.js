@@ -2474,18 +2474,20 @@ async function play_game(
                     window.gameChannel = channel;
 
                     // Trigger initial update to ensure subscription fires
-                    await supabase
+                    const { data: game, error } = await supabase
                         .from('games')
                         .update({ last_updated: new Date() })
-                        .eq('session_id', sessionId);
+                        .select('*')
+                        .eq('session_id', sessionId)
+                        .single();
 
-                    //if (error || !game) {
-                        //console.error('Initial Fetch Error:', error);
-                        //display_feedback('Error loading initial game state.', 'red', null, false);
-                        //return channel;
-                    //}
+                    if (error || !game) {
+                        console.error('Initial fetch error:', error);
+                        display_feedback('Error loading initial game state.', 'red', null, false);
+                        return channel;
+                    }
 
-                    //console.log('Initial Game State:', game);
+                    console.log('Initial Game State:', game);
 
                     // Sync initial state
                     guessed_letters.clear();
