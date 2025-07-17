@@ -2479,11 +2479,11 @@ async function play_game(
                         .update({ last_updated: new Date() })
                         .eq('session_id', sessionId);
 
-                    if (error || !game) {
-                        console.error('Initial Fetch Error:', error);
-                        display_feedback('Error loading initial game state.', 'red', null, false);
-                        return channel;
-                    }
+                    //if (error || !game) {
+                        //console.error('Initial Fetch Error:', error);
+                        //display_feedback('Error loading initial game state.', 'red', null, false);
+                        //return channel;
+                    //}
 
                     console.log('Initial Game State:', game);
 
