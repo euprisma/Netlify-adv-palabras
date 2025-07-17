@@ -2355,6 +2355,11 @@ async function play_game(
                 output, container, prompt, input, button, display_feedback, current_player_idx_ref,
                 game_info, games_played, games_to_play, total_scores, difficulty, channel
             ) {
+                console.trace('game_loop: CALLED', {
+                    players, tries, scores, mode, provided_secret_word, guessed_letters, gameType, sessionId,
+                    output, container, prompt, input, button, display_feedback, current_player_idx_ref,
+                    game_info, games_played, games_to_play, total_scores, difficulty, channel
+                });
                 if (mode === '2' && gameType === 'remoto') {
                     let isGuessing = false;
                     let gameIsOver = false;
