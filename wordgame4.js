@@ -2415,6 +2415,12 @@ async function play_game(
                         )
                         .subscribe();
 
+                    // **Add this: Trigger initial update to ensure subscription fires**
+                    await supabase
+                        .from('games')
+                        .update({ last_updated: new Date() })
+                        .eq('session_id', sessionId);
+
                     window.gameChannel = channel;
 
                     // Fetch and process initial game state
@@ -2444,20 +2450,7 @@ async function play_game(
                     await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
                     // Handle first turn immediately if it's the local player
-                    if (
-                        game.status === 'playing' &&
-                        game.current_player &&
-                        localPlayer &&
-                        game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
-                        !isGuessing &&
-                        !gameIsOver
-                    ) {
-                        await handlePlayerTurn(
-                            localPlayer, guessed_letters, provided_secret_word, tries, scores,
-                            current_player_idx_ref, players, sessionId, prompt, input, output, button,
-                            display_feedback, difficulty, mode
-                        );
-                    }
+                    
 
                     // Return a promise that resolves when the game ends
                     return new Promise((resolve) => {
