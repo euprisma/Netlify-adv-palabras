@@ -2485,7 +2485,7 @@ async function play_game(
                         //return channel;
                     //}
 
-                    console.log('Initial Game State:', game);
+                    //console.log('Initial Game State:', game);
 
                     // Sync initial state
                     guessed_letters.clear();
