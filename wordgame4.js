@@ -375,10 +375,6 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
 
     return new Promise((resolve, reject) => {
         // Remove existing handlers
-        if (input._keypressHandler) {
-            input.removeEventListener('keypress', input._keypressHandler);
-            console.log('get_guess: Removed previous keypress handler', input.id);
-        }
         if (input._guessHandler) {
             input.removeEventListener('keydown', input._guessHandler);
             console.log('get_guess: Removed previous keydown handler', input.id);
@@ -389,10 +385,9 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         }
 
         const normalized_secret = normalizar(secret_word);
-        let currentGuess = ''; // Track input manually
 
         function handleGuess(source, guessValue) {
-            console.log('get_guess: handleGuess called', { source, guessValue, currentInputValue: input.value, inputId: input.id });
+            console.trace('handleGuess: CALLED', { source, guessValue, currentInputValue: input.value, inputId: input.id });
             const rawGuess = guessValue || '';
             const trimmedGuess = rawGuess.trim();
             const normalizedGuess = normalizar(trimmedGuess);
@@ -418,20 +413,12 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             }
         }
 
-        const keypressHandler = (e) => {
-            // Only capture printable characters
-            if (/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]$/.test(e.key)) {
-                currentGuess = (currentGuess + e.key).toLowerCase();
-                console.log('get_guess: keypress event', { key: e.key, currentGuess, inputId: input.id });
-            }
-        };
-
         const enterHandler = (e) => {
-            console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, currentGuess, inputId: input.id, focused: document.activeElement === input });
+            console.log('get_guess: keydown event', { key: e.key, inputValue: input.value, inputId: input.id, focused: document.activeElement === input });
             if (e.key === 'Enter') {
                 e.preventDefault();
-                console.log('get_guess: Enter key pressed', { inputValue: input.value, currentGuess, inputId: input.id });
-                const result = handleGuess('enter', currentGuess || input.value);
+                console.log('get_guess: Enter key pressed', { inputValue: input.value, inputId: input.id });
+                const result = handleGuess('enter', input.value); // Use input.value directly
                 if (result.valid) {
                     cleanup();
                     resolve(result.guess);
@@ -440,8 +427,8 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         };
 
         const clickHandler = () => {
-            console.log('get_guess: Button clicked', { inputValue: input.value, currentGuess, inputId: input.id });
-            const result = handleGuess('button', currentGuess || input.value);
+            console.log('get_guess: Button clicked', { inputValue: input.value, inputId: input.id });
+            const result = handleGuess('button', input.value); // Use input.value directly
             if (result.valid) {
                 cleanup();
                 resolve(result.guess);
@@ -449,10 +436,8 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         };
 
         function cleanup() {
-            input.removeEventListener('keypress', keypressHandler);
             input.removeEventListener('keydown', enterHandler);
             button.removeEventListener('click', clickHandler);
-            input._keypressHandler = null;
             input._guessHandler = null;
             button._clickHandler = null;
             clearTimeout(timeoutId);
@@ -460,19 +445,23 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         }
 
         // Attach new handlers
-        input._keypressHandler = keypressHandler;
         input._guessHandler = enterHandler;
         button._clickHandler = clickHandler;
-        input.addEventListener('keypress', keypressHandler);
         input.addEventListener('keydown', enterHandler);
         button.addEventListener('click', clickHandler);
-        console.log('get_guess: Attached handlers', { inputId: input.id, buttonId: button.id });
+
+        // Log the event listeners
+        console.log('get_guess: Attached handlers', {
+            inputId: input.id,
+            buttonId: button.id,
+            enterHandler: input.listeners ? input.listeners('keydown') : null,
+            clickHandler: button.listeners ? button.listeners('click') : null
+        });
 
         // Fallback focus with delay
         setTimeout(() => {
             if (document.activeElement !== input) {
                 input.value = ''; // Extra reset
-                currentGuess = '';
                 input.focus();
                 console.log('get_guess: Delayed focus applied', { inputId: input.id, focused: document.activeElement === input });
             }
