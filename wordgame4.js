@@ -2075,13 +2075,10 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
             if (restar_intento && !penalizo) {
                 tries[player]--;
             }
-            console.log('process_guess: Ending for', player, {
-                penalizo,
-                tries: tries[player],
-                score: scores[player],
-                guessed_letters: Array.from(guessed_letters),
-                word_guessed: normalizar(guess) === normalized_secret
-            });
+
+            // Add logging here to verify guessed_letters update
+            console.log('process_guess: Guessed letters after processing:', Array.from(guessed_letters));
+
             return { penalizo, tries, scores, guessed_letters, word_guessed: normalizar(guess) === normalized_secret };
         }
     } catch (err) {
@@ -2311,6 +2308,15 @@ async function play_game(
                             (other_player ? `<br><strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player] || 0} | Puntaje: ${scores[other_player] || 0}` : '');
                     }
                     progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
+
+                    // Add logging here to verify UI update
+                    console.log('update_ui: UI updated', {
+                        player,
+                        tries: tries[player],
+                        score: scores[player],
+                        progress: progress.innerText
+                    });
+
                     const isLocalPlayer = mode !== '2' || gameType !== 'remoto' || (player && localPlayer && player.toLowerCase() === localPlayer.toLowerCase());
                     prompt.innerText = isLocalPlayer ? 'Ingresa una letra o la palabra completa:' : `Esperando a ${escapeHTML(player)}...`;
                     if (input.parentNode && button.parentNode) {
