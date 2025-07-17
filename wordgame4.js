@@ -416,7 +416,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
         const enterHandler = (e) => {
             console.log('get_guess: keyup event', { key: e.key, inputValue: input.value, inputId: input.id, focused: document.activeElement === input });
             if (e.key === 'Enter') {
-                e.preventDefault();
+                e.preventDefault(); // Prevent form submission
                 console.log('get_guess: Enter key pressed', { inputValue: input.value, inputId: input.id });
                 const result = handleGuess('enter', input.value); // Use input.value directly
                 if (result.valid) {
@@ -444,7 +444,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
             console.log('get_guess: Cleaned up handlers', input.id);
         }
 
-// Attach new handlers
+        // Attach new handlers
         input._guessHandler = enterHandler;
         button._clickHandler = clickHandler;
         input.addEventListener('keyup', enterHandler);
