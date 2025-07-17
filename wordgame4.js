@@ -2297,6 +2297,7 @@ async function play_game(
             let current_player_idx_ref = { value: current_player_idx };
 
             async function update_ui(current_player_idx_ref, currentPlayer) {
+                console.trace('update_ui: CALLED', { current_player_idx_ref, currentPlayer });
                 const idx = current_player_idx_ref.value;
                 const player = players[idx] || 'Jugador 1';
                 const other_player = players[(idx + 1) % players.length] || null;
