@@ -441,7 +441,7 @@ async function get_guess(guessed_letters, secret_word, prompt, input, output, bu
 
         const clickHandler = () => {
             console.log('get_guess: Button clicked', { inputValue: input.value, currentGuess, inputId: input.id });
-            const result = handleGuess('button', currentGuess || input.value);
+            const result = handleGuess('button', input.value); // Use input.value directly
             if (result.valid) {
                 cleanup();
                 resolve(result.guess);
