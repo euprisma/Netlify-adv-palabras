@@ -2360,9 +2360,40 @@ async function play_game(
                     output, container, prompt, input, button, display_feedback, current_player_idx_ref,
                     game_info, games_played, games_to_play, total_scores, difficulty, channel
                 });
+
                 if (mode === '2' && gameType === 'remoto') {
                     let isGuessing = false;
                     let gameIsOver = false;
+
+                    // Fetch initial game state explicitly to ensure synchronization
+                    let game = null;
+                    try {
+                        const { data, error } = await supabase
+                            .from('games')
+                            .select('*')
+                            .eq('session_id', sessionId)
+                            .single();
+                        if (error) throw error;
+                        game = data;
+                        // Sync local state with database
+                        guessed_letters.clear();
+                        (Array.isArray(game.guessed_letters) ? game.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
+                        Object.assign(tries, game.tries || {});
+                        Object.assign(scores, game.scores || {});
+                        current_player_idx_ref.value = players.findIndex(p => p.toLowerCase() === game.current_player.toLowerCase());
+                        if (current_player_idx_ref.value === -1) {
+                            console.warn('game_loop: Invalid current_player, defaulting to first player', game.current_player);
+                            current_player_idx_ref.value = 0;
+                        }
+                        console.log('game_loop: Initial state synced', { game, guessed_letters: Array.from(guessed_letters), tries, scores, current_player_idx: current_player_idx_ref.value });
+                    } catch (error) {
+                        console.error('game_loop: Error fetching initial game state', error);
+                        display_feedback('Error al cargar el estado inicial del juego.', 'red', null, false);
+                        return channel;
+                    }
+
+                    // Update UI with initial state
+                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
                     // Set up Supabase subscription
                     channel = supabase
@@ -2376,8 +2407,15 @@ async function play_game(
                                 filter: `session_id=eq.${sessionId}`
                             },
                             async (payload) => {
-                                console.log('Subscription triggered:', payload.new);
+                                console.log('game_loop: Subscription triggered', payload.new);
                                 const game = payload.new;
+
+                                // Skip if game is already over
+                                if (gameIsOver || game.status === 'finished' || game.status === 'ended') {
+                                    console.log('game_loop: Game is over, ignoring update', { status: game.status });
+                                    gameIsOver = true;
+                                    return;
+                                }
 
                                 // Sync local state
                                 guessed_letters.clear();
@@ -2390,41 +2428,37 @@ async function play_game(
                                 // Update UI
                                 await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
-                                // Handle game end
-                                if (game.status === 'finished' || game.status === 'ended') {
-                                    gameIsOver = true;
-                                    return;
-                                }
-
-                                if (game.status !== 'playing') return;
-
-                                // Prompt local player
+                                // Prompt local player for guess if it's their turn
                                 if (
+                                    game.status === 'playing' &&
                                     game.current_player &&
                                     localPlayer &&
                                     game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
-                                    !isGuessing &&
-                                    !gameIsOver
+                                    !isGuessing
                                 ) {
                                     isGuessing = true;
                                     try {
-                                        console.log('Prompting for guess:', { player: localPlayer });
+                                        console.log('game_loop: Prompting for guess', { player: localPlayer });
                                         const guess = await window.get_guess(
                                             guessed_letters, provided_secret_word, prompt, input, output, button
                                         );
-                                        console.log('Guess received:', { player: localPlayer, guess });
+                                        console.log('game_loop: Guess received', { player: localPlayer, guess });
 
                                         if (guess === null) {
                                             tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                             current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                            console.log('Null guess, updating DB:', { tries, nextPlayer: players[current_player_idx_ref.value] });
+                                            console.log('game_loop: Null guess, updating DB', { tries, nextPlayer: players[current_player_idx_ref.value] });
                                             const { error } = await supabase.from('games').update({
                                                 tries,
                                                 current_player: players[current_player_idx_ref.value],
                                                 last_updated: new Date()
                                             }).eq('session_id', sessionId);
-                                            if (error) console.error('DB update error (null guess):', error);
+                                            if (error) {
+                                                console.error('game_loop: DB update error (null guess)', error);
+                                                display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                                            }
                                         } else {
+                                            // Process the guess
                                             const result = await process_guess(
                                                 localPlayer, guessed_letters, provided_secret_word, tries, scores,
                                                 lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
@@ -2438,13 +2472,15 @@ async function play_game(
 
                                             current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
 
-                                            console.log('Guess processed, updating DB:', {
+                                            console.log('game_loop: Guess processed, updating DB', {
                                                 guessed_letters: Array.from(guessed_letters),
                                                 tries,
                                                 scores,
                                                 nextPlayer: players[current_player_idx_ref.value],
                                                 status: newStatus
                                             });
+
+                                            // Update database
                                             const { error } = await supabase.from('games').update({
                                                 guessed_letters: Array.from(guessed_letters),
                                                 tries,
@@ -2453,130 +2489,55 @@ async function play_game(
                                                 status: newStatus,
                                                 last_updated: new Date()
                                             }).eq('session_id', sessionId);
-                                            if (error) console.error('DB update error (valid guess):', error);
 
-                                            if (newStatus === 'finished') gameIsOver = true;
+                                            if (error) {
+                                                console.error('game_loop: DB update error (valid guess)', error);
+                                                display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                                            }
+
+                                            if (newStatus === 'finished') {
+                                                gameIsOver = true;
+                                                console.log('game_loop: Game finished', { status: newStatus });
+                                            }
                                         }
                                     } catch (error) {
-                                        console.error('Turn processing error:', error);
-                                        display_feedback('Error processing turn.', 'red', localPlayer, true, 1000);
+                                        console.error('game_loop: Turn processing error', error);
+                                        display_feedback('Error al procesar el turno.', 'red', localPlayer, true, 1000);
                                     } finally {
                                         isGuessing = false;
                                     }
                                 }
                             }
                         )
-                        .subscribe();
-
-                    
-                    window.gameChannel = channel;
-
-                    // Fetch initial state
-                    const { data: game, error } = await supabase
-                        .from('games')
-                        .select('*')
-                        .eq('session_id', sessionId)
-                        .single();
-
-                    if (error || !game) {
-                        console.error('Initial fetch error:', error);
-                        display_feedback('Error loading initial game state.', 'red', null, false);
-                        return channel;
-                    }
-
-                    console.log('Initial Game State:', game);
-
-                    // Sync initial state
-                    guessed_letters.clear();
-                    (Array.isArray(game.guessed_letters) ? game.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
-                    Object.assign(tries, game.tries || {});
-                    Object.assign(scores, game.scores || {});
-                    current_player_idx_ref.value = players.findIndex(p => p.toLowerCase() === game.current_player.toLowerCase());
-                    if (current_player_idx_ref.value === -1) current_player_idx_ref.value = 0;
-
-                    // Update UI
-                    await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
-
-                    // Handle first turn
-                    if (
-                        game.status === 'playing' &&
-                        game.current_player &&
-                        localPlayer &&
-                        game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
-                        !isGuessing &&
-                        !gameIsOver
-                    ) {
-                        isGuessing = true;
-                        try {
-                            console.log('Initial prompt for guess:', { player: localPlayer });
-                            const guess = await window.get_guess(
-                                guessed_letters, provided_secret_word, prompt, input, output, button
-                            );
-                            console.log('Initial guess received:', { player: localPlayer, guess });
-
-                            if (guess === null) {
-                                tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
-                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-                                console.log('Initial null guess, updating DB:', { tries, nextPlayer: players[current_player_idx_ref.value] });
-                                const { error } = await supabase.from('games').update({
-                                    tries,
-                                    current_player: players[current_player_idx_ref.value],
-                                    last_updated: new Date()
-                                }).eq('session_id', sessionId);
-                                if (error) console.error('Initial DB update error (null guess):', error);
-                            } else {
-                                const result = await process_guess(
-                                    localPlayer, guessed_letters, provided_secret_word, tries, scores,
-                                    lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
-                                    max_score, difficulty, mode, prompt, input, output, button, delay,
-                                    display_feedback
-                                );
-
-                                const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
-                                const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
-                                const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
-
-                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
-
-                                console.log('Initial guess processed, updating DB:', {
-                                    guessed_letters: Array.from(guessed_letters),
-                                    tries,
-                                    scores,
-                                    nextPlayer: players[current_player_idx_ref.value],
-                                    status: newStatus
-                                });
-                                const { error } = await supabase.from('games').update({
-                                    guessed_letters: Array.from(guessed_letters),
-                                    tries,
-                                    scores,
-                                    current_player: players[current_player_idx_ref.value],
-                                    status: newStatus,
-                                    last_updated: new Date()
-                                }).eq('session_id', sessionId);
-                                if (error) console.error('Initial DB update error (valid guess):', error);
-
-                                if (newStatus === 'finished') gameIsOver = true;
+                        .subscribe((status, err) => {
+                            if (status === 'SUBSCRIBED') {
+                                console.log('game_loop: Subscribed to game', sessionId);
+                            } else if (err) {
+                                console.error('game_loop: Subscription error', err);
+                                display_feedback('Error de sincronización. Intenta de nuevo.', 'red', null, false);
                             }
-                        } catch (error) {
-                            console.error('Initial turn processing error:', error);
-                            display_feedback('Error processing initial turn.', 'red', localPlayer, true, 1000);
-                        } finally {
-                            isGuessing = false;
-                        }
-                    }
+                        });
+
+                    window.gameChannel = channel;
 
                     // Wait for game to end
                     return new Promise((resolve) => {
                         const checkGameEnd = setInterval(async () => {
-                            const { data: currentGame } = await supabase
+                            const { data: currentGame, error } = await supabase
                                 .from('games')
                                 .select('status')
                                 .eq('session_id', sessionId)
                                 .single();
+                            if (error) {
+                                console.error('game_loop: Error checking game status', error);
+                                clearInterval(checkGameEnd);
+                                resolve(channel);
+                            }
                             if (currentGame && (currentGame.status === 'finished' || currentGame.status === 'ended')) {
+                                console.log('game_loop: Game ended', { status: currentGame.status });
                                 clearInterval(checkGameEnd);
                                 gameIsOver = true;
-                                resolve();
+                                resolve(channel);
                             }
                         }, 1000);
                     });
