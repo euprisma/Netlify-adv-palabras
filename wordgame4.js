@@ -2446,12 +2446,51 @@ async function play_game(
                                     isGuessing = true;
                                     try {
                                         console.log('Prompting for guess:', { player: localPlayer });
-                                        const guess = await window.get_guess(
-                                            guessed_letters, provided_secret_word, prompt, input, output, button
-                                        );
-                                        console.log('Guess received:', { player: localPlayer, guess });
 
-                                        if (guess === null) {
+                                        // Define get_human_guess to match process_guess's internal logic
+                                        async function get_human_guess() {
+                                            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Input timeout')), 30000));
+                                            try {
+                                                const human_guess = await Promise.race([
+                                                    window.get_guess(guessed_letters, provided_secret_word, prompt, input, output, button),
+                                                    timeoutPromise
+                                                ]);
+                                                console.log('game_loop: Human guess:', human_guess);
+                                                if (!human_guess.trim()) {
+                                                    display_feedback('Entrada vacía. Ingresa una adivinanza válida.', 'orange', localPlayer, true);
+                                                    return null;
+                                                }
+                                                return human_guess.trim();
+                                            } catch (error) {
+                                                console.error('game_loop: Guess input error:', error);
+                                                display_feedback('Error al procesar la entrada. Intenta de nuevo.', 'red', localPlayer, true);
+                                                return null;
+                                            }
+                                        }
+
+                                        let timeout_retries = 0;
+                                        const max_timeout_retries = 3;
+                                        let guess = null;
+
+                                        while (timeout_retries < max_timeout_retries) {
+                                            const result = await get_human_guess();
+                                            if (result === null) {
+                                                timeout_retries++;
+                                                if (timeout_retries === max_timeout_retries - 1) {
+                                                    display_feedback('Última oportunidad para ingresar tu adivinanza.', 'orange', localPlayer, true, 1500);
+                                                    await delay(1500);
+                                                    continue;
+                                                } else if (timeout_retries < max_timeout_retries) {
+                                                    display_feedback(`Ingresa tu adivinanza. Intentos restantes: ${max_timeout_retries - timeout_retries}.`, 'orange', localPlayer, true, 1500);
+                                                    await delay(1500);
+                                                    continue;
+                                                }
+                                            }
+                                            guess = result;
+                                            break;
+                                        }
+
+                                        if (timeout_retries >= max_timeout_retries) {
                                             tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                             current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
                                             console.log('Null guess, updating DB:', { tries, nextPlayer: players[current_player_idx_ref.value] });
@@ -2515,33 +2554,31 @@ async function play_game(
                                                 button: button.innerText
                                             });
 
-                                            // Use get_human_guess to align with process_guess's internal logic
-                                            async function get_human_guess() {
-                                                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Input timeout')), 30000));
-                                                try {
-                                                    const human_guess = await Promise.race([
-                                                        window.get_guess(guessed_letters, provided_secret_word, prompt, input, output, button),
-                                                        timeoutPromise
-                                                    ]);
-                                                    console.log('game_loop: Human guess:', human_guess);
-                                                    if (!human_guess.trim()) {
-                                                        display_feedback('Entrada vacía. Ingresa una adivinanza válida.', 'orange', localPlayer, true);
-                                                        return null;
-                                                    }
-                                                    return human_guess.trim();
-                                                } catch (error) {
-                                                    console.error('game_loop: Guess input error:', error);
-                                                    display_feedback('Error al procesar la entrada. Intenta de nuevo.', 'red', localPlayer, true);
-                                                    return null;
-                                                }
-                                            }
+                                            // Call process_guess with the validated guess
+                                            let result = null;
+                                            if (guess) {
+                                                // Temporarily override process_guess's get_human_guess to use the provided guess
+                                                const originalGetHumanGuess = window.get_human_guess;
+                                                window.get_human_guess = async () => {
+                                                    console.log('game_loop: Using provided guess for process_guess:', guess);
+                                                    return guess;
+                                                };
 
-                                            const result = await process_guess(
-                                                localPlayer, guessed_letters, provided_secret_word, tries, scores,
-                                                lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
-                                                max_score, difficulty, mode, prompt, input, output, button, delay,
-                                                display_feedback
-                                            );
+                                                try {
+                                                    result = await process_guess(
+                                                        localPlayer, guessed_letters, provided_secret_word, tries, scores,
+                                                        lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
+                                                        max_score, difficulty, mode, prompt, input, output, button, delay,
+                                                        display_feedback
+                                                    );
+                                                } finally {
+                                                    window.get_human_guess = originalGetHumanGuess; // Restore original
+                                                }
+                                            } else {
+                                                console.error('game_loop: No valid guess provided');
+                                                display_feedback('No se recibió una adivinanza válida.', 'red', localPlayer, true);
+                                                return;
+                                            }
 
                                             // Log process_guess result
                                             console.log('game_loop: process_guess result:', result);
@@ -2743,12 +2780,31 @@ async function play_game(
                                 button: button.innerText
                             });
 
-                            const result = await process_guess(
-                                localPlayer, guessed_letters, provided_secret_word, tries, scores,
-                                lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
-                                max_score, difficulty, mode, prompt, input, output, button, delay,
-                                display_feedback
-                            );
+                            // Call process_guess with the validated guess
+                            let result = null;
+                            if (guess) {
+                                // Temporarily override process_guess's get_human_guess to use the provided guess
+                                const originalGetHumanGuess = window.get_human_guess;
+                                window.get_human_guess = async () => {
+                                    console.log('game_loop: Using provided guess for process_guess:', guess);
+                                    return guess;
+                                };
+
+                                try {
+                                    result = await process_guess(
+                                        localPlayer, guessed_letters, provided_secret_word, tries, scores,
+                                        lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
+                                        max_score, difficulty, mode, prompt, input, output, button, delay,
+                                        display_feedback
+                                    );
+                                } finally {
+                                    window.get_human_guess = originalGetHumanGuess; // Restore original
+                                }
+                            } else {
+                                console.error('game_loop: No valid guess provided');
+                                display_feedback('No se recibió una adivinanza válida.', 'red', localPlayer, true);
+                                return;
+                            }
 
                             // Log process_guess result
                             console.log('game_loop: process_guess result:', result);
