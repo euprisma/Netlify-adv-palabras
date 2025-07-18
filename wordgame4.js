@@ -1355,116 +1355,129 @@ async function create_game_ui(mode = null, player1 = null, player2 = null, diffi
             }
 
             async function handleSessionIdInput() {
-                const sessionId = input.value.trim().toLowerCase();
-                console.log('create_game_ui: Session ID input:', sessionId);
-                if (!sessionId) {
-                    console.warn('create_game_ui: Empty session ID');
+                const sessionIdInput = input.value.trim();
+                console.log('handleSessionIdInput: Session ID input received', { sessionIdInput, inputId: input.id });
+    
+                if (!sessionIdInput) {
                     output.innerText = 'Ingresa un ID de sesión válido.';
                     output.style.color = 'red';
                     input.value = '';
+                    input.disabled = false;
                     focusInput(input);
                     return;
                 }
+
                 try {
-                    let attempts = 3;
-                    let sessionState = null;
-                    while (attempts--) {
-                        try {
-                            sessionState = await getSession(sessionId);
-                            if (!sessionState) {
-                                console.warn('create_game_ui: Session not found', sessionId);
-                                output.innerText = 'ID de sesión no encontrado. Verifica el ID e intenta de nuevo.';
-                                output.style.color = 'red';
-                                input.value = '';
-                                focusInput(input);
-                                return;
-                            }
-                            console.log('create_game_ui: Retrieved session state', sessionState);
-                            if (sessionState.status !== 'waiting' && sessionState.status !== 'waiting_for_player2') {
-                                console.warn('create_game_ui: Session not in waiting state', { sessionId, status: sessionState.status });
-                                output.innerText = 'La sesión no está disponible para unirse.';
-                                output.style.color = 'red';
-                                input.value = '';
-                                focusInput(input);
-                                return;
-                            }
-                            if (sessionState.player2) {
-                                console.warn('create_game_ui: Session already has Player 2', sessionId);
-                                output.innerText = 'La sesión ya tiene un segundo jugador.';
-                                output.style.color = 'red';
-                                input.value = '';
-                                focusInput(input);
-                                return;
-                            }
-                            if (!sessionState.secret_word || !sessionState.initialized) {
-                                console.warn('create_game_ui: Invalid session state', { sessionId, sessionState });
-                                output.innerText = 'La sesión tiene un estado inválido. Intenta con otro ID.';
-                                output.style.color = 'red';
-                                input.value = '';
-                                focusInput(input);
-                                return;
-                            }
-                            // Fix missing fields
-                            if (!Array.isArray(sessionState.guessed_letters) || !sessionState.tries || !sessionState.scores || sessionState.current_player === undefined) {
-                                console.log('create_game_ui: Correcting missing fields for session', sessionId);
-                                await updateSession(sessionId, {
-                                    guessed_letters: Array.isArray(sessionState.guessed_letters) ? sessionState.guessed_letters : [],
-                                    tries: typeof sessionState.tries === 'object' && sessionState.tries !== null ? sessionState.tries : {},
-                                    scores: typeof sessionState.scores === 'object' && sessionState.scores !== null ? sessionState.scores : {},
-                                    current_player: sessionState.current_player !== undefined ? sessionState.current_player : null
-                                });
-                                console.log('create_game_ui: Corrected missing fields for session', sessionId);
-                                await delay(1000);
-                                sessionState = await getSession(sessionId);
-                            }
-                            break;
-                        } catch (error) {
-                            console.warn(`create_game_ui: Retry ${3 - attempts}/3 for session fetch`, error);
-                            if (error.code === 'PGRST116') {
-                                console.warn('create_game_ui: Session not found', sessionId);
-                                output.innerText = 'ID de sesión no encontrado. Verifica el ID e intenta de nuevo.';
-                                output.style.color = 'red';
-                                input.value = '';
-                                focusInput(input);
-                                return;
-                            }
-                            if (error.code === '42501') {
-                                console.error('create_game_ui: Permission denied for session fetch', { error });
-                                output.innerText = 'Error: Permiso denegado. Verifica las reglas de Supabase.';
-                                output.style.color = 'red';
-                                input.value = '';
-                                focusInput(input);
-                                return;
-                            }
-                            await delay(1000);
-                        }
-                    }
-                    if (!sessionState) {
-                        console.error('create_game_ui: Failed to retrieve valid session state after retries');
-                        output.innerText = 'Error al verificar la sesión. Intenta de nuevo.';
+                    const { data: sessionData, error } = await supabase
+                        .from('games')
+                        .select('*')
+                        .eq('session_id', sessionIdInput)
+                        .single();
+
+                    if (error || !sessionData) {
+                        console.error('handleSessionIdInput: Session not found or error', { sessionIdInput, error });
+                        output.innerText = 'ID de sesión no encontrado. Verifica e intenta de nuevo.';
                         output.style.color = 'red';
                         input.value = '';
+                        input.disabled = false;
                         focusInput(input);
                         return;
                     }
-                    selected_sessionId = sessionId;
-                    selected_player1 = sessionState.player1 || null;
+
+                    if (sessionData.player2) {
+                        console.warn('handleSessionIdInput: Session already has two players', { sessionIdInput, player2: sessionData.player2 });
+                        output.innerText = 'La sesión ya tiene dos jugadores.';
+                        output.style.color = 'red';
+                        input.value = '';
+                        input.disabled = false;
+                        focusInput(input);
+                        return;
+                    }
+
                     prompt.innerText = 'Nombre Jugador 2:';
                     input.value = '';
+                    input.disabled = false;
                     focusInput(input);
-                    input.removeEventListener('keydown', currentHandler);
-                    button.onclick = handlePlayer2Input;
-                    currentHandler = (e) => {
+
+                    // Remove session ID handlers
+                    input.removeEventListener('keydown', input._sessionIdHandler);
+                    button.removeEventListener('click', button._sessionIdClickHandler);
+                    input._sessionIdHandler = null;
+                    button._sessionIdClickHandler = null;
+                    console.log('handleSessionIdInput: Removed session ID handlers', { inputId: input.id });
+
+                    // Attach player 2 input handlers
+                    input._player2InputHandler = (e) => {
                         if (e.key === 'Enter') button.click();
                     };
-                    input.addEventListener('keydown', currentHandler);
+                    button._player2InputClickHandler = async () => {
+                        const player2Input = input.value.trim();
+                        console.log('handleSessionIdInput: Player 2 name input', { player2Input, inputId: input.id });
+                        if (!player2Input) {
+                            output.innerText = 'Ingresa un nombre válido para Jugador 2.';
+                            output.style.color = 'red';
+                            input.value = '';
+                            input.disabled = false;
+                            focusInput(input);
+                            return;
+                        }
+                        selected_player2 = format_name(player2Input);
+                        selected_sessionId = sessionIdInput;
+
+                        // Update session with player2
+                        const { error: updateError } = await supabase
+                            .from('games')
+                            .update({ player2: selected_player2, last_updated: new Date() })
+                            .eq('session_id', selected_sessionId);
+
+                        if (updateError) {
+                            console.error('handleSessionIdInput: Error updating session with player2', updateError);
+                            output.innerText = 'Error al unirse a la sesión. Intenta de nuevo.';
+                            output.style.color = 'red';
+                            input.value = '';
+                            input.disabled = false;
+                            focusInput(input);
+                            return;
+                        }
+
+                        console.log('handleSessionIdInput: Player 2 joined session', {
+                            sessionId: selected_sessionId,
+                            player2: selected_player2
+                        });
+
+                        // Remove player 2 input handlers
+                        input.removeEventListener('keydown', input._player2InputHandler);
+                        button.removeEventListener('click', button._player2InputClickHandler);
+                        input._player2InputHandler = null;
+                        button._player2InputClickHandler = null;
+                        console.log('handleSessionIdInput: Removed player 2 input handlers', { inputId: input.id });
+
+                        resolve({
+                            mode: selected_mode,
+                            player1: sessionData.player1,
+                            player2: selected_player2,
+                            prompt,
+                            input,
+                            button,
+                            output,
+                            container,
+                            difficulty: sessionData.difficulty || 'normal',
+                            gameType: selected_gameType,
+                            sessionId: selected_sessionId,
+                            secretWord: sessionData.secret_word,
+                            localPlayer: selected_player2,
+                            players: [sessionData.player1, selected_player2]
+                        });
+                    };
+                    input.addEventListener('keydown', input._player2InputHandler);
+                    button.addEventListener('click', button._player2InputClickHandler);
+                    console.log('handleSessionIdInput: Attached player 2 input handlers', { inputId: input.id });
                 } catch (error) {
-                    console.error('create_game_ui: Error checking session ID:', error);
-                    output.innerText = error.code === '42501'
-                        ? 'Error: Permiso denegado. Verifica las reglas de Supabase.'
-                        : 'Error al verificar el ID de sesión. Intenta de nuevo.';
+                    console.error('handleSessionIdInput: Error checking session ID', error);
+                    output.innerText = 'Error al verificar el ID de sesión. Intenta de nuevo.';
                     output.style.color = 'red';
                     input.value = '';
+                    input.disabled = false;
                     focusInput(input);
                 }
             }
