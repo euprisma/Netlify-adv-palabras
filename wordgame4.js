@@ -2407,6 +2407,13 @@ async function play_game(
                                 console.log('Subscription triggered:', payload.new);
                                 const game = payload.new;
 
+                                // Skip if game is over
+                                if (gameIsOver || game.status === 'finished' || game.status === 'ended') {
+                                    console.log('game_loop: Game is over, ignoring update', { status: game.status });
+                                    gameIsOver = true;
+                                    return;
+                                }
+
                                 // Sync local state
                                 guessed_letters.clear();
                                 (Array.isArray(game.guessed_letters) ? game.guessed_letters : []).forEach(letter => guessed_letters.add(letter));
@@ -2427,17 +2434,9 @@ async function play_game(
                                 // Update UI
                                 await update_ui(current_player_idx_ref, players[current_player_idx_ref.value]);
 
-                                // Handle game end
-                                if (game.status === 'finished' || game.status === 'ended') {
-                                    gameIsOver = true;
-                                    console.log('game_loop: Game is over, ignoring update', { status: game.status });
-                                    return;
-                                }
-
-                                if (game.status !== 'playing') return;
-
-                                // Prompt local player
+                                // Prompt local player only if not already guessing
                                 if (
+                                    game.status === 'playing' &&
                                     game.current_player &&
                                     localPlayer &&
                                     game.current_player.trim().toLowerCase() === localPlayer.trim().toLowerCase() &&
@@ -2524,7 +2523,7 @@ async function play_game(
 
                     window.gameChannel = channel;
 
-                    // Trigger first guess manually after subscription is set up
+                    // Handle first turn
                     if (
                         game.status === 'playing' &&
                         game.current_player &&
@@ -2533,12 +2532,80 @@ async function play_game(
                         !isGuessing &&
                         !gameIsOver
                     ) {
-                        console.log('game_loop: Triggering first guess manually', { player: localPlayer });
-                        await supabase.channel(`game:${sessionId}`).send({
-                            type: 'broadcast',
-                            event: 'manual_trigger',
-                            payload: { trigger: 'first_guess' }
-                        });
+                        isGuessing = true;
+                        try {
+                            console.log('Initial prompt for guess:', { player: localPlayer });
+                            const guess = await window.get_guess(
+                                guessed_letters, provided_secret_word, prompt, input, output, button
+                            );
+                            console.log('Initial guess received:', { player: localPlayer, guess });
+
+                            if (guess === null) {
+                                tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+                                console.log('Initial null guess, updating DB:', { tries, nextPlayer: players[current_player_idx_ref.value] });
+                                const { error } = await supabase.from('games').update({
+                                    tries,
+                                    current_player: players[current_player_idx_ref.value],
+                                    last_updated: new Date()
+                                }).eq('session_id', sessionId);
+                                if (error) {
+                                    console.error('Initial DB update error (null guess):', error);
+                                    display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                                }
+                            } else {
+                                // Ensure all process_guess parameters are defined
+                                if (typeof lastCorrectWasVowel === 'undefined') lastCorrectWasVowel = false;
+                                if (!used_wrong_letters) used_wrong_letters = new Set();
+                                if (!used_wrong_words) used_wrong_words = new Set();
+                                if (!vowels) vowels = new Set(['a', 'e', 'i', 'o', 'u', 'á', 'é', 'í', 'ó', 'ú']);
+                                if (typeof max_score === 'undefined') max_score = Math.max(1, Math.floor(provided_secret_word.length / 2));
+                                if (!delay) delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+                                const result = await process_guess(
+                                    localPlayer, guessed_letters, provided_secret_word, tries, scores,
+                                    lastCorrectWasVowel, used_wrong_letters, used_wrong_words, vowels,
+                                    max_score, difficulty, mode, prompt, input, output, button, delay,
+                                    display_feedback
+                                );
+
+                                const allPlayersOutOfTries = players.every(p => tries[p] <= 0);
+                                const wordFullyGuessed = normalizar(provided_secret_word).split('').every(l => guessed_letters.has(l));
+                                const newStatus = (result.word_guessed || allPlayersOutOfTries || wordFullyGuessed) ? 'finished' : 'playing';
+
+                                current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
+
+                                console.log('Initial guess processed, updating DB:', {
+                                    guessed_letters: Array.from(guessed_letters),
+                                    tries,
+                                    scores,
+                                    nextPlayer: players[current_player_idx_ref.value],
+                                    status: newStatus
+                                });
+                                const { error } = await supabase.from('games').update({
+                                    guessed_letters: Array.from(guessed_letters),
+                                    tries,
+                                    scores,
+                                    current_player: players[current_player_idx_ref.value],
+                                    status: newStatus,
+                                    last_updated: new Date()
+                                }).eq('session_id', sessionId);
+                                if (error) {
+                                    console.error('Initial DB update error (valid guess):', error);
+                                    display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                                }
+
+                                if (newStatus === 'finished') {
+                                    gameIsOver = true;
+                                    console.log('game_loop: Game finished', { status: newStatus });
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Initial turn processing error:', error);
+                            display_feedback('Error al procesar el turno inicial.', 'red', localPlayer, true, 1000);
+                        } finally {
+                            isGuessing = false;
+                        }
                     }
 
                     // Wait for game to end
