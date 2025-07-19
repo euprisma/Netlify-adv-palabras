@@ -2570,7 +2570,12 @@ async function play_game(
                                             const normalized_secret = normalizar(provided_secret_word);
 
                                             if (normalized_guess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalized_guess)) {
-                                                if (guessed_letters.has(normalized_guess)) {
+                                                // ENFORCE: If last correct was vowel, must guess consonant
+                                                if (lastCorrectWasVowel[localPlayer] && vowels.has(normalized_guess)) {
+                                                    display_feedback('Inválido. Ingrese una consonante.', 'red', localPlayer, true);
+                                                    result.penalizo = true;
+                                                    tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                                } else if (guessed_letters.has(normalized_guess)) {
                                                     display_feedback(`La letra '${guess}' ya fue adivinada.`, 'orange', localPlayer, true);
                                                     result.penalizo = true;
                                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
@@ -2588,6 +2593,7 @@ async function play_game(
                                                     used_wrong_letters.add(normalized_guess);
                                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                                     display_feedback(`Incorrecto. '${guess}' no está en la palabra.`, 'red', localPlayer, true);
+                                                    lastCorrectWasVowel[localPlayer] = false;
                                                 }
                                             } else if (normalized_guess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalized_guess)) {
                                                 if (normalized_guess === normalized_secret) {
@@ -2807,7 +2813,12 @@ async function play_game(
                             const normalized_secret = normalizar(provided_secret_word);
 
                             if (normalized_guess.length === 1 && /^[a-záéíóúüñ]+$/.test(normalized_guess)) {
-                                if (guessed_letters.has(normalized_guess)) {
+                                // ENFORCE: If last correct was vowel, must guess consonant
+                                if (lastCorrectWasVowel[localPlayer] && vowels.has(normalized_guess)) {
+                                    display_feedback('Inválido. Ingrese una consonante.', 'red', localPlayer, true);
+                                    result.penalizo = true;
+                                    tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                } else if (guessed_letters.has(normalized_guess)) {
                                     display_feedback(`La letra '${guess}' ya fue adivinada.`, 'orange', localPlayer, true);
                                     result.penalizo = true;
                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
@@ -2825,6 +2836,7 @@ async function play_game(
                                     used_wrong_letters.add(normalized_guess);
                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                     display_feedback(`Incorrecto. '${guess}' no está en la palabra.`, 'red', localPlayer, true);
+                                    lastCorrectWasVowel[localPlayer] = false;
                                 }
                             } else if (normalized_guess.length === normalized_secret.length && /^[a-záéíóúüñ]+$/.test(normalized_guess)) {
                                 if (normalized_guess === normalized_secret) {
