@@ -2560,7 +2560,7 @@ async function play_game(
                                         let retryAttempt = 0;
                                         const maxRetryAttempts = 2;
 
-                                        while (retryAttempt < maxRetryAttempts && !result) {
+                                        while (retryAttempt < maxRetryAttempts) {
                                             console.log('game_loop: Processing validated guess, attempt:', retryAttempt + 1, { guess });
                                             try {
                                                 result = await process_guess(
@@ -2570,8 +2570,9 @@ async function play_game(
                                                     display_feedback
                                                 );
                                                 console.log('game_loop: process_guess completed, result:', result);
+                                                break; // Exit retry loop on successful result
                                             } catch (error) {
-                                                console.error('game_loop: process_guess threw error:', error);
+                                                console.error('game_loop: process_guess threw error:', { error, stack: error.stack });
                                                 display_feedback('Error al procesar la adivinanza. Intenta de nuevo.', 'red', localPlayer, true, 1500);
                                                 retryAttempt++;
                                                 if (retryAttempt < maxRetryAttempts) {
@@ -2589,9 +2590,10 @@ async function play_game(
                                                 }
                                             }
 
-                                            if (!result || result.penalizo || result.tries?.[localPlayer] === tries[localPlayer]) {
-                                                console.log('game_loop: process_guess returned early or undefined', { result, retryAttempt });
-                                                if (retryAttempt < maxRetryAttempts - 1) {
+                                            if (result && (result.penalizo || result.tries?.[localPlayer] === tries[localPlayer])) {
+                                                console.log('game_loop: process_guess returned early', { result, retryAttempt });
+                                                retryAttempt++;
+                                                if (retryAttempt < maxRetryAttempts) {
                                                     display_feedback('Procesamiento fallido. Ingresa tu adivinanza nuevamente.', 'orange', localPlayer, true, 1500);
                                                     await delay(1500);
                                                     guess = await get_human_guess();
@@ -2599,17 +2601,35 @@ async function play_game(
                                                         console.log('game_loop: Retry guess is null, breaking');
                                                         break;
                                                     }
-                                                    retryAttempt++;
                                                     continue;
                                                 } else {
-                                                    console.log('game_loop: Max retry attempts reached, skipping turn');
+                                                    console.log('game_loop: Max retry attempts reached for early return, skipping turn');
+                                                    break;
+                                                }
+                                            }
+
+                                            // Handle unexpected result (e.g., null or malformed)
+                                            if (!result || typeof result !== 'object' || !('word_guessed' in result)) {
+                                                console.error('game_loop: process_guess returned invalid result:', { result });
+                                                retryAttempt++;
+                                                if (retryAttempt < maxRetryAttempts) {
+                                                    display_feedback('Procesamiento fallido. Ingresa tu adivinanza nuevamente.', 'orange', localPlayer, true, 1500);
+                                                    await delay(1500);
+                                                    guess = await get_human_guess();
+                                                    if (!guess) {
+                                                        console.log('game_loop: Retry guess is null, breaking');
+                                                        break;
+                                                    }
+                                                    continue;
+                                                } else {
+                                                    console.log('game_loop: Max retry attempts reached for invalid result, skipping turn');
                                                     break;
                                                 }
                                             }
                                         }
 
                                         // Handle failure case (no valid result or guess)
-                                        if (!guess || !result) {
+                                        if (!guess || !result || typeof result !== 'object' || !('word_guessed' in result)) {
                                             console.error('game_loop: No valid guess or result after retries', { guess, result });
                                             tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                             current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
@@ -2670,7 +2690,7 @@ async function play_game(
                                             console.log('game_loop: Game finished', { status: newStatus });
                                         }
                                     } catch (error) {
-                                        console.error('Initial turn processing error:', error);
+                                        console.error('Initial turn processing error:', { error, stack: error.stack });
                                         display_feedback('Error al procesar el turno inicial.', 'red', localPlayer, true, 1000);
                                         tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                         current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
@@ -2686,6 +2706,8 @@ async function play_game(
                                         if (dbError) {
                                             console.error('DB update error (turn error):', dbError);
                                             display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                                        } else {
+                                            console.log('game_loop: DB update successful after turn error');
                                         }
                                     } finally {
                                         isGuessing = false;
@@ -2732,7 +2754,7 @@ async function play_game(
                                     }
                                     return human_guess.trim();
                                 } catch (error) {
-                                    console.error('game_loop: Initial guess input error:', error);
+                                    console.error('game_loop: Initial guess input error:', { error, stack: error.stack });
                                     display_feedback('Error al procesar la entrada inicial. Intenta de nuevo.', 'red', localPlayer, true);
                                     return null;
                                 }
@@ -2772,6 +2794,8 @@ async function play_game(
                                 if (error) {
                                     console.error('Initial DB update error (timeout):', error);
                                     display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                                } else {
+                                    console.log('game_loop: DB update successful after timeout');
                                 }
                                 return;
                             }
@@ -2788,6 +2812,8 @@ async function play_game(
                                 if (error) {
                                     console.error('Initial DB update error (null guess):', error);
                                     display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                                } else {
+                                    console.log('game_loop: DB update successful after null guess');
                                 }
                                 return;
                             }
@@ -2846,7 +2872,7 @@ async function play_game(
                             let retryAttempt = 0;
                             const maxRetryAttempts = 2;
 
-                            while (retryAttempt < maxRetryAttempts && !result) {
+                            while (retryAttempt < maxRetryAttempts) {
                                 console.log('game_loop: Processing validated guess, attempt:', retryAttempt + 1, { guess });
                                 try {
                                     result = await process_guess(
@@ -2856,8 +2882,9 @@ async function play_game(
                                         display_feedback
                                     );
                                     console.log('game_loop: process_guess completed, result:', result);
+                                    break; // Exit retry loop on successful result
                                 } catch (error) {
-                                    console.error('game_loop: process_guess threw error:', error);
+                                    console.error('game_loop: process_guess threw error:', { error, stack: error.stack });
                                     display_feedback('Error al procesar la adivinanza. Intenta de nuevo.', 'red', localPlayer, true, 1500);
                                     retryAttempt++;
                                     if (retryAttempt < maxRetryAttempts) {
@@ -2875,9 +2902,10 @@ async function play_game(
                                     }
                                 }
 
-                                if (!result || result.penalizo || result.tries?.[localPlayer] === tries[localPlayer]) {
-                                    console.log('game_loop: process_guess returned early or undefined', { result, retryAttempt });
-                                    if (retryAttempt < maxRetryAttempts - 1) {
+                                if (result && (result.penalizo || result.tries?.[localPlayer] === tries[localPlayer])) {
+                                    console.log('game_loop: process_guess returned early', { result, retryAttempt });
+                                    retryAttempt++;
+                                    if (retryAttempt < maxRetryAttempts) {
                                         display_feedback('Procesamiento fallido. Ingresa tu adivinanza nuevamente.', 'orange', localPlayer, true, 1500);
                                         await delay(1500);
                                         guess = await get_human_guess();
@@ -2885,17 +2913,35 @@ async function play_game(
                                             console.log('game_loop: Retry guess is null, breaking');
                                             break;
                                         }
-                                        retryAttempt++;
                                         continue;
                                     } else {
-                                        console.log('game_loop: Max retry attempts reached, skipping turn');
+                                        console.log('game_loop: Max retry attempts reached for early return, skipping turn');
+                                        break;
+                                    }
+                                }
+
+                                // Handle unexpected result (e.g., null or malformed)
+                                if (!result || typeof result !== 'object' || !('word_guessed' in result)) {
+                                    console.error('game_loop: process_guess returned invalid result:', { result });
+                                    retryAttempt++;
+                                    if (retryAttempt < maxRetryAttempts) {
+                                        display_feedback('Procesamiento fallido. Ingresa tu adivinanza nuevamente.', 'orange', localPlayer, true, 1500);
+                                        await delay(1500);
+                                        guess = await get_human_guess();
+                                        if (!guess) {
+                                            console.log('game_loop: Retry guess is null, breaking');
+                                            break;
+                                        }
+                                        continue;
+                                    } else {
+                                        console.log('game_loop: Max retry attempts reached for invalid result, skipping turn');
                                         break;
                                     }
                                 }
                             }
 
                             // Handle failure case (no valid result or guess)
-                            if (!guess || !result) {
+                            if (!guess || !result || typeof result !== 'object' || !('word_guessed' in result)) {
                                 console.error('game_loop: No valid guess or result after retries', { guess, result });
                                 tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                 current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
@@ -2956,7 +3002,7 @@ async function play_game(
                                 console.log('game_loop: Game finished', { status: newStatus });
                             }
                         } catch (error) {
-                            console.error('Initial turn processing error:', error);
+                            console.error('Initial turn processing error:', { error, stack: error.stack });
                             display_feedback('Error al procesar el turno inicial.', 'red', localPlayer, true, 1000);
                             tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                             current_player_idx_ref.value = (current_player_idx_ref.value + 1) % players.length;
@@ -2972,6 +3018,8 @@ async function play_game(
                             if (dbError) {
                                 console.error('DB update error (turn error):', dbError);
                                 display_feedback('Error al actualizar el estado del juego.', 'red', localPlayer, true);
+                            } else {
+                                console.log('game_loop: DB update successful after turn error');
                             }
                         } finally {
                             isGuessing = false;
