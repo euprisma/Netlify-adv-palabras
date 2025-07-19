@@ -2364,6 +2364,12 @@ async function play_game(
                     let gameIsOver = false;
                     let lastProcessedUpdate = null; // Track last processed update
                     let lastProcessedPlayer = null; // Track last processed player
+                    let lastCorrectWasVowel = {}; // Use let for reassignment
+                    let used_wrong_letters = new Set();
+                    let used_wrong_words = new Set();
+                    let vowels = new Set(['a', 'e', 'i', 'o', 'u', 'á', 'é', 'í', 'ó', 'ú']);
+                    let max_score = Math.max(1, Math.floor(provided_secret_word.length / 2));
+                    let delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
                     // Validate localPlayer
                     if (!localPlayer || typeof localPlayer !== 'string' || localPlayer.trim() === '') {
@@ -2576,11 +2582,9 @@ async function play_game(
                                                     });
                                                     scores[localPlayer] = (scores[localPlayer] || 0) + positions.length;
                                                     display_feedback(`Correcto! '${guess}' está en las posiciones: ${positions.join(', ')}. (+${positions.length} puntos)`, 'green', localPlayer, true);
-                                                    lastCorrectWasVowel = lastCorrectWasVowel || {};
                                                     lastCorrectWasVowel[localPlayer] = vowels.has(normalized_guess);
                                                 } else {
                                                     guessed_letters.add(normalized_guess);
-                                                    used_wrong_letters = used_wrong_letters || new Set();
                                                     used_wrong_letters.add(normalized_guess);
                                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                                     display_feedback(`Incorrecto. '${guess}' no está en la palabra.`, 'red', localPlayer, true);
@@ -2590,10 +2594,9 @@ async function play_game(
                                                     result.word_guessed = true;
                                                     guessed_letters.clear();
                                                     normalized_secret.split('').forEach(char => guessed_letters.add(char));
-                                                    scores[localPlayer] = (scores[localPlayer] || 0) + (max_score || Math.max(1, Math.floor(provided_secret_word.length / 2)));
-                                                    display_feedback(`¡Correcto! Has adivinado la palabra '${provided_secret_word}'! (+${max_score || Math.floor(provided_secret_word.length / 2)} puntos)`, 'green', localPlayer, true);
+                                                    scores[localPlayer] = (scores[localPlayer] || 0) + max_score;
+                                                    display_feedback(`¡Correcto! Has adivinado la palabra '${provided_secret_word}'! (+${max_score} puntos)`, 'green', localPlayer, true);
                                                 } else {
-                                                    used_wrong_words = used_wrong_words || new Set();
                                                     used_wrong_words.add(normalized_guess);
                                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                                     display_feedback(`Incorrecto. '${guess}' no es la palabra.`, 'red', localPlayer, true);
@@ -2696,7 +2699,7 @@ async function play_game(
                     await setupSubscription();
                     window.gameChannel = channel;
 
-                    // Handle first turn (unchanged, as it works correctly)
+                    // Handle first turn
                     if (
                         game.status === 'playing' &&
                         game.current_player &&
@@ -2816,11 +2819,9 @@ async function play_game(
                                     });
                                     scores[localPlayer] = (scores[localPlayer] || 0) + positions.length;
                                     display_feedback(`Correcto! '${guess}' está en las posiciones: ${positions.join(', ')}. (+${positions.length} puntos)`, 'green', localPlayer, true);
-                                    lastCorrectWasVowel = lastCorrectWasVowel || {};
                                     lastCorrectWasVowel[localPlayer] = vowels.has(normalized_guess);
                                 } else {
                                     guessed_letters.add(normalized_guess);
-                                    used_wrong_letters = used_wrong_letters || new Set();
                                     used_wrong_letters.add(normalized_guess);
                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                     display_feedback(`Incorrecto. '${guess}' no está en la palabra.`, 'red', localPlayer, true);
@@ -2830,10 +2831,9 @@ async function play_game(
                                     result.word_guessed = true;
                                     guessed_letters.clear();
                                     normalized_secret.split('').forEach(char => guessed_letters.add(char));
-                                    scores[localPlayer] = (scores[localPlayer] || 0) + (max_score || Math.max(1, Math.floor(provided_secret_word.length / 2)));
-                                    display_feedback(`¡Correcto! Has adivinado la palabra '${provided_secret_word}'! (+${max_score || Math.floor(provided_secret_word.length / 2)} puntos)`, 'green', localPlayer, true);
+                                    scores[localPlayer] = (scores[localPlayer] || 0) + max_score;
+                                    display_feedback(`¡Correcto! Has adivinado la palabra '${provided_secret_word}'! (+${max_score} puntos)`, 'green', localPlayer, true);
                                 } else {
-                                    used_wrong_words = used_wrong_words || new Set();
                                     used_wrong_words.add(normalized_guess);
                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
                                     display_feedback(`Incorrecto. '${guess}' no es la palabra.`, 'red', localPlayer, true);
