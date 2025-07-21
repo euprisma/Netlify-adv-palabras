@@ -2083,8 +2083,10 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                 display_feedback(feedback, feedback_color, player, true, 1500);
                 await delay(1500);
             }
-            if (mode === '1') {
+            // Decrement tries for all guesses except correct word guess
+            if (!(normalizar(guess) === normalized_secret)) {
                 tries[player] = Math.max(0, (tries[player] || 0) - 1);
+                console.log('Tries decremented:', player, tries[player]);
             }
             console.log('process_guess: Ending for', player, {
                 penalizo,
@@ -2985,9 +2987,9 @@ async function play_game(
                             display_feedback(`¡${player} adivinó la palabra!`, 'green', null, true);
                             break;
                         }
-                        if (result.penalizo) {
-                            tries[player]--;
-                        }
+                        // if (result.penalizo) {
+                            //tries[player]--;
+                       // }
                         if (tries[player] <= 0) {
                             display_feedback(`¡${player} se quedó sin intentos!`, 'red', null, true);
                             if ((mode === '2' && gameType === 'local') || mode === '3') {
