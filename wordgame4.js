@@ -2317,6 +2317,7 @@ async function play_game(
                 try {
                     if (mode === '1') {
                         player_info.innerHTML = `<strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}`;
+                        progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
                     } else {
                         player_info.innerHTML = `Turno de <strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}` +
                             (other_player ? `<br><strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player] || 0} | Puntaje: ${scores[other_player] || 0}` : '');
@@ -2575,6 +2576,7 @@ async function play_game(
                                                     display_feedback('Inválido. Ingrese una consonante.', 'red', localPlayer, true);
                                                     result.penalizo = true;
                                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                                    return;
                                                 } else if (guessed_letters.has(normalized_guess)) {
                                                     display_feedback(`La letra '${guess}' ya fue adivinada.`, 'orange', localPlayer, true);
                                                     result.penalizo = true;
@@ -2818,6 +2820,7 @@ async function play_game(
                                     display_feedback('Inválido. Ingrese una consonante.', 'red', localPlayer, true);
                                     result.penalizo = true;
                                     tries[localPlayer] = Math.max(0, (tries[localPlayer] || 0) - 1);
+                                    return;
                                 } else if (guessed_letters.has(normalized_guess)) {
                                     display_feedback(`La letra '${guess}' ya fue adivinada.`, 'orange', localPlayer, true);
                                     result.penalizo = true;
