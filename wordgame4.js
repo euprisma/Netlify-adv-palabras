@@ -2083,7 +2083,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                 display_feedback(feedback, feedback_color, player, true, 1500);
                 await delay(1500);
             }
-            if (mode === '1' && !result.word_guessed) {
+            if (mode === '1' && !(normalizar(guess) === normalized_secret)) {
                 tries[player] = Math.max(0, (tries[player] || 0) - 1);
             }
             console.log('process_guess: Ending for', player, {
