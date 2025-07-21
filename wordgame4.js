@@ -2065,8 +2065,8 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     : (feedback_data.messages ? feedback_data.messages.join('\n') : String(feedback_data));
                 feedback_color = feedback_data.color || 'black';
                 if (secret_word.includes(guess) && !guessed_letters.has(guess)) {
-                    scores[player] = Math.min(max_score, scores[player] + secret_word.split('').filter(l => l === guess).length);
                     guessed_letters.add(guess);
+                    scores[player] = Math.min(max_score, scores[player] + secret_word.split('').filter(l => l === guess).length);                    
                     lastCorrectWasVowel[player] = vowels.has(guess);
                     console.log('process_guess: Correct letter guess', { player, guess, score_before, score_after: scores[player] });
                 } else if (!secret_word.includes(guess)) {
@@ -2083,7 +2083,7 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                 display_feedback(feedback, feedback_color, player, true, 1500);
                 await delay(1500);
             }
-            if (mode === '1' && !(normalizar(guess) === normalized_secret)) {
+            if (mode === '1') {
                 tries[player] = Math.max(0, (tries[player] || 0) - 1);
             }
             console.log('process_guess: Ending for', player, {
