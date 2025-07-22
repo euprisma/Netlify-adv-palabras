@@ -2070,12 +2070,13 @@ async function process_guess(player, guessed_letters, secret_word, tries, scores
                     : (feedback_data.messages ? feedback_data.messages.join('\n') : String(feedback_data));
                 feedback_color = feedback_data.color || 'black';
                 if (secret_word.includes(guess) && !guessed_letters.has(guess)) {
-                    guessed_letters.add(guess);
+                    guessed_letters.add(normalizar(guess)); // <--- use normalized
                     scores[player] = Math.min(max_score, scores[player] + secret_word.split('').filter(l => l === guess).length);                    
                     lastCorrectWasVowel[player] = vowels.has(guess);
                     console.log('process_guess: Correct letter guess', { player, guess, score_before, score_after: scores[player] });
                 } else if (!secret_word.includes(guess)) {
-                    used_wrong_letters.add(guess);
+                    guessed_letters.add(normalizar(guess)); // <--- use normalized
+                    used_wrong_letters.add(normalizar(guess)); // <--- use normalized
                     if (scores[player] > 0) {
                         const penalty = Math.min(1, scores[player]);
                         scores[player] = Math.max(0, scores[player] - penalty);
@@ -2336,12 +2337,20 @@ async function play_game(
                 try {
                     if (mode === '1') {
                         player_info.innerHTML = `<strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}`;
-                        progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
+                        progress.innerText = `Palabra: ${formato_palabra(
+                            normalizar(provided_secret_word).split('').map(
+                                l => guessed_letters.has(l) ? l.toUpperCase() : "_"
+                            )
+                        )}`;
                     } else {
                         player_info.innerHTML = `Turno de <strong>${escapeHTML(player)}</strong>: Intentos: ${tries[player] || 0} | Puntaje: ${scores[player] || 0}` +
                             (other_player ? `<br><strong>${escapeHTML(other_player)}</strong>: Intentos: ${tries[other_player] || 0} | Puntaje: ${scores[other_player] || 0}` : '');
                     }
-                    progress.innerText = `Palabra: ${formato_palabra(normalizar(provided_secret_word).split('').map(l => guessed_letters.has(l) ? l : "_"))}`;
+                    progress.innerText = `Palabra: ${formato_palabra(
+                        normalizar(provided_secret_word).split('').map(
+                            l => guessed_letters.has(l) ? l.toUpperCase() : "_"
+                        )
+                    )}`;
                     const isLocalPlayer = mode !== '2' || gameType !== 'remoto' || (player && localPlayer && player.toLowerCase() === localPlayer.toLowerCase());
                     prompt.innerText = isLocalPlayer ? 'Ingresa una letra o la palabra completa:' : `Esperando a ${escapeHTML(player)}...`;
                     if (input.parentNode && button.parentNode) {
@@ -2996,6 +3005,8 @@ async function play_game(
                             delay,
                             display_feedback
                         );
+                        await update_ui(current_player_idx_ref, player);
+                        
                         if (!result) {
                             console.error('game_loop: process_guess returned undefined');
                             break;
