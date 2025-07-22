@@ -2278,7 +2278,9 @@ async function play_game(
             if (!tries || Object.keys(tries).length === 0) {
                 tries = Object.fromEntries(players.map(p => [p, total_tries]));
             }
-            scores = Object.fromEntries(players.map(p => [p, 0]));
+            if (!scores || Object.keys(scores).length === 0) {
+                scores = Object.fromEntries(players.map(p => [p, 0]));
+            }
             current_player_idx = games_played % players.length;
         }
 
