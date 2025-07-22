@@ -92,12 +92,12 @@ async function updateSession(sessionId, updates) {
     };
     // Validate other fields if present
     if (updates.tries && typeof updates.tries !== 'object') {
-        console.warn('updateSession: Invalid tries, resetting to empty object', updates.tries);
-        sanitizedUpdates.tries = {};
+        console.warn('updateSession: Invalid tries, skipping update for tries', updates.tries);
+        delete sanitizedUpdates.tries; // Do not overwrite, just skip updating
     }
     if (updates.scores && typeof updates.scores !== 'object') {
         console.warn('updateSession: Invalid scores, resetting to empty object', updates.scores);
-        sanitizedUpdates.scores = {};
+        delete sanitizedUpdates.scores; // Do not overwrite, just skip updating
     }
     let attempts = 3;
     let result = null;
@@ -2179,8 +2179,8 @@ async function play_game(
         // State setup
         let provided_secret_word = secret_word;
         let guessed_letters = new Set();
-        let tries = {};
-        let scores = {};
+        let tries;
+        let scores;
         let current_player_idx = 0;
         let total_tries = 0;
 
