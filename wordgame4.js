@@ -2283,10 +2283,10 @@ async function play_game(
             total_tries = Math.max(1, mode === '1' ? provided_secret_word.length - 2 : Math.floor(provided_secret_word.length / 2));
             guessed_letters = new Set();
             if (!tries || Object.keys(tries).length === 0) {
-                tries = Object.fromEntries(players.map(p => [p, total_tries]));
+                Object.assign(tries, Object.fromEntries(players.map(p => [p, total_tries])));
             }
             if (!scores || Object.keys(scores).length === 0) {
-                scores = Object.fromEntries(players.map(p => [p, 0]));
+                Object.assign(scores, Object.fromEntries(players.map(p => [p, 0])));
             }
             current_player_idx = games_played % players.length;
         }
