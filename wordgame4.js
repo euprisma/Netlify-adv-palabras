@@ -2275,7 +2275,9 @@ async function play_game(
             provided_secret_word = secret_word || await get_secret_word();
             total_tries = Math.max(1, mode === '1' ? provided_secret_word.length - 2 : Math.floor(provided_secret_word.length / 2));
             guessed_letters = new Set();
-            tries = Object.fromEntries(players.map(p => [p, total_tries]));
+            if (!tries || Object.keys(tries).length === 0) {
+                tries = Object.fromEntries(players.map(p => [p, total_tries]));
+            }
             scores = Object.fromEntries(players.map(p => [p, 0]));
             current_player_idx = games_played % players.length;
         }
