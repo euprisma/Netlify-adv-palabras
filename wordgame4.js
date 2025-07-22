@@ -1755,7 +1755,9 @@ async function start_game(gameState, games_played = 0, total_scores = null, wins
             display_feedback,
             gameType,
             sessionId,
-            localPlayer
+            localPlayer,
+            tries,
+            scores
         );
         console.log('start_game: Game completed', { games_played, games_to_play, total_scores: accumulated_scores, wins: accumulated_wins });
     } catch (err) {
@@ -2127,7 +2129,9 @@ async function play_game(
     display_feedback,
     gameType,
     sessionId,
-    localPlayer
+    localPlayer,
+    tries,
+    scores
 ) {
     if (output && output.innerHTML) output.innerHTML = '';
     console.log('play_game: Starting, Loaded version 2025-07-03-v10.5', {
@@ -3284,6 +3288,8 @@ async function main(config = null) {
                 prompt,
                 input,
                 button,
+                tries,
+                scores,
                 config.difficulty,
                 typeof config.games_played === 'number' ? config.games_played : 0,
                 config.mode === '1' ? 1 : 3,
