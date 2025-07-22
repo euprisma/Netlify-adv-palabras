@@ -22,6 +22,9 @@ async function initSupabase() {
     return;
 }
 
+let tries = {};
+let scores = {};
+
 async function createSession(sessionId, player1, mode, gameType, secretWord, totalTries) {
     if (!sessionId || !player1 || !secretWord || typeof secretWord !== 'string' || !totalTries) {
         console.error('createSession: Invalid input', { sessionId, player1, secretWord, totalTries });
@@ -2183,8 +2186,8 @@ async function play_game(
         // State setup
         let provided_secret_word = secret_word;
         let guessed_letters = new Set();
-        let tries = {};
-        let scores = {};
+        //let tries = {};
+        //let scores = {};
         let current_player_idx = 0;
         let total_tries = 0;
 
