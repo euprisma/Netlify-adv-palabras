@@ -2183,8 +2183,8 @@ async function play_game(
         // State setup
         let provided_secret_word = secret_word;
         let guessed_letters = new Set();
-        let tries;
-        let scores;
+        let tries = {};
+        let scores = {};
         let current_player_idx = 0;
         let total_tries = 0;
 
@@ -3335,13 +3335,13 @@ async function main(config = null) {
                     gameState.difficulty,
                     0,
                     gameState.mode === '1' ? 1 : 3,
-                    Object.fromEntries(players.map(p => [p, 0])),
-                    Object.fromEntries(players.map(p => [p, 0])),
+                    tries,   // <--- use the persistent object
+                    scores,  // <--- use the persistent object
                     delay,
                     display_feedback,
                     gameState.gameType,
                     gameState.sessionId,
-                    gameState.localPlayer // <-- ADD THIS!
+                    gameState.localPlayer
                 );
                 console.log('main: play_game completed');
             } catch (error) {
